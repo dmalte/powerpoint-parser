@@ -1,0 +1,122 @@
+"""Filesystem scanner for .pptx files."""
+
+from __future__ import annotations
+
+import fnmatch
+import os
+from pathlib import Path
+
+from .config import AppConfig
+from .models import ChangeSet, ScanResult
+from .index_db import IndexDB
+from .utils import logger
+
+
+def scan_files(config: AppConfig) -> list[ScanResult]:
+    """Recursively scan configured roots for .pptx files."""
+    results: list[ScanResult] = []
+    seen_paths: set[str] = set()
+
+    for root in config.scan_roots:
+        root_path = Path(root)
+        if not root_path.exists():
+            logger.warning("Scan root does not exist: %s", root)
+            continue
+        if not root_path.is_dir():
+            logger.warning("Scan root is not a directory: %s", root)
+            continue
+
+        for dirpath, dirnames, filenames in os.walk(root_path):
+            # Prune excluded directories (in-place modification of dirnames)
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in config.exclude_dirs
+            ]
+
+            for fname in filenames:
+                if not fname.lower().endswith(".pptx"):
+                    continue
+
+                # Check exclude patterns
+                if _matches_any_pattern(fname, config.exclude_patterns):
+                    continue
+
+                full_path = os.path.join(dirpath, fname)
+                # Normalize path
+                full_path = str(Path(full_path).resolve())
+
+                if full_path in seen_paths:
+                    continue
+                seen_paths.add(full_path)
+
+                try:
+                    stat = os.stat(full_path)
+                except OSError as e:
+                    logger.warning("Cannot stat %s: %s", full_path, e)
+                    continue
+
+                file_size = stat.st_size
+                modified_time = stat.st_mtime
+                signature = ScanResult.compute_signature(
+                    full_path, file_size, modified_time
+                )
+
+                results.append(
+                    ScanResult(
+                        file_path=full_path,
+                        file_name=fname,
+                        folder_path=str(Path(dirpath).resolve()),
+                        file_size=file_size,
+                        modified_time=modified_time,
+                        file_signature=signature,
+                    )
+                )
+
+    logger.info("Scanned %d .pptx files across %d roots", len(results), len(config.scan_roots))
+    return results
+
+
+def detect_changes(scan_results: list[ScanResult], db: IndexDB) -> ChangeSet:
+    """Compare scan results against the existing index to classify changes."""
+    existing = db.get_all_active_signatures()  # {signature: deck_id}
+    existing_sigs = set(existing.keys())
+    scanned_sigs: set[str] = set()
+    # Also map file_path -> deck_id for existing decks
+    existing_by_path: dict[str, str] = {}
+    for deck in db.get_all_active_decks():
+        existing_by_path[deck.file_path] = deck.deck_id
+
+    changeset = ChangeSet()
+
+    for sr in scan_results:
+        scanned_sigs.add(sr.file_signature)
+
+        if sr.file_signature in existing_sigs:
+            # Signature matches — unchanged
+            changeset.unchanged.append(sr)
+        elif sr.file_path in existing_by_path:
+            # Same path but different signature — changed
+            changeset.changed.append(sr)
+        else:
+            # Not seen before — new
+            changeset.new.append(sr)
+
+    # Detect deleted: deck_ids whose paths are not in the current scan
+    scanned_paths = {sr.file_path for sr in scan_results}
+    for path, deck_id in existing_by_path.items():
+        if path not in scanned_paths:
+            changeset.deleted.append(deck_id)
+
+    logger.info(
+        "Changes: %d new, %d changed, %d unchanged, %d deleted",
+        len(changeset.new), len(changeset.changed),
+        len(changeset.unchanged), len(changeset.deleted),
+    )
+    return changeset
+
+
+def _matches_any_pattern(filename: str, patterns: list[str]) -> bool:
+    for pat in patterns:
+        if fnmatch.fnmatch(filename, pat):
+            return True
+    return False

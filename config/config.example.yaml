@@ -1,0 +1,29 @@
+scan_roots:
+  - "D:/Slides"
+  - "D:/Work/Presentations"
+
+exclude_dirs:
+  - ".git"
+  - "__pycache__"
+  - "~archive"
+  - "node_modules"
+
+exclude_patterns:
+  - "~$*.pptx"
+
+output_dir: "D:/ppt-viewer-output"
+db_path: "D:/ppt-viewer-output/data/index.db"
+
+render:
+  thumbnail_width: 320
+  preview_width: 1280
+  image_format: "jpg"
+  jpeg_quality: 82
+
+viewer:
+  title: "PowerPoint Visual Archive"
+  group_by_default: "day"
+
+processing:
+  incremental: true
+  purge_deleted: true

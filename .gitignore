@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+
+config.yaml
+ppt-viewer-output/
+
+*.pyc
+*.pyo
+*.pyd
+
+.DS_Store
+Thumbs.db
