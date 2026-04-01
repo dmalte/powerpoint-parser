@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from pptx import Presentation
+from pptx.enum.shapes import PP_PLACEHOLDER
 from pptx.util import Emu
 
 from .utils import logger
@@ -22,6 +21,9 @@ def extract_metadata(pptx_path: str) -> dict:
                 {
                     "slide_number": int,
                     "title": str,
+                    "subtitle_text": str,
+                    "body_text": str,
+                    "extra_text": str,
                     "extracted_text": str,
                     "notes_text": str,
                 },
@@ -42,13 +44,17 @@ def extract_metadata(pptx_path: str) -> dict:
     slides_meta: list[dict] = []
     for idx, slide in enumerate(prs.slides, start=1):
         title = _get_title(slide)
-        body_text = _get_body_text(slide)
+        subtitle_text = _get_subtitle(slide)
+        body_text, extra_text = _get_text_buckets(slide)
         notes_text = _get_notes(slide)
 
         slides_meta.append({
             "slide_number": idx,
             "title": title,
-            "extracted_text": body_text,
+            "subtitle_text": subtitle_text,
+            "body_text": body_text,
+            "extra_text": extra_text,
+            "extracted_text": _combine_text_parts(title, subtitle_text, body_text, extra_text),
             "notes_text": notes_text,
         })
 
@@ -71,16 +77,42 @@ def _get_title(slide) -> str:
     return ""
 
 
-def _get_body_text(slide) -> str:
-    """Concatenate all text from all shapes on the slide."""
-    parts: list[str] = []
+def _get_subtitle(slide) -> str:
+    """Extract subtitle placeholder text when present."""
+    for shape in slide.placeholders:
+        if not getattr(shape, "has_text_frame", False):
+            continue
+        if _placeholder_type_name(shape) == "SUBTITLE":
+            return _text_frame_to_text(shape.text_frame)
+    return ""
+
+
+def _get_text_buckets(slide) -> tuple[str, str]:
+    """Return body placeholder text and additional text separately."""
+    body_parts: list[str] = []
+    extra_parts: list[str] = []
+
     for shape in slide.shapes:
-        if shape.has_text_frame:
-            for para in shape.text_frame.paragraphs:
-                text = para.text.strip()
-                if text:
-                    parts.append(text)
-    return "\n".join(parts)
+        if not getattr(shape, "has_text_frame", False):
+            if getattr(shape, "has_table", False):
+                table_text = _get_table_text(shape)
+                if table_text:
+                    extra_parts.append(table_text)
+            continue
+
+        text = _text_frame_to_text(shape.text_frame)
+        if not text:
+            continue
+
+        placeholder_type = _placeholder_type_name(shape)
+        if placeholder_type in {"TITLE", "CENTER_TITLE", "SUBTITLE"}:
+            continue
+        if placeholder_type in {"BODY", "CONTENT", "OBJECT", "TEXT"}:
+            body_parts.append(text)
+        else:
+            extra_parts.append(text)
+
+    return "\n".join(body_parts), "\n".join(extra_parts)
 
 
 def _get_notes(slide) -> str:
@@ -93,3 +125,55 @@ def _get_notes(slide) -> str:
     except Exception:
         pass
     return ""
+
+
+def _placeholder_type_name(shape) -> str | None:
+    if not getattr(shape, "is_placeholder", False):
+        return None
+    try:
+        ptype = shape.placeholder_format.type
+    except Exception:
+        return None
+
+    for name in dir(PP_PLACEHOLDER):
+        if name.startswith("_"):
+            continue
+        try:
+            if getattr(PP_PLACEHOLDER, name) == ptype:
+                return name
+        except Exception:
+            continue
+    return str(ptype)
+
+
+def _text_frame_to_text(text_frame) -> str:
+    parts: list[str] = []
+    for para in text_frame.paragraphs:
+        text = para.text.strip()
+        if text:
+            parts.append(text)
+    return "\n".join(parts)
+
+
+def _get_table_text(shape) -> str:
+    parts: list[str] = []
+    try:
+        for row in shape.table.rows:
+            for cell in row.cells:
+                text = cell.text.strip()
+                if text:
+                    parts.append(text)
+    except Exception:
+        return ""
+    return "\n".join(parts)
+
+
+def _combine_text_parts(*parts: str) -> str:
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        cleaned = part.strip()
+        if cleaned and cleaned not in seen:
+            ordered.append(cleaned)
+            seen.add(cleaned)
+    return "\n\n".join(ordered)

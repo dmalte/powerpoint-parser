@@ -35,6 +35,20 @@
       <button class="filter-btn" data-filter="today">Today</button>
       <button class="filter-btn" data-filter="week">This Week</button>
       <button class="filter-btn" data-filter="month">This Month</button>
+      <button class="filter-btn" id="starred-toggle" data-filter="starred">Starred Only</button>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Search In</h3>
+      <div id="search-scopes" class="scope-list">
+        <label><input type="checkbox" data-scope="deck" checked> Deck</label>
+        <label><input type="checkbox" data-scope="folder" checked> Folder</label>
+        <label><input type="checkbox" data-scope="title" checked> Title</label>
+        <label><input type="checkbox" data-scope="subtitle" checked> Subtitle</label>
+        <label><input type="checkbox" data-scope="body" checked> Slide Text</label>
+        <label><input type="checkbox" data-scope="extra" checked> Additional Text</label>
+        <label><input type="checkbox" data-scope="notes" checked> Notes</label>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -69,7 +83,13 @@
 
     <!-- Heatmap -->
     <section id="heatmap-section">
-      <h2>Activity</h2>
+      <div class="section-header heatmap-header">
+        <h2>Activity</h2>
+        <div class="heatmap-controls">
+          <label for="heatmap-window-select">Window</label>
+          <select id="heatmap-window-select" aria-label="Heatmap time window"></select>
+        </div>
+      </div>
       <div id="heatmap-container"></div>
     </section>
 
@@ -96,6 +116,7 @@
             <option value="date-asc">Oldest first</option>
             <option value="name-asc">Name A-Z</option>
             <option value="slide-num">Slide #</option>
+            <option value="starred">Starred first</option>
           </select>
         </label>
       </div>
@@ -122,16 +143,26 @@
           <dt>Folder</dt>     <dd id="modal-folder"></dd>
           <dt>Modified</dt>   <dd id="modal-date"></dd>
           <dt>File Size</dt>  <dd id="modal-size"></dd>
+          <dt>Starred</dt>    <dd id="modal-star-state"></dd>
         </dl>
+        <div id="modal-subtitle-section">
+          <h3>Subtitle</h3>
+          <pre id="modal-subtitle"></pre>
+        </div>
         <div id="modal-text-section">
-          <h3>Extracted Text</h3>
+          <h3>Slide Text</h3>
           <pre id="modal-text"></pre>
+        </div>
+        <div id="modal-extra-section">
+          <h3>Additional Text</h3>
+          <pre id="modal-extra"></pre>
         </div>
         <div id="modal-notes-section">
           <h3>Notes</h3>
           <pre id="modal-notes"></pre>
         </div>
         <div class="modal-actions">
+          <button id="btn-toggle-star" class="btn" title="Star or unstar this slide">Star</button>
           <button id="btn-open-file" class="btn btn-primary" title="Open original file">Open Original</button>
           <button id="btn-copy-path" class="btn" title="Copy file path">Copy Path</button>
           <button id="btn-open-folder" class="btn" title="Open containing folder">Open Folder</button>

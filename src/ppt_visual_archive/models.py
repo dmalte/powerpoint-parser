@@ -55,6 +55,9 @@ class Slide:
     deck_id: str
     slide_number: int
     title: str = ""
+    subtitle_text: str = ""
+    body_text: str = ""
+    extra_text: str = ""
     extracted_text: str = ""
     notes_text: str = ""
     thumb_path: str = ""

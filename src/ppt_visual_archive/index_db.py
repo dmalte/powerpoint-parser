@@ -10,7 +10,7 @@ from typing import Generator
 from .models import Deck, DeckStatus, Slide
 from .utils import ensure_dir, logger
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS slides (
     deck_id        TEXT NOT NULL REFERENCES decks(deck_id) ON DELETE CASCADE,
     slide_number   INTEGER NOT NULL,
     title          TEXT NOT NULL DEFAULT '',
+    subtitle_text  TEXT NOT NULL DEFAULT '',
+    body_text      TEXT NOT NULL DEFAULT '',
+    extra_text     TEXT NOT NULL DEFAULT '',
     extracted_text TEXT NOT NULL DEFAULT '',
     notes_text     TEXT NOT NULL DEFAULT '',
     thumb_path     TEXT NOT NULL DEFAULT '',
@@ -67,12 +70,29 @@ class IndexDB:
 
     def _init_schema(self) -> None:
         self._conn.executescript(_SCHEMA)
+        self._migrate_schema()
         # Store schema version
         self._conn.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)",
             ("schema_version", str(SCHEMA_VERSION)),
         )
         self._conn.commit()
+
+    def _migrate_schema(self) -> None:
+        columns = {
+            row["name"]
+            for row in self._conn.execute("PRAGMA table_info(slides)").fetchall()
+        }
+        expected_columns = {
+            "subtitle_text": "TEXT NOT NULL DEFAULT ''",
+            "body_text": "TEXT NOT NULL DEFAULT ''",
+            "extra_text": "TEXT NOT NULL DEFAULT ''",
+        }
+        for column, definition in expected_columns.items():
+            if column not in columns:
+                self._conn.execute(
+                    f"ALTER TABLE slides ADD COLUMN {column} {definition}"
+                )
 
     def close(self) -> None:
         self._conn.close()
@@ -171,12 +191,16 @@ class IndexDB:
             for s in slides:
                 cur.execute(
                     """INSERT INTO slides
-                        (slide_id, deck_id, slide_number, title, extracted_text,
+                                                (slide_id, deck_id, slide_number, title, subtitle_text,
+                                                 body_text, extra_text, extracted_text,
                          notes_text, thumb_path, preview_path, width, height)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(slide_id) DO UPDATE SET
                          slide_number=excluded.slide_number,
                          title=excluded.title,
+                                                 subtitle_text=excluded.subtitle_text,
+                                                 body_text=excluded.body_text,
+                                                 extra_text=excluded.extra_text,
                          extracted_text=excluded.extracted_text,
                          notes_text=excluded.notes_text,
                          thumb_path=excluded.thumb_path,
@@ -186,7 +210,8 @@ class IndexDB:
                     """,
                     (
                         s.slide_id, s.deck_id, s.slide_number,
-                        s.title, s.extracted_text, s.notes_text,
+                        s.title, s.subtitle_text, s.body_text,
+                        s.extra_text, s.extracted_text, s.notes_text,
                         s.thumb_path, s.preview_path, s.width, s.height,
                     ),
                 )
@@ -223,11 +248,22 @@ class IndexDB:
             """SELECT s.* FROM slides s
                JOIN decks d ON s.deck_id = d.deck_id
                WHERE d.status = ? AND (
-                 s.title LIKE ? OR s.extracted_text LIKE ?
-                 OR d.file_name LIKE ? OR d.folder_path LIKE ?
+                                 s.title LIKE ? OR s.subtitle_text LIKE ? OR s.body_text LIKE ?
+                                 OR s.extra_text LIKE ? OR s.extracted_text LIKE ? OR s.notes_text LIKE ?
+                                 OR d.file_name LIKE ? OR d.folder_path LIKE ?
                )
                ORDER BY d.modified_time DESC, s.slide_number""",
-            (DeckStatus.ACTIVE.value, pattern, pattern, pattern, pattern),
+                        (
+                                DeckStatus.ACTIVE.value,
+                                pattern,
+                                pattern,
+                                pattern,
+                                pattern,
+                                pattern,
+                                pattern,
+                                pattern,
+                                pattern,
+                        ),
         ).fetchall()
         return [self._row_to_slide(r) for r in rows]
 
@@ -285,6 +321,9 @@ class IndexDB:
             deck_id=row["deck_id"],
             slide_number=row["slide_number"],
             title=row["title"],
+            subtitle_text=row["subtitle_text"],
+            body_text=row["body_text"],
+            extra_text=row["extra_text"],
             extracted_text=row["extracted_text"],
             notes_text=row["notes_text"],
             thumb_path=row["thumb_path"],

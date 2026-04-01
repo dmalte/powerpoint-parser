@@ -5,19 +5,21 @@ from __future__ import annotations
 import fnmatch
 import os
 from pathlib import Path
+from typing import Iterable
 
 from .config import AppConfig
-from .models import ChangeSet, ScanResult
 from .index_db import IndexDB
+from .models import ChangeSet, ScanResult
 from .utils import logger
 
 
-def scan_files(config: AppConfig) -> list[ScanResult]:
+def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[ScanResult]:
     """Recursively scan configured roots for .pptx files."""
     results: list[ScanResult] = []
     seen_paths: set[str] = set()
+    active_roots = [str(Path(root).resolve()) for root in (roots or config.scan_roots)]
 
-    for root in config.scan_roots:
+    for root in active_roots:
         root_path = Path(root)
         if not root_path.exists():
             logger.warning("Scan root does not exist: %s", root)
@@ -72,15 +74,23 @@ def scan_files(config: AppConfig) -> list[ScanResult]:
                     )
                 )
 
-    logger.info("Scanned %d .pptx files across %d roots", len(results), len(config.scan_roots))
+    logger.info("Scanned %d .pptx files across %d roots", len(results), len(active_roots))
     return results
 
 
-def detect_changes(scan_results: list[ScanResult], db: IndexDB) -> ChangeSet:
+def detect_changes(
+    scan_results: list[ScanResult],
+    db: IndexDB,
+    deletion_scope_roots: Iterable[str] | None = None,
+) -> ChangeSet:
     """Compare scan results against the existing index to classify changes."""
     existing = db.get_all_active_signatures()  # {signature: deck_id}
     existing_sigs = set(existing.keys())
     scanned_sigs: set[str] = set()
+    scope_roots = None
+    if deletion_scope_roots is not None:
+        scope_roots = [str(Path(root).resolve()) for root in deletion_scope_roots]
+
     # Also map file_path -> deck_id for existing decks
     existing_by_path: dict[str, str] = {}
     for deck in db.get_all_active_decks():
@@ -104,6 +114,8 @@ def detect_changes(scan_results: list[ScanResult], db: IndexDB) -> ChangeSet:
     # Detect deleted: deck_ids whose paths are not in the current scan
     scanned_paths = {sr.file_path for sr in scan_results}
     for path, deck_id in existing_by_path.items():
+        if scope_roots and not _path_in_any_root(path, scope_roots):
+            continue
         if path not in scanned_paths:
             changeset.deleted.append(deck_id)
 
@@ -119,4 +131,15 @@ def _matches_any_pattern(filename: str, patterns: list[str]) -> bool:
     for pat in patterns:
         if fnmatch.fnmatch(filename, pat):
             return True
+    return False
+
+
+def _path_in_any_root(file_path: str, roots: Iterable[str]) -> bool:
+    candidate = Path(file_path).resolve()
+    for root in roots:
+        try:
+            candidate.relative_to(Path(root).resolve())
+            return True
+        except ValueError:
+            continue
     return False

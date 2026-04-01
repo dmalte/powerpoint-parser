@@ -41,6 +41,17 @@ Use forward slashes in YAML paths on Windows, for example `D:/Slides`, or single
 pptviewer scan --config config.yaml
 ```
 
+Repeat the same command later and it will only reprocess changed `.pptx` files. Unchanged decks are skipped.
+During processing, the scanner logs per-file progress as `(x/total)` and shows the source directory for each deck.
+
+If you only want to refresh part of the archive, scope a run to one or more folders:
+
+```bash
+pptviewer scan --config config.yaml --root D:/Slides/ClientA --root D:/Slides/ClientB
+```
+
+Scoped scans stay incremental and only treat missing files inside the selected folders as deleted. Indexed decks outside that scan scope are left unchanged.
+
 3. **Build the viewer** — generate the static HTML:
 
 ```bash
@@ -54,6 +65,8 @@ pptviewer serve --config config.yaml --port 8080
 ```
 
 Then open http://127.0.0.1:8080 in your browser.
+
+Use `serve` when you want the viewer to open the original `.pptx` or its containing folder directly from the web UI. Browsers are inconsistent about `file:///` access, so the local server is the reliable mode for those actions.
 
 ## CLI Commands
 
@@ -79,6 +92,7 @@ If `pptviewer` is still not found in PowerShell, either the virtualenv is not ac
 ### Scan Options
 
 - `--force` — Reprocess all files regardless of change detection
+- `--root PATH` — Limit a scan run to one or more folders without touching indexed decks outside that scope
 
 ## Configuration
 
@@ -97,11 +111,13 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 ## Viewer Features
 
 - **Search** — filter by deck name, folder, slide title, or extracted text
+- **Search scopes** — limit search to deck, folder, title, subtitle, slide text, additional text, or notes
 - **Quick filters** — Today, This Week, This Month
+- **Stars** — star slides locally in the browser and filter to starred slides only
 - **Sidebar** — browse by folder or presentation
 - **Thumbnail grid** — lazy-loaded, grouped by deck/day/week
-- **Calendar heatmap** — click any day to filter to that date
-- **Slide detail modal** — preview, metadata, open original file
+- **Calendar heatmap** — switch between the last 12 months or a specific year, then click any day to filter to that date
+- **Slide detail modal** — preview, metadata, open original file, open containing folder
 - **Keyboard navigation** — arrow keys in modal, Escape to close
 
 ## Development

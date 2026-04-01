@@ -89,6 +89,18 @@ input[type="search"]:focus { border-color: #4a7cff; }
 .filter-btn:hover { border-color: #4a7cff; color: #4a7cff; }
 .filter-btn.active { background: #4a7cff; color: #fff; border-color: #4a7cff; }
 
+.scope-list {
+  display: grid;
+  gap: 6px;
+  font-size: .82rem;
+  color: #556;
+}
+.scope-list label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 #deck-search { width: 100%; margin-bottom: 6px; font-size: .85rem; }
 
 /* ── Main ── */
@@ -123,12 +135,43 @@ input[type="search"]:focus { border-color: #4a7cff; }
   margin-bottom: 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
-#heatmap-section h2 { font-size: 1rem; margin-bottom: 10px; }
+#heatmap-section h2 { font-size: 1rem; }
+#heatmap-section .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.heatmap-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #667;
+  font-size: .82rem;
+}
+.heatmap-controls select {
+  font: inherit;
+  font-size: .82rem;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+}
 #heatmap-container { overflow-x: auto; }
 #heatmap-container svg { display: block; }
 .heatmap-cell { rx: 2; ry: 2; stroke: #fff; stroke-width: 1; cursor: pointer; }
 .heatmap-cell:hover { stroke: #333; stroke-width: 1.5; }
+.heatmap-cell-outside { cursor: default; stroke: #f1f3f5; }
+.heatmap-cell-outside:hover { stroke: #f1f3f5; stroke-width: 1; }
 .heatmap-label { font-size: 10px; fill: #667; }
+
+@media (max-width: 900px) {
+  #heatmap-section .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
 
 /* ═══════════════ ACTIVE FILTERS ═══════════════ */
 #active-filters {
@@ -177,6 +220,7 @@ input[type="search"]:focus { border-color: #4a7cff; }
   margin-top: 6px;
 }
 .slide-card {
+  position: relative;
   background: #fff;
   border-radius: 8px;
   overflow: hidden;
@@ -188,12 +232,55 @@ input[type="search"]:focus { border-color: #4a7cff; }
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,.12);
 }
+.slide-card.slide-card-starred {
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.55), 0 6px 16px rgba(0,0,0,.12);
+}
 .slide-card img {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
   background: #e9ecf0;
   display: block;
+}
+.slide-card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  color: #223;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.icon-btn:hover {
+  border-color: #4a7cff;
+  color: #4a7cff;
+}
+.icon-btn-starred {
+  color: #b7791f;
+  border-color: rgba(183, 121, 31, 0.35);
+  background: rgba(255, 248, 220, 0.98);
+}
+.slide-card-snippet {
+  font-size: .73rem;
+  color: #667;
+  margin-top: 6px;
+  line-height: 1.35;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .slide-card-info {
   padding: 8px 10px;
@@ -270,9 +357,11 @@ input[type="search"]:focus { border-color: #4a7cff; }
 .meta-dl dt { color: #667; font-weight: 500; }
 .meta-dl dd { word-break: break-all; }
 
-#modal-text-section, #modal-notes-section { margin-bottom: 12px; }
-#modal-text-section h3, #modal-notes-section h3 { font-size: .85rem; color: #667; margin-bottom: 4px; }
-#modal-text, #modal-notes {
+#modal-subtitle-section, #modal-text-section, #modal-extra-section, #modal-notes-section { margin-bottom: 12px; }
+#modal-subtitle-section h3, #modal-text-section h3, #modal-extra-section h3, #modal-notes-section h3 {
+  font-size: .85rem; color: #667; margin-bottom: 4px;
+}
+#modal-subtitle, #modal-text, #modal-extra, #modal-notes {
   background: #f7f8fa; padding: 8px 10px; border-radius: 6px;
   font-size: .8rem; max-height: 140px; overflow-y: auto;
   white-space: pre-wrap; word-break: break-word;

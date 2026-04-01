@@ -7,6 +7,8 @@
   let deckMap = {};          // deck_id -> deck
   let filteredSlides = [];   // currently visible slides
   let currentModalIdx = -1;  // index in filteredSlides
+  let starredSlides = loadStarredSlides();
+  let heatmapWindow = loadHeatmapWindow();
 
   const filters = {
     search: "",
@@ -14,6 +16,16 @@
     folder: null,
     dateRange: null,       // {from, to} ISO strings
     quickFilter: "all",
+    starredOnly: false,
+    searchScopes: {
+      deck: true,
+      folder: true,
+      title: true,
+      subtitle: true,
+      body: true,
+      extra: true,
+      notes: true,
+    },
   };
 
   /* ═══════════════ INIT ═══════════════ */
@@ -35,6 +47,7 @@
     renderDashboard();
     renderFolderList();
     renderDeckList();
+    initHeatmapWindowControl();
     renderHeatmap();
     applyFilters();
     bindEvents();
@@ -53,6 +66,13 @@
       }, 200);
     });
 
+    document.querySelectorAll("#search-scopes input[type='checkbox']").forEach(box => {
+      box.addEventListener("change", () => {
+        filters.searchScopes[box.dataset.scope] = box.checked;
+        applyFilters();
+      });
+    });
+
     // Deck search
     const deckSearch = document.getElementById("deck-search");
     deckSearch.addEventListener("input", () => {
@@ -62,10 +82,15 @@
     // Quick filter buttons
     document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
       btn.addEventListener("click", () => {
-        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        filters.quickFilter = btn.dataset.filter;
-        filters.dateRange = quickFilterToDateRange(filters.quickFilter);
+        if (btn.dataset.filter === "starred") {
+          filters.starredOnly = !filters.starredOnly;
+          btn.classList.toggle("active", filters.starredOnly);
+        } else {
+          document.querySelectorAll(".filter-btn[data-filter]:not(#starred-toggle)").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          filters.quickFilter = btn.dataset.filter;
+          filters.dateRange = quickFilterToDateRange(filters.quickFilter);
+        }
         applyFilters();
       });
     });
@@ -73,6 +98,15 @@
     // Sort / Group
     document.getElementById("sort-select").addEventListener("change", applyFilters);
     document.getElementById("group-select").addEventListener("change", applyFilters);
+
+    const heatmapWindowSelect = document.getElementById("heatmap-window-select");
+    if (heatmapWindowSelect) {
+      heatmapWindowSelect.addEventListener("change", () => {
+        heatmapWindow = heatmapWindowSelect.value;
+        saveHeatmapWindow();
+        renderHeatmap();
+      });
+    }
 
     // Modal
     document.getElementById("modal-close").addEventListener("click", closeModal);
@@ -93,7 +127,7 @@
       const slide = filteredSlides[currentModalIdx];
       if (!slide) return;
       const deck = deckMap[slide.deck_id];
-      if (deck) window.open("file:///" + deck.file_path.replace(/\\/g, "/"));
+      if (deck) openPath(deck.file_path, "file");
     });
     document.getElementById("btn-copy-path").addEventListener("click", () => {
       const slide = filteredSlides[currentModalIdx];
@@ -111,7 +145,12 @@
       const slide = filteredSlides[currentModalIdx];
       if (!slide) return;
       const deck = deckMap[slide.deck_id];
-      if (deck) window.open("file:///" + deck.folder_path.replace(/\\/g, "/"));
+      if (deck) openPath(deck.file_path, "folder");
+    });
+    document.getElementById("btn-toggle-star").addEventListener("click", () => {
+      const slide = filteredSlides[currentModalIdx];
+      if (!slide) return;
+      toggleStar(slide.id);
     });
   }
 
@@ -127,6 +166,7 @@
       // Deck / folder filter
       if (filters.deckId && s.deck_id !== filters.deckId) return false;
       if (filters.folder && deck.folder_path !== filters.folder) return false;
+      if (filters.starredOnly && !isStarred(s.id)) return false;
 
       // Date range
       if (range) {
@@ -136,10 +176,15 @@
 
       // Text search
       if (q) {
-        const haystack = [
-          deck.file_name, deck.folder_path, s.title, s.text
-        ].join(" ").toLowerCase();
-        if (!haystack.includes(q)) return false;
+        const haystack = [];
+        if (filters.searchScopes.deck) haystack.push(deck.file_name);
+        if (filters.searchScopes.folder) haystack.push(deck.folder_path);
+        if (filters.searchScopes.title) haystack.push(s.title);
+        if (filters.searchScopes.subtitle) haystack.push(s.subtitle);
+        if (filters.searchScopes.body) haystack.push(s.body);
+        if (filters.searchScopes.extra) haystack.push(s.extra);
+        if (filters.searchScopes.notes) haystack.push(s.notes);
+        if (!haystack.join(" ").toLowerCase().includes(q)) return false;
       }
 
       return true;
@@ -159,6 +204,11 @@
     arr.sort((a, b) => {
       const da = deckMap[a.deck_id], db = deckMap[b.deck_id];
       switch (mode) {
+        case "starred": {
+          const starDelta = Number(isStarred(b.id)) - Number(isStarred(a.id));
+          if (starDelta !== 0) return starDelta;
+          return (db?.modified_time || 0) - (da?.modified_time || 0) || a.num - b.num;
+        }
         case "date-desc": return (db?.modified_time || 0) - (da?.modified_time || 0) || a.num - b.num;
         case "date-asc":  return (da?.modified_time || 0) - (db?.modified_time || 0) || a.num - b.num;
         case "name-asc":  return (da?.file_name || "").localeCompare(db?.file_name || "") || a.num - b.num;
@@ -199,6 +249,47 @@
     const weekStr = isoDate(weekAgo);
     const recentCount = DATA.decks.filter(d => d.modified_date >= weekStr).length;
     setText("dash-recent", ".dash-number", recentCount);
+  }
+
+  function initHeatmapWindowControl() {
+    const select = document.getElementById("heatmap-window-select");
+    if (!select) return;
+
+    const options = getHeatmapWindowOptions();
+    if (options.length === 0) {
+      select.innerHTML = '<option value="rolling-12m">Last 12 months</option>';
+      heatmapWindow = "rolling-12m";
+      return;
+    }
+
+    if (!options.some(option => option.value === heatmapWindow)) {
+      heatmapWindow = options[0].value;
+      saveHeatmapWindow();
+    }
+
+    select.innerHTML = options
+      .map(option => `<option value="${option.value}">${escHtml(option.label)}</option>`)
+      .join("");
+    select.value = heatmapWindow;
+  }
+
+  function getHeatmapWindowOptions() {
+    const years = new Set();
+    DATA.daily.forEach(item => {
+      if (item.date) years.add(item.date.slice(0, 4));
+    });
+    DATA.decks.forEach(deck => {
+      if (deck.modified_date) years.add(deck.modified_date.slice(0, 4));
+    });
+
+    const orderedYears = Array.from(years)
+      .filter(Boolean)
+      .sort((a, b) => Number(b) - Number(a));
+
+    return [
+      { value: "rolling-12m", label: "Last 12 months" },
+      ...orderedYears.map(year => ({ value: `year:${year}`, label: year })),
+    ];
   }
 
   function setText(parentId, selector, val) {
@@ -257,6 +348,7 @@
     if (filters.deckId) addFilterTag(container, "Deck: " + (deckMap[filters.deckId]?.file_name || filters.deckId), () => { filters.deckId = null; clearDeckHighlight(); applyFilters(); });
     if (filters.folder) addFilterTag(container, "Folder: " + filters.folder.split(/[\\/]/).pop(), () => { filters.folder = null; clearFolderHighlight(); applyFilters(); });
     if (filters.search) addFilterTag(container, `Search: "${filters.search}"`, () => { filters.search = ""; document.getElementById("search-input").value = ""; applyFilters(); });
+    if (filters.starredOnly) addFilterTag(container, "Starred only", () => { filters.starredOnly = false; document.getElementById("starred-toggle").classList.remove("active"); applyFilters(); });
     if (filters.dateRange && filters.quickFilter === "all") {
       addFilterTag(container, `Date: ${filters.dateRange.from} → ${filters.dateRange.to}`, () => { filters.dateRange = null; applyFilters(); });
     }
@@ -297,7 +389,35 @@
     const deck = deckMap[slide.deck_id];
     const card = document.createElement("div");
     card.className = "slide-card";
+    if (isStarred(slide.id)) card.classList.add("slide-card-starred");
     card.addEventListener("click", () => openModal(globalIdx));
+
+    const actions = document.createElement("div");
+    actions.className = "slide-card-actions";
+
+    const starBtn = document.createElement("button");
+    starBtn.className = `icon-btn ${isStarred(slide.id) ? "icon-btn-starred" : ""}`;
+    starBtn.type = "button";
+    starBtn.title = isStarred(slide.id) ? "Remove star" : "Add star";
+    starBtn.innerHTML = isStarred(slide.id) ? "★" : "☆";
+    starBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleStar(slide.id);
+    });
+
+    const openBtn = document.createElement("button");
+    openBtn.className = "icon-btn";
+    openBtn.type = "button";
+    openBtn.title = "Open original presentation";
+    openBtn.innerHTML = "↗";
+    openBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const deck = deckMap[slide.deck_id];
+      if (deck) openPath(deck.file_path, "file");
+    });
+
+    actions.appendChild(starBtn);
+    actions.appendChild(openBtn);
 
     const img = document.createElement("img");
     img.dataset.src = slide.thumb;
@@ -317,8 +437,14 @@
     sub.className = "slide-card-sub";
     sub.textContent = deck ? `${deck.file_name} · ${formatDate(deck.modified_date)}` : "";
 
+    const snippet = document.createElement("div");
+    snippet.className = "slide-card-snippet";
+    snippet.textContent = slide.subtitle || slide.body || slide.extra || slide.text || "No extracted text";
+
     info.appendChild(title);
     info.appendChild(sub);
+    info.appendChild(snippet);
+    card.appendChild(actions);
     card.appendChild(img);
     card.appendChild(info);
     return card;
@@ -363,21 +489,16 @@
 
     // Build date → count map
     const countMap = {};
-    let maxCount = 0;
     DATA.daily.forEach(d => {
       countMap[d.date] = d.slide_count || d.deck_count || 0;
-      if (countMap[d.date] > maxCount) maxCount = countMap[d.date];
     });
 
-    // Generate 52 weeks (364 days) ending today
-    const today = new Date();
-    const cells = [];
-    for (let i = 363; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const iso = isoDate(d);
-      cells.push({ date: iso, count: countMap[iso] || 0, day: d.getDay() });
-    }
+    const windowSpec = getHeatmapWindowSpec(heatmapWindow);
+    const cells = buildHeatmapCells(windowSpec, countMap);
+    const maxCount = cells.reduce((max, cell) => {
+      if (!cell.inRange) return max;
+      return Math.max(max, cell.count);
+    }, 0);
 
     const cellSize = 13, gap = 2, totalSize = cellSize + gap;
     const weeks = Math.ceil(cells.length / 7);
@@ -390,13 +511,15 @@
 
     // Month labels
     const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    let lastMonth = -1;
+    let lastMonthKey = null;
     cells.forEach((c, i) => {
+      if (!c.inRange) return;
       const col = Math.floor(i / 7);
-      const m = new Date(c.date).getMonth();
-      if (m !== lastMonth) {
-        lastMonth = m;
-        svg += `<text x="${col * totalSize + 30}" y="10" class="heatmap-label">${months[m]}</text>`;
+      const date = parseIsoDate(c.date);
+      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+      if (monthKey !== lastMonthKey) {
+        lastMonthKey = monthKey;
+        svg += `<text x="${col * totalSize + 30}" y="10" class="heatmap-label">${months[date.getMonth()]}</text>`;
       }
     });
 
@@ -406,18 +529,20 @@
       const row = c.day;
       const x = col * totalSize + 30;
       const y = row * totalSize + 16;
-      const lvl = maxCount === 0 ? 0 : Math.min(4, Math.ceil((c.count / maxCount) * 4));
-      const color = colors[lvl];
-      svg += `<rect class="heatmap-cell" data-date="${c.date}" data-count="${c.count}" ` +
+      const lvl = !c.inRange || maxCount === 0 ? 0 : Math.min(4, Math.ceil((c.count / maxCount) * 4));
+      const color = c.inRange ? colors[lvl] : "#f7f8fa";
+      const cellClass = c.inRange ? "heatmap-cell" : "heatmap-cell heatmap-cell-outside";
+      const title = c.inRange ? `${c.date}: ${c.count} slides` : `${c.date}: outside selected window`;
+      svg += `<rect class="${cellClass}" data-date="${c.date}" data-count="${c.count}" data-active="${c.inRange ? "true" : "false"}" ` +
              `x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="${color}">` +
-             `<title>${c.date}: ${c.count} slides</title></rect>`;
+             `<title>${title}</title></rect>`;
     });
 
     svg += "</svg>";
     container.innerHTML = svg;
 
     // Click day → filter
-    container.querySelectorAll(".heatmap-cell").forEach(el => {
+    container.querySelectorAll('.heatmap-cell[data-active="true"]').forEach(el => {
       el.addEventListener("click", () => {
         const date = el.dataset.date;
         filters.dateRange = { from: date, to: date };
@@ -426,6 +551,41 @@
         applyFilters();
       });
     });
+  }
+
+  function getHeatmapWindowSpec(windowValue) {
+    if (windowValue && windowValue.startsWith("year:")) {
+      const year = Number(windowValue.slice(5));
+      return {
+        start: new Date(year, 0, 1),
+        end: new Date(year, 11, 31),
+      };
+    }
+
+    const end = todayLocal();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 364);
+    return { start, end };
+  }
+
+  function buildHeatmapCells(windowSpec, countMap) {
+    const gridStart = startOfWeek(windowSpec.start);
+    const gridEnd = endOfWeek(windowSpec.end);
+    const cells = [];
+
+    for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor.setDate(cursor.getDate() + 1)) {
+      const day = new Date(cursor);
+      const iso = isoDate(day);
+      const inRange = day >= windowSpec.start && day <= windowSpec.end;
+      cells.push({
+        date: iso,
+        count: inRange ? (countMap[iso] || 0) : 0,
+        day: day.getDay(),
+        inRange,
+      });
+    }
+
+    return cells;
   }
 
   /* ═══════════════ MODAL ═══════════════ */
@@ -444,11 +604,23 @@
     document.getElementById("modal-folder").textContent = deck?.folder_path || "";
     document.getElementById("modal-date").textContent = deck ? formatDate(deck.modified_date) : "";
     document.getElementById("modal-size").textContent = deck ? formatSize(deck.file_size) : "";
+    document.getElementById("modal-star-state").textContent = isStarred(slide.id) ? "Yes" : "No";
+    document.getElementById("btn-toggle-star").textContent = isStarred(slide.id) ? "Unstar" : "Star";
+
+    const subtitleSection = document.getElementById("modal-subtitle-section");
+    const subtitleEl = document.getElementById("modal-subtitle");
+    if (slide.subtitle) { subtitleEl.textContent = slide.subtitle; subtitleSection.style.display = ""; }
+    else { subtitleSection.style.display = "none"; }
 
     const textSection = document.getElementById("modal-text-section");
     const textEl = document.getElementById("modal-text");
-    if (slide.text) { textEl.textContent = slide.text; textSection.style.display = ""; }
+    if (slide.body) { textEl.textContent = slide.body; textSection.style.display = ""; }
     else { textSection.style.display = "none"; }
+
+    const extraSection = document.getElementById("modal-extra-section");
+    const extraEl = document.getElementById("modal-extra");
+    if (slide.extra) { extraEl.textContent = slide.extra; extraSection.style.display = ""; }
+    else { extraSection.style.display = "none"; }
 
     const notesSection = document.getElementById("modal-notes-section");
     const notesEl = document.getElementById("modal-notes");
@@ -485,7 +657,32 @@
   /* ═══════════════ HELPERS ═══════════════ */
   function isoDate(d) {
     if (typeof d === "string") return d;
-    return d.toISOString().slice(0, 10);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function parseIsoDate(iso) {
+    const [year, month, day] = (iso || "").split("-").map(Number);
+    return new Date(year, (month || 1) - 1, day || 1);
+  }
+
+  function todayLocal() {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  function startOfWeek(date) {
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    start.setDate(start.getDate() - start.getDay());
+    return start;
+  }
+
+  function endOfWeek(date) {
+    const end = startOfWeek(date);
+    end.setDate(end.getDate() + 6);
+    return end;
   }
 
   function formatDate(iso) {
@@ -526,5 +723,76 @@
 
   function clearFolderHighlight() {
     document.getElementById("folder-list").querySelectorAll("li").forEach(li => li.classList.remove("active"));
+  }
+
+  async function openPath(targetPath, kind) {
+    if (!targetPath) return;
+
+    if (window.location.protocol.startsWith("http")) {
+      try {
+        const response = await fetch(kind === "folder" ? "/api/open-folder" : "/api/open-file", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: targetPath }),
+        });
+        if (response.ok) return;
+      } catch (error) {
+        console.warn("Server-backed open failed; falling back to file://", error);
+      }
+    }
+
+    const normalized = targetPath.replace(/\\/g, "/");
+    window.open(`file:///${normalized}`);
+  }
+
+  function loadStarredSlides() {
+    try {
+      const raw = window.localStorage.getItem("ppt-visual-archive-stars-v1");
+      return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      console.warn("Could not read starred slides from localStorage", error);
+      return {};
+    }
+  }
+
+  function saveStarredSlides() {
+    try {
+      window.localStorage.setItem("ppt-visual-archive-stars-v1", JSON.stringify(starredSlides));
+    } catch (error) {
+      console.warn("Could not persist starred slides", error);
+    }
+  }
+
+  function isStarred(slideId) {
+    return Boolean(starredSlides[slideId]);
+  }
+
+  function toggleStar(slideId) {
+    if (isStarred(slideId)) delete starredSlides[slideId];
+    else starredSlides[slideId] = Date.now();
+    saveStarredSlides();
+    applyFilters();
+    if (currentModalIdx >= 0) {
+      const nextIndex = filteredSlides.findIndex(slide => slide.id === slideId);
+      if (nextIndex >= 0) openModal(nextIndex);
+      else closeModal();
+    }
+  }
+
+  function loadHeatmapWindow() {
+    try {
+      return window.localStorage.getItem("ppt-visual-archive-heatmap-window-v1") || "rolling-12m";
+    } catch (error) {
+      console.warn("Could not read heatmap window from localStorage", error);
+      return "rolling-12m";
+    }
+  }
+
+  function saveHeatmapWindow() {
+    try {
+      window.localStorage.setItem("ppt-visual-archive-heatmap-window-v1", heatmapWindow);
+    } catch (error) {
+      console.warn("Could not persist heatmap window", error);
+    }
   }
 })();

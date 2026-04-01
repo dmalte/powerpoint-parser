@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+from collections.abc import Iterable
 from pathlib import Path
 
 from .config import AppConfig
@@ -16,25 +17,35 @@ from .scanner import detect_changes, scan_files
 from .utils import ensure_dir, logger, make_deck_id
 
 
-def run_scan(config: AppConfig, force: bool = False) -> dict:
+def run_scan(
+    config: AppConfig,
+    force: bool = False,
+    scan_roots: Iterable[str] | None = None,
+) -> dict:
     """Full scan + process pipeline. Returns summary stats."""
     db = IndexDB(config.db_path)
     try:
-        return _run_scan_inner(config, db, force)
+        return _run_scan_inner(config, db, force, scan_roots)
     finally:
         db.close()
 
 
-def _run_scan_inner(config: AppConfig, db: IndexDB, force: bool) -> dict:
+def _run_scan_inner(
+    config: AppConfig,
+    db: IndexDB,
+    force: bool,
+    scan_roots: Iterable[str] | None,
+) -> dict:
     # 1. Scan filesystem
-    scan_results = scan_files(config)
+    active_roots = [str(Path(root).resolve()) for root in (scan_roots or config.scan_roots)]
+    scan_results = scan_files(config, roots=active_roots)
 
     # 2. Detect changes
     if force:
         # Treat everything as new
         changeset = ChangeSet(new=scan_results)
     else:
-        changeset = detect_changes(scan_results, db)
+        changeset = detect_changes(scan_results, db, deletion_scope_roots=active_roots)
 
     # 3. Handle deletions
     for deck_id in changeset.deleted:
@@ -66,18 +77,30 @@ def _run_scan_inner(config: AppConfig, db: IndexDB, force: bool) -> dict:
     try:
         renderer.start()
 
-        for sr in to_process:
+        total_to_process = len(to_process)
+        for index, sr in enumerate(to_process, start=1):
+            logger.info(_format_processing_message(index, total_to_process, sr))
             result = _process_single_deck(config, renderer, sr)
             if result.success:
                 db.upsert_deck(result.deck)
                 db.upsert_slides(result.slides)
                 success_count += 1
                 logger.info(
-                    "Processed: %s (%d slides)", result.deck.file_name, len(result.slides)
+                    "[%d/%d] Processed: %s (%d slides)",
+                    index,
+                    total_to_process,
+                    result.deck.file_name,
+                    len(result.slides),
                 )
             else:
                 error_count += 1
-                logger.error("Failed: %s — %s", sr.file_name, result.error)
+                logger.error(
+                    "[%d/%d] Failed: %s — %s",
+                    index,
+                    total_to_process,
+                    sr.file_name,
+                    result.error,
+                )
     finally:
         renderer.stop()
 
@@ -136,6 +159,9 @@ def _process_single_deck(
             deck_id=deck_id,
             slide_number=snum,
             title=ms.get("title", ""),
+            subtitle_text=ms.get("subtitle_text", ""),
+            body_text=ms.get("body_text", ""),
+            extra_text=ms.get("extra_text", ""),
             extracted_text=ms.get("extracted_text", ""),
             notes_text=ms.get("notes_text", ""),
             thumb_path=thumb_rel,
@@ -146,6 +172,13 @@ def _process_single_deck(
         slides.append(slide)
 
     return ProcessingResult(deck=deck, slides=slides, success=True)
+
+
+def _format_processing_message(index: int, total: int, sr: ScanResult) -> str:
+    return (
+        f"[{index}/{total}] Processing: {sr.file_name} | "
+        f"directory: {sr.folder_path}"
+    )
 
 
 def _purge_deck_assets(config: AppConfig, deck_id: str) -> None:

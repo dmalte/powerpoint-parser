@@ -56,13 +56,29 @@ def main() -> None:
 
 @main.command()
 @click.option("--force", is_flag=True, help="Reprocess all files regardless of changes.")
+@click.option(
+    "--root",
+    "scan_roots",
+    multiple=True,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    help="Only scan these folders for this run. Can be repeated.",
+)
 @common_options
-def scan(force: bool, config_path: str | None, verbose: bool) -> None:
+def scan(
+    force: bool,
+    scan_roots: tuple[Path, ...],
+    config_path: str | None,
+    verbose: bool,
+) -> None:
     """Scan folders, export slides, and update the index."""
     config = _resolve_config(config_path)
     from .pipeline import run_scan
 
-    summary = run_scan(config, force=force)
+    active_roots = [str(root.resolve()) for root in scan_roots] or None
+    if active_roots:
+        click.echo(f"Scanning {len(active_roots)} selected folder(s)")
+
+    summary = run_scan(config, force=force, scan_roots=active_roots)
     click.echo(
         f"\nScan complete: "
         f"{summary['new']} new, {summary['changed']} changed, "
