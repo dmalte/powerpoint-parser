@@ -14,7 +14,7 @@
     <h1 class="topbar-title">{{ title }}</h1>
   </div>
   <div class="topbar-center">
-    <input type="search" id="search-input" placeholder="Search decks, slides, text…" autocomplete="off">
+    <input type="search" id="search-input" placeholder="Search… use quotes for phrases, space = AND" autocomplete="off">
   </div>
   <div class="topbar-right">
     <span class="stat-pill" id="stat-decks" title="Total presentations">{{ stats.deck_count }} decks</span>
@@ -109,6 +109,9 @@
             <option value="day">By Day</option>
             <option value="week">By Week</option>
           </select>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="deck-break-toggle"> Wrap per deck
         </label>
         <label>Sort:
           <select id="sort-select">

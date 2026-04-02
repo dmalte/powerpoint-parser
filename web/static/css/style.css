@@ -203,6 +203,10 @@ input[type="search"]:focus { border-color: #4a7cff; }
   font: inherit; font-size: .82rem;
   padding: 3px 6px; border: 1px solid #ccc; border-radius: 4px;
 }
+.checkbox-label {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: .82rem; color: #667; cursor: pointer; white-space: nowrap;
+}
 
 /* ═══════════════ SLIDE GRID ═══════════════ */
 #slide-grid {
@@ -218,6 +222,10 @@ input[type="search"]:focus { border-color: #4a7cff; }
   padding: 10px 0 4px;
   border-bottom: 1px solid #ddd;
   margin-top: 6px;
+}
+.deck-break {
+  grid-column: 1 / -1;
+  height: 0;
 }
 .slide-card {
   position: relative;

@@ -12,6 +12,7 @@ from .config import AppConfig
 from .extractor import extract_metadata
 from .index_db import IndexDB
 from .models import ChangeSet, Deck, DeckStatus, ProcessingResult, ScanResult, Slide
+from .pdf_processor import extract_and_render_pdf
 from .renderer import PowerPointRenderer
 from .scanner import detect_changes, scan_files
 from .utils import ensure_dir, logger, make_deck_id
@@ -70,47 +71,72 @@ def _run_scan_inner(
         deck_id = make_deck_id(sr.file_path)
         db.delete_slides_for_deck(deck_id)
 
+    # Partition files by type
+    pptx_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pptx")]
+    pdf_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pdf")]
+
     success_count = 0
     error_count = 0
+    total_to_process = len(to_process)
+    processed_index = 0
 
-    renderer = PowerPointRenderer(config.render)
-    try:
-        renderer.start()
+    # ── Process PPTX files with COM renderer ──
+    if pptx_files:
+        renderer = PowerPointRenderer(config.render)
+        try:
+            renderer.start()
+            for sr in pptx_files:
+                processed_index += 1
+                logger.info(_format_processing_message(processed_index, total_to_process, sr))
+                result = _process_single_pptx(config, renderer, sr)
+                if result.success:
+                    db.upsert_deck(result.deck)
+                    db.upsert_slides(result.slides)
+                    success_count += 1
+                    logger.info(
+                        "[%d/%d] Processed: %s (%d slides)",
+                        processed_index, total_to_process,
+                        result.deck.file_name, len(result.slides),
+                    )
+                else:
+                    error_count += 1
+                    logger.error(
+                        "[%d/%d] Failed: %s — %s",
+                        processed_index, total_to_process,
+                        sr.file_name, result.error,
+                    )
+        finally:
+            renderer.stop()
 
-        total_to_process = len(to_process)
-        for index, sr in enumerate(to_process, start=1):
-            logger.info(_format_processing_message(index, total_to_process, sr))
-            result = _process_single_deck(config, renderer, sr)
-            if result.success:
-                db.upsert_deck(result.deck)
-                db.upsert_slides(result.slides)
-                success_count += 1
-                logger.info(
-                    "[%d/%d] Processed: %s (%d slides)",
-                    index,
-                    total_to_process,
-                    result.deck.file_name,
-                    len(result.slides),
-                )
-            else:
-                error_count += 1
-                logger.error(
-                    "[%d/%d] Failed: %s — %s",
-                    index,
-                    total_to_process,
-                    sr.file_name,
-                    result.error,
-                )
-    finally:
-        renderer.stop()
+    # ── Process PDF files ──
+    for sr in pdf_files:
+        processed_index += 1
+        logger.info(_format_processing_message(processed_index, total_to_process, sr))
+        result = _process_single_pdf(config, sr)
+        if result.success:
+            db.upsert_deck(result.deck)
+            db.upsert_slides(result.slides)
+            success_count += 1
+            logger.info(
+                "[%d/%d] Processed: %s (%d pages)",
+                processed_index, total_to_process,
+                result.deck.file_name, len(result.slides),
+            )
+        else:
+            error_count += 1
+            logger.error(
+                "[%d/%d] Failed: %s — %s",
+                processed_index, total_to_process,
+                sr.file_name, result.error,
+            )
 
     return _build_summary(changeset, success_count, error_count)
 
 
-def _process_single_deck(
+def _process_single_pptx(
     config: AppConfig, renderer: PowerPointRenderer, sr: ScanResult
 ) -> ProcessingResult:
-    """Process one presentation: render + extract + build deck/slide objects."""
+    """Process one PPTX presentation: render + extract + build deck/slide objects."""
     deck_id = make_deck_id(sr.file_path)
     assets_dir = os.path.join(config.output_dir, "assets", "decks", deck_id)
     ensure_dir(assets_dir)
@@ -168,6 +194,59 @@ def _process_single_deck(
             preview_path=preview_rel,
             width=rr.get("width", 0),
             height=rr.get("height", 0),
+        )
+        slides.append(slide)
+
+    return ProcessingResult(deck=deck, slides=slides, success=True)
+
+
+def _process_single_pdf(
+    config: AppConfig, sr: ScanResult
+) -> ProcessingResult:
+    """Process one PDF file: render pages + extract text."""
+    deck_id = make_deck_id(sr.file_path)
+    assets_dir = os.path.join(config.output_dir, "assets", "decks", deck_id)
+    ensure_dir(assets_dir)
+
+    deck = Deck(
+        deck_id=deck_id,
+        file_path=sr.file_path,
+        file_name=sr.file_name,
+        folder_path=sr.folder_path,
+        file_size=sr.file_size,
+        modified_time=sr.modified_time,
+        processed_time=time.time(),
+        file_signature=sr.file_signature,
+        status=DeckStatus.ACTIVE.value,
+    )
+
+    try:
+        result = extract_and_render_pdf(sr.file_path, assets_dir, config.render)
+    except Exception as e:
+        return ProcessingResult(deck=deck, success=False, error=str(e))
+
+    deck.slide_count = result.get("slide_count", 0)
+
+    slides: list[Slide] = []
+    for page in result.get("slides", []):
+        snum = page["slide_number"]
+        thumb_rel = f"assets/decks/{deck_id}/{page['thumb_path']}" if page.get("thumb_path") else ""
+        preview_rel = f"assets/decks/{deck_id}/{page['preview_path']}" if page.get("preview_path") else ""
+
+        slide = Slide(
+            slide_id=f"{deck_id}_s{snum:03d}",
+            deck_id=deck_id,
+            slide_number=snum,
+            title=page.get("title", ""),
+            subtitle_text=page.get("subtitle_text", ""),
+            body_text=page.get("body_text", ""),
+            extra_text=page.get("extra_text", ""),
+            extracted_text=page.get("extracted_text", ""),
+            notes_text=page.get("notes_text", ""),
+            thumb_path=thumb_rel,
+            preview_path=preview_rel,
+            width=page.get("thumb_width", 0),
+            height=page.get("thumb_height", 0),
         )
         slides.append(slide)
 

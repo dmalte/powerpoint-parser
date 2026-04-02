@@ -38,6 +38,7 @@ class AppConfig:
         default_factory=lambda: [".git", "__pycache__", "node_modules"]
     )
     exclude_patterns: list[str] = field(default_factory=lambda: ["~$*.pptx"])
+    file_types: list[str] = field(default_factory=lambda: ["pptx"])
     output_dir: str = ""
     db_path: str = ""
     render: RenderConfig = field(default_factory=RenderConfig)
@@ -79,6 +80,7 @@ def load_config(path: str | Path) -> AppConfig:
         scan_roots=data.get("scan_roots", []),
         exclude_dirs=data.get("exclude_dirs", [".git", "__pycache__", "node_modules"]),
         exclude_patterns=data.get("exclude_patterns", ["~$*.pptx"]),
+        file_types=data.get("file_types", ["pptx"]),
         output_dir=data.get("output_dir", ""),
         db_path=data.get("db_path", ""),
         render=_merge_section(data, RenderConfig, "render"),

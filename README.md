@@ -1,12 +1,13 @@
 # PowerPoint Visual Archive Viewer
 
-A local-first tool that scans directories of PowerPoint files, exports slide thumbnails, extracts metadata, and generates an HTML-based visual browser for fast slide discovery.
+A local-first tool that scans directories of PowerPoint and PDF files, exports slide/page thumbnails, extracts metadata, and generates an HTML-based visual browser for fast slide discovery.
 
 ## Requirements
 
 - Python 3.10+
-- Microsoft PowerPoint (installed, for slide rendering via COM automation)
-- Windows (COM automation is Windows-only)
+- Microsoft PowerPoint (installed, for PPTX slide rendering via COM automation)
+- Windows (COM automation is Windows-only; PDF support works cross-platform)
+- [PyMuPDF](https://pymupdf.readthedocs.io/) (installed automatically, used for PDF rendering)
 
 ## Installation
 
@@ -31,7 +32,7 @@ python -m pip install -e .
 copy config\config.example.yaml config.yaml
 ```
 
-Edit `config.yaml` to point `scan_roots` at your PowerPoint folders and set `output_dir`.
+Edit `config.yaml` to point `scan_roots` at your PowerPoint/PDF folders and set `output_dir`.
 Use forward slashes in YAML paths on Windows, for example `D:/Slides`, or single quotes if you want to keep backslashes.
 `config.yaml` is intentionally ignored by Git because it usually contains local machine paths.
 
@@ -41,7 +42,7 @@ Use forward slashes in YAML paths on Windows, for example `D:/Slides`, or single
 pptviewer scan --config config.yaml
 ```
 
-Repeat the same command later and it will only reprocess changed `.pptx` files. Unchanged decks are skipped.
+Repeat the same command later and it will only reprocess changed files. Unchanged decks are skipped.
 During processing, the scanner logs per-file progress as `(x/total)` and shows the source directory for each deck.
 
 If you only want to refresh part of the archive, scope a run to one or more folders:
@@ -101,6 +102,7 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - `scan_roots` — list of directories to scan recursively
 - `exclude_dirs` — directory names to skip (e.g. `.git`)
 - `exclude_patterns` — filename glob patterns to skip (e.g. `~$*.pptx`)
+- `file_types` — list of file extensions to scan: `pptx`, `pdf`, or both (default: `["pptx"]`)
 - `output_dir` — where thumbnails, index, and HTML are written
 - `render.thumbnail_width` — thumbnail width in pixels (default 320)
 - `render.preview_width` — preview width in pixels (default 1280)
@@ -110,12 +112,13 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 
 ## Viewer Features
 
-- **Search** — filter by deck name, folder, slide title, or extracted text
+- **Search** — filter by deck name, folder, slide title, or extracted text; supports quoted phrases (`"budget report"`), multi-term AND (`budget report`), and explicit AND (`budget AND report`)
 - **Search scopes** — limit search to deck, folder, title, subtitle, slide text, additional text, or notes
 - **Quick filters** — Today, This Week, This Month
 - **Stars** — star slides locally in the browser and filter to starred slides only
 - **Sidebar** — browse by folder or presentation
-- **Thumbnail grid** — lazy-loaded, grouped by deck/day/week
+- **Thumbnail grid** — lazy-loaded, grouped by deck/day/week; optional "Wrap per deck" to start each presentation on a new row
+- **PDF support** — scan, render, and browse PDF pages alongside PowerPoint slides
 - **Calendar heatmap** — switch between the last 12 months or a specific year, then click any day to filter to that date
 - **Slide detail modal** — preview, metadata, open original file, open containing folder
 - **Keyboard navigation** — arrow keys in modal, Escape to close

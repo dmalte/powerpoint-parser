@@ -14,10 +14,11 @@ from .utils import logger
 
 
 def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[ScanResult]:
-    """Recursively scan configured roots for .pptx files."""
+    """Recursively scan configured roots for presentation/document files."""
     results: list[ScanResult] = []
     seen_paths: set[str] = set()
     active_roots = [str(Path(root).resolve()) for root in (roots or config.scan_roots)]
+    allowed_exts = {ext.lower().lstrip(".") for ext in config.file_types}
 
     for root in active_roots:
         root_path = Path(root)
@@ -36,7 +37,8 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
             ]
 
             for fname in filenames:
-                if not fname.lower().endswith(".pptx"):
+                ext = fname.rsplit(".", 1)[-1].lower() if "." in fname else ""
+                if ext not in allowed_exts:
                     continue
 
                 # Check exclude patterns
@@ -74,7 +76,7 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
                     )
                 )
 
-    logger.info("Scanned %d .pptx files across %d roots", len(results), len(active_roots))
+    logger.info("Scanned %d files (%s) across %d roots", len(results), ", ".join(sorted(allowed_exts)), len(active_roots))
     return results
 
 

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-04-02
+
+### Added
+- **Advanced search**: quoted phrases (`"budget report"`), multi-term AND (`budget report`), and explicit AND keyword support in the viewer.
+- **Wrap per deck**: new "Wrap per deck" checkbox in the grid toolbar forces each presentation's thumbnails to start on a new row.
+- **PDF support**: scan, render, and index PDF files alongside PowerPoint. Uses PyMuPDF for text extraction and page rendering (no COM needed for PDFs).
+- New `file_types` config option to select which file types to scan (`pptx`, `pdf`, or both).
+- `PyMuPDF>=1.23` added as a dependency.
+
 ## [0.1.0] - 2026-04-01
 
 ### Added
@@ -10,7 +19,10 @@ All notable changes to this project will be documented in this file.
 - Structured slide text extraction for title, subtitle, body text, additional text, and notes.
 - Viewer support for direct-open actions through the local server, slide starring, heatmap navigation, and scoped search fields.
 - Folder-scoped incremental scanning with `scan --root`.
+- Heatmap window controls for `Last 12 months` and per-year views such as `2026` and `2025`.
+- MIT license and publish-safe repo defaults for local config, generated output, and virtualenv artifacts.
 
 ### Changed
 - CLI subcommands now accept `--config` directly on each command.
 - Scan logging now shows per-file progress as `(x/total)` and includes the source directory for each deck being processed.
+- README and viewer documentation now reflect the `.venv` workflow, scoped scans, direct-open support, stars, and heatmap range selection.

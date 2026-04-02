@@ -98,6 +98,7 @@
     // Sort / Group
     document.getElementById("sort-select").addEventListener("change", applyFilters);
     document.getElementById("group-select").addEventListener("change", applyFilters);
+    document.getElementById("deck-break-toggle").addEventListener("change", applyFilters);
 
     const heatmapWindowSelect = document.getElementById("heatmap-window-select");
     if (heatmapWindowSelect) {
@@ -174,7 +175,7 @@
         if (d < range.from || d > range.to) return false;
       }
 
-      // Text search
+      // Text search — supports quoted phrases and multi-term AND
       if (q) {
         const haystack = [];
         if (filters.searchScopes.deck) haystack.push(deck.file_name);
@@ -184,7 +185,7 @@
         if (filters.searchScopes.body) haystack.push(s.body);
         if (filters.searchScopes.extra) haystack.push(s.extra);
         if (filters.searchScopes.notes) haystack.push(s.notes);
-        if (!haystack.join(" ").toLowerCase().includes(q)) return false;
+        if (!matchesSearch(q, haystack.join(" ").toLowerCase())) return false;
       }
 
       return true;
@@ -368,6 +369,7 @@
     container.innerHTML = "";
 
     const groupMode = document.getElementById("group-select").value;
+    const deckBreak = document.getElementById("deck-break-toggle").checked;
     const groups = groupSlides(slides, groupMode);
 
     groups.forEach(group => {
@@ -377,7 +379,16 @@
         header.textContent = group.label;
         container.appendChild(header);
       }
+      let prevDeckId = null;
       group.items.forEach((slide, idx) => {
+        // Insert a row-break divider when the deck changes (if enabled)
+        if (deckBreak && groupMode === "none" && prevDeckId !== null && slide.deck_id !== prevDeckId) {
+          const brk = document.createElement("div");
+          brk.className = "deck-break";
+          container.appendChild(brk);
+        }
+        prevDeckId = slide.deck_id;
+
         const globalIdx = slides.indexOf(slide);
         const card = createSlideCard(slide, globalIdx);
         container.appendChild(card);
@@ -653,6 +664,42 @@
       }
     });
   }, { rootMargin: "200px" });
+
+  /* ═══════════════ SEARCH PARSER ═══════════════ */
+
+  /**
+   * Parse a search query into an array of terms.
+   * - Quoted strings ("word1 word2") become exact phrase terms.
+   * - Unquoted words separated by spaces are individual terms (implicit AND).
+   * - The literal word AND between terms is ignored (it's the default).
+   * - All terms must match (AND logic).
+   *
+   * Examples:
+   *   'budget'              → ['budget']
+   *   'budget report'       → ['budget', 'report']
+   *   '"budget report"'     → ['budget report']
+   *   '"Q1 results" AND budget' → ['q1 results', 'budget']
+   */
+  function parseSearchQuery(query) {
+    const terms = [];
+    const re = /"([^"]+)"|(\S+)/g;
+    let match;
+    while ((match = re.exec(query)) !== null) {
+      const term = (match[1] || match[2]).toLowerCase();
+      if (term === "and") continue; // skip explicit AND keyword
+      if (term) terms.push(term);
+    }
+    return terms;
+  }
+
+  /**
+   * Returns true when ALL parsed search terms are found in the haystack.
+   */
+  function matchesSearch(query, haystack) {
+    const terms = parseSearchQuery(query);
+    if (terms.length === 0) return true;
+    return terms.every(term => haystack.includes(term));
+  }
 
   /* ═══════════════ HELPERS ═══════════════ */
   function isoDate(d) {
