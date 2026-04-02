@@ -15,6 +15,7 @@
     searchTerms: [],     // committed search tags (Enter to add)
     deckId: null,
     folder: null,
+    fileType: "all",       // "all", "pptx", "pdf"
     dateRange: null,       // {from, to} ISO strings
     quickFilter: "all",
     starredOnly: false,
@@ -70,6 +71,7 @@
     searchInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         e.preventDefault();
+        clearTimeout(debounce);
         const term = searchInput.value.trim();
         if (term) {
           filters.searchTerms.push(term);
@@ -106,6 +108,16 @@
     document.getElementById("starred-toggle").addEventListener("click", () => {
       filters.starredOnly = !filters.starredOnly;
       document.getElementById("starred-toggle").classList.toggle("active", filters.starredOnly);
+      applyFilters();
+    });
+
+    // File type filter
+    document.getElementById("filetype-filters").addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn[data-filetype]");
+      if (!btn) return;
+      document.querySelectorAll("#filetype-filters .filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      filters.fileType = btn.dataset.filetype;
       applyFilters();
     });
 
@@ -184,6 +196,12 @@
       if (filters.deckId && s.deck_id !== filters.deckId) return false;
       if (filters.folder && deck.folder_path !== filters.folder) return false;
       if (filters.starredOnly && !isStarred(s.id)) return false;
+
+      // File type filter
+      if (filters.fileType !== "all") {
+        const ext = (deck.file_name || "").split(".").pop().toLowerCase();
+        if (ext !== filters.fileType) return false;
+      }
 
       // Date range
       if (range) {
@@ -398,6 +416,7 @@
     container.innerHTML = "";
     if (filters.deckId) addFilterTag(container, "Deck: " + (deckMap[filters.deckId]?.file_name || filters.deckId), () => { filters.deckId = null; clearDeckHighlight(); applyFilters(); });
     if (filters.folder) addFilterTag(container, "Folder: " + filters.folder.split(/[\\/]/).pop(), () => { filters.folder = null; clearFolderHighlight(); applyFilters(); });
+    if (filters.fileType !== "all") addFilterTag(container, "Type: ." + filters.fileType, () => { filters.fileType = "all"; document.querySelectorAll("#filetype-filters .filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filetype === "all")); applyFilters(); });
     filters.searchTerms.forEach((term, idx) => {
       addFilterTag(container, `Search: "${term}"`, () => {
         filters.searchTerms.splice(idx, 1);
