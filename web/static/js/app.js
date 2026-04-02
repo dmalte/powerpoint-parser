@@ -12,6 +12,7 @@
 
   const filters = {
     search: "",
+    searchTerms: [],     // committed search tags (Enter to add)
     deckId: null,
     folder: null,
     dateRange: null,       // {from, to} ISO strings
@@ -45,6 +46,7 @@
     DATA.decks.forEach(d => { deckMap[d.id] = d; });
 
     renderDashboard();
+    renderQuickFilterYears();
     renderFolderList();
     renderDeckList();
     initHeatmapWindowControl();
@@ -65,6 +67,18 @@
         applyFilters();
       }, 200);
     });
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const term = searchInput.value.trim();
+        if (term) {
+          filters.searchTerms.push(term);
+          filters.search = "";
+          searchInput.value = "";
+          applyFilters();
+        }
+      }
+    });
 
     document.querySelectorAll("#search-scopes input[type='checkbox']").forEach(box => {
       box.addEventListener("change", () => {
@@ -79,20 +93,20 @@
       renderDeckList(deckSearch.value.trim().toLowerCase());
     });
 
-    // Quick filter buttons
-    document.querySelectorAll(".filter-btn[data-filter]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        if (btn.dataset.filter === "starred") {
-          filters.starredOnly = !filters.starredOnly;
-          btn.classList.toggle("active", filters.starredOnly);
-        } else {
-          document.querySelectorAll(".filter-btn[data-filter]:not(#starred-toggle)").forEach(b => b.classList.remove("active"));
-          btn.classList.add("active");
-          filters.quickFilter = btn.dataset.filter;
-          filters.dateRange = quickFilterToDateRange(filters.quickFilter);
-        }
-        applyFilters();
-      });
+    // Quick filter buttons (event delegation for dynamic year buttons)
+    document.getElementById("quick-filters").addEventListener("click", (e) => {
+      const btn = e.target.closest(".filter-btn[data-filter]");
+      if (!btn) return;
+      document.querySelectorAll("#quick-filters .filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      filters.quickFilter = btn.dataset.filter;
+      filters.dateRange = quickFilterToDateRange(filters.quickFilter);
+      applyFilters();
+    });
+    document.getElementById("starred-toggle").addEventListener("click", () => {
+      filters.starredOnly = !filters.starredOnly;
+      document.getElementById("starred-toggle").classList.toggle("active", filters.starredOnly);
+      applyFilters();
     });
 
     // Sort / Group
@@ -158,6 +172,8 @@
   /* ═══════════════ FILTERING ═══════════════ */
   function applyFilters() {
     const q = filters.search;
+    const committedTerms = filters.searchTerms;
+    const hasSearch = q || committedTerms.length > 0;
     const range = filters.dateRange;
 
     filteredSlides = DATA.slides.filter(s => {
@@ -176,7 +192,7 @@
       }
 
       // Text search — supports quoted phrases and multi-term AND
-      if (q) {
+      if (hasSearch) {
         const haystack = [];
         if (filters.searchScopes.deck) haystack.push(deck.file_name);
         if (filters.searchScopes.folder) haystack.push(deck.folder_path);
@@ -185,7 +201,14 @@
         if (filters.searchScopes.body) haystack.push(s.body);
         if (filters.searchScopes.extra) haystack.push(s.extra);
         if (filters.searchScopes.notes) haystack.push(s.notes);
-        if (!matchesSearch(q, haystack.join(" ").toLowerCase())) return false;
+        const blob = haystack.join(" ").toLowerCase();
+
+        // Each committed term must match (AND between tags)
+        for (const term of committedTerms) {
+          if (!matchesSearch(term.toLowerCase(), blob)) return false;
+        }
+        // Live input must also match if present
+        if (q && !matchesSearch(q, blob)) return false;
       }
 
       return true;
@@ -233,8 +256,35 @@
         const d = new Date(now.getFullYear(), now.getMonth(), 1);
         return { from: isoDate(d), to: today };
       }
-      default: return null;
+      case "year": {
+        const d = new Date(now.getFullYear(), 0, 1);
+        return { from: isoDate(d), to: today };
+      }
+      default:
+        if (key && key.startsWith("year:")) {
+          const y = key.slice(5);
+          return { from: `${y}-01-01`, to: `${y}-12-31` };
+        }
+        return null;
     }
+  }
+
+  function renderQuickFilterYears() {
+    const container = document.getElementById("quick-filters");
+    if (!container) return;
+    const years = new Set();
+    DATA.decks.forEach(d => {
+      if (d.modified_date) years.add(d.modified_date.slice(0, 4));
+    });
+    const currentYear = String(new Date().getFullYear());
+    Array.from(years).filter(Boolean).sort((a, b) => Number(b) - Number(a)).forEach(year => {
+      if (year === currentYear) return; // already covered by "This Year"
+      const btn = document.createElement("button");
+      btn.className = "filter-btn";
+      btn.dataset.filter = `year:${year}`;
+      btn.textContent = year;
+      container.appendChild(btn);
+    });
   }
 
   /* ═══════════════ RENDERING ═══════════════ */
@@ -348,6 +398,12 @@
     container.innerHTML = "";
     if (filters.deckId) addFilterTag(container, "Deck: " + (deckMap[filters.deckId]?.file_name || filters.deckId), () => { filters.deckId = null; clearDeckHighlight(); applyFilters(); });
     if (filters.folder) addFilterTag(container, "Folder: " + filters.folder.split(/[\\/]/).pop(), () => { filters.folder = null; clearFolderHighlight(); applyFilters(); });
+    filters.searchTerms.forEach((term, idx) => {
+      addFilterTag(container, `Search: "${term}"`, () => {
+        filters.searchTerms.splice(idx, 1);
+        applyFilters();
+      });
+    });
     if (filters.search) addFilterTag(container, `Search: "${filters.search}"`, () => { filters.search = ""; document.getElementById("search-input").value = ""; applyFilters(); });
     if (filters.starredOnly) addFilterTag(container, "Starred only", () => { filters.starredOnly = false; document.getElementById("starred-toggle").classList.remove("active"); applyFilters(); });
     if (filters.dateRange && filters.quickFilter === "all") {

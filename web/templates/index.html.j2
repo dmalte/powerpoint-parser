@@ -31,10 +31,14 @@
   <aside id="sidebar">
     <div class="sidebar-section">
       <h3>Quick Filters</h3>
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="today">Today</button>
-      <button class="filter-btn" data-filter="week">This Week</button>
-      <button class="filter-btn" data-filter="month">This Month</button>
+      <div id="quick-filters">
+        <button class="filter-btn active" data-filter="all">All</button>
+        <button class="filter-btn" data-filter="today">Today</button>
+        <button class="filter-btn" data-filter="week">This Week</button>
+        <button class="filter-btn" data-filter="month">This Month</button>
+        <button class="filter-btn" data-filter="year">This Year</button>
+        <!-- Per-year buttons are injected by JS -->
+      </div>
       <button class="filter-btn" id="starred-toggle" data-filter="starred">Starred Only</button>
     </div>
 
