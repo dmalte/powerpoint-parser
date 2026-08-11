@@ -2,17 +2,18 @@
 
 ## Goal
 
-Build a local-first PowerPoint visual archive for fast slide discovery without opening large decks. The app scans one or more folders, exports slide imagery, extracts lightweight metadata, stores it in SQLite, and generates a local HTML viewer optimized for visual retrieval.
+Build a local-first PowerPoint and PDF visual archive for fast slide/page discovery without opening large source files. The app scans one or more folders, exports slide/page imagery, extracts lightweight metadata, stores it in SQLite, and generates a local HTML viewer optimized for visual retrieval.
 
 ## Product Boundaries
 
 In scope:
-- Recursive `.pptx` scanning across multiple roots
+- Recursive `.pptx` and `.pdf` scanning across multiple roots
 - Incremental change detection by path, file size, and modified timestamp
-- Slide thumbnail and preview export
-- Deck and slide metadata extraction
+- Slide/page thumbnail and preview export
+- PowerPoint slide and PDF page metadata extraction
 - Static HTML viewer with local filtering and search
 - Windows-first local file opening via the optional built-in server
+- PDF-only installation and use on non-Windows platforms
 
 Out of scope:
 - Editing PowerPoint files
@@ -22,8 +23,9 @@ Out of scope:
 
 ## Locked Decisions
 
-- Rendering source: Microsoft PowerPoint COM automation on Windows
-- Metadata extraction: `python-pptx`
+- PowerPoint rendering source: Microsoft PowerPoint COM automation on Windows
+- PDF rendering and text extraction: PyMuPDF
+- PowerPoint metadata extraction: `python-pptx`
 - Persistent index: SQLite
 - Viewer architecture: static HTML/CSS/JS generated from indexed data
 - Activity date semantics: deck file modified time
@@ -33,11 +35,11 @@ Out of scope:
 ## Architecture
 
 Pipeline:
-1. Scan configured roots for `.pptx`
-2. Detect new, changed, unchanged, and deleted decks
-3. Export slide thumbnails and previews via PowerPoint COM
-4. Extract structured text and metadata via `python-pptx`
-5. Upsert decks and slides into SQLite
+1. Scan configured roots for enabled `.pptx` and `.pdf` file types
+2. Detect new, changed, unchanged, and deleted documents
+3. Export PowerPoint slide imagery via COM on Windows or PDF page imagery via PyMuPDF
+4. Extract structured text and metadata with the format-specific processor
+5. Upsert documents and slides/pages into SQLite
 6. Export JSON and render the static viewer
 
 Runtime surfaces:
@@ -105,6 +107,7 @@ Direct `file:///` links are unreliable in browsers, especially when served over 
 
 ## Risks
 
-- PowerPoint COM can be slow or brittle on corrupted decks
+- PowerPoint COM can be slow or brittle on corrupted decks and is unavailable on non-Windows hosts
 - Browser security rules limit local file access without the local server
 - Very large archives may outgrow a single exported JSON file
+- Cross-platform behavior must not accidentally make `pywin32` a required dependency on non-Windows systems

@@ -16,6 +16,8 @@ A local-first tool that scans directories of PowerPoint and PDF files, exports s
 python -m pip install -e .
 ```
 
+On Linux, including Raspberry Pi, installation works but PowerPoint slide rendering does not. You can still use PDF scanning and the viewer; `.pptx` rendering requires Windows with Microsoft PowerPoint installed.
+
 If `.venv` does not exist yet, create it first:
 
 ```bash

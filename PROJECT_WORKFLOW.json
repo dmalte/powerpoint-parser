@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "workflow_mode": "agent-managed",
+  "active_feature": null,
+  "spec_kit": {
+    "enabled": false,
+    "integration": "copilot",
+    "version_pin": "0.14.2",
+    "default_feature_path": "short",
+    "allow_direct_small_changes": true
+  },
+  "commands": {
+    "setup": "python -m pip install -e \".[dev]\"",
+    "run": "pptviewer --help",
+    "fast_check": "python -m pytest tests/test_workflow_gate.py tests/test_new_feature.py -q",
+    "test": "python -m pytest tests -q",
+    "full_check": "python -m pytest tests -q"
+  },
+  "git": {
+    "agent_may_create_branch": true,
+    "agent_may_commit_locally": true,
+    "agent_may_push": false,
+    "agent_may_merge": false,
+    "agent_may_create_tags": false,
+    "agent_may_publish_release": false
+  },
+  "project_constraints": [
+    "Preserve unrelated user changes.",
+    "Keep the archive local-first; do not introduce cloud accounts or synchronization without accepted requirements.",
+    "Preserve Windows PowerPoint COM rendering while keeping PDF-only workflows usable on non-Windows platforms.",
+    "Do not commit local config files, generated archive output, credentials, or machine-specific paths.",
+    "Do not add production dependencies without documenting the reason."
+  ]
+}
