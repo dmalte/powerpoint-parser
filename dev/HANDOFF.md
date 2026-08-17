@@ -1,6 +1,6 @@
 # Handoff
 
-- Last Updated: 2026-08-11
+- Last Updated: 2026-08-17
 - Active Feature: Not selected
 
 ## Current Objective
@@ -9,6 +9,7 @@ Finish validating the current direct cross-platform packaging edits, then select
 
 ## Completed
 
+- Hardened the public exporter to refuse any staging target containing `.git` metadata and refreshed `_export/powerpoint-parser`; the project privacy scan and workspace-wide privacy scan both pass with 0 blocking findings.
 - The project already provides an incremental local PowerPoint/PDF visual archive, generated viewer, advanced search, date filtering, and local slide starring.
 - Added the standard repository agent/spec infrastructure based on `/home/nandemo/dev/project-template`.
 - Added stable requirements, roadmap milestones, reusable feature templates, workflow-gate helpers, and this live handoff.
@@ -38,7 +39,16 @@ Run the workflow helper tests and the project test suite, validate the existing 
 
 ## Validation
 
+- `python tools/export_public_bundle.py ../_export/powerpoint-parser --force` → 0 private-data findings.
+- Exporter compiles successfully and explicitly refuses a staging target containing `.git` metadata.
+- Cross-project staging scan reports no secrets, private IPs, non-synthetic email addresses, user-home paths, symlinks, or `.git` metadata in `_export/powerpoint-parser`.
 - `python scripts/workflow_gate.py status` passes and reports `agent-managed` mode with no active feature selected.
 - `python -m py_compile scripts/workflow_gate.py scripts/new_feature.py` passes.
 - Workflow and project pytest suites are currently blocked because neither the system Python nor the repository `.venv` has `pytest` installed (`No module named pytest`).
 - Primary full check after installing development dependencies: `python -m pytest tests -q`.
+
+## Change Log
+
+### 2026-08-17
+
+- Hardened and revalidated the public staging boundary; no Git metadata is permitted in generated staging.

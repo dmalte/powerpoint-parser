@@ -27,11 +27,11 @@ def prepare_target(repo_root: Path, target: Path, force: bool) -> None:
     if target == repo_root or target.is_relative_to(repo_root):
         raise SystemExit("Refusing to export inside the canonical repository.")
     if target.exists():
+        if (target / ".git").exists():
+            raise SystemExit("Refusing to export into a target containing .git metadata.")
         if not force:
             raise SystemExit(f"Target exists: {target}; use --force to refresh it.")
         for child in target.iterdir():
-            if child.name == ".git":
-                continue
             shutil.rmtree(child) if child.is_dir() else child.unlink()
     else:
         target.mkdir(parents=True)
