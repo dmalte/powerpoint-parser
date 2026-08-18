@@ -93,10 +93,10 @@ lists are implementation work and do not replace this inventory.
   - Source: accepted three-phase deployment plan, 2026-08-18
 
 - [ ] **REQ-DEPLOY-002** — Add a self-service desktop experience for the installed agent, including tray controls for archive status, opening the archive, scanning now, settings, logs, restart, and exit, plus browser-based configuration of scan folders and refresh behavior.
-  - Status: planned
+  - Status: active
   - Milestone: M005
   - Priority: high
-  - Feature: not selected
+  - Feature: specs/002-self-service-controls
   - Depends on: REQ-DEPLOY-001
   - Validation: Representative user flows can be completed without a console or direct configuration-file edits.
   - Source: accepted three-phase deployment plan, 2026-08-18

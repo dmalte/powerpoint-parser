@@ -29,6 +29,7 @@ class ViewerConfig:
 class ProcessingConfig:
     incremental: bool = True
     purge_deleted: bool = True
+    scan_interval_seconds: int = 1800
 
 
 @dataclass
@@ -128,6 +129,7 @@ def save_config(config: AppConfig, path: str | Path, overwrite: bool = False) ->
         "processing": {
             "incremental": config.processing.incremental,
             "purge_deleted": config.processing.purge_deleted,
+            "scan_interval_seconds": config.processing.scan_interval_seconds,
         },
     }
     with open(target, "w", encoding="utf-8") as f:

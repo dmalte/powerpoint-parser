@@ -14,15 +14,16 @@ from .platform_paths import default_archive_dir, default_config_path, default_lo
 from .utils import add_file_logging, logger, setup_logging
 
 
-def _resolve_config(config_path: str | None) -> AppConfig:
-    """Load config from explicit path, or search default locations."""
+def _resolve_config_path(config_path: str | None) -> Path:
+    """Resolve an explicit or discovered config path."""
     if config_path:
-        return load_config(config_path)
+        return Path(config_path).resolve()
 
-    for c in _config_candidates():
-        if c.exists():
-            click.echo(f"Using config: {c.resolve()}")
-            return load_config(c)
+    for candidate in _config_candidates():
+        if candidate.exists():
+            resolved = candidate.resolve()
+            click.echo(f"Using config: {resolved}")
+            return resolved
 
     click.echo(
         f"No config file found. Use --config or run 'pptviewer init-config'. "
@@ -30,6 +31,11 @@ def _resolve_config(config_path: str | None) -> AppConfig:
         err=True,
     )
     sys.exit(1)
+
+
+def _resolve_config(config_path: str | None) -> AppConfig:
+    """Load config from explicit path, or search default locations."""
+    return load_config(_resolve_config_path(config_path))
 
 
 def _config_candidates() -> list[Path]:
@@ -160,20 +166,20 @@ def serve(port: int, config_path: str | None, verbose: bool) -> None:
 @click.option("--port", default=8080, show_default=True, help="Port for local server.")
 @click.option(
     "--scan-interval",
-    default=1800,
-    show_default=True,
+    default=None,
     type=click.IntRange(min=0),
-    help="Seconds between incremental refreshes; 0 disables periodic refresh.",
+    help="Override the persisted refresh interval in seconds; 0 disables periodic refresh.",
 )
 @common_options
 def agent(
     port: int,
-    scan_interval: int,
+    scan_interval: int | None,
     config_path: str | None,
     verbose: bool,
 ) -> None:
     """Run the per-user archive agent: refresh, build, serve, and rescan."""
-    config = _resolve_config(config_path)
+    resolved_config_path = _resolve_config_path(config_path)
+    config = load_config(resolved_config_path)
     if not config.scan_roots:
         raise click.ClickException(
             "No scan roots configured. Run 'pptviewer init-config --root <folder>' first."
@@ -183,7 +189,12 @@ def agent(
 
     log_path = add_file_logging(default_log_dir() / "agent.log", verbose=verbose)
     logger.info("Agent log: %s", log_path)
-    run_agent(config, port=port, scan_interval_seconds=scan_interval)
+    run_agent(
+        config,
+        config_path=resolved_config_path,
+        port=port,
+        scan_interval_seconds=scan_interval,
+    )
 
 
 @main.command()

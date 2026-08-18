@@ -7,7 +7,7 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from ppt_visual_archive import builder, cli
-from ppt_visual_archive.agent import _scheduled_refresh_loop, run_agent
+from ppt_visual_archive.agent import AgentRuntime, _scheduled_refresh_loop, run_agent
 from ppt_visual_archive.config import AppConfig, default_config, load_config, save_config
 from ppt_visual_archive.platform_paths import (
     APP_DIR_NAME,
@@ -87,7 +87,7 @@ def test_agent_refreshes_before_starting_server(tmp_path):
         calls.append("refresh")
         return {}
 
-    def server_fn(_output_dir, _port):
+    def server_fn(_output_dir, _port, **_kwargs):
         calls.append("serve")
 
     run_agent(
@@ -100,27 +100,23 @@ def test_agent_refreshes_before_starting_server(tmp_path):
     assert calls == ["refresh", "serve"]
 
 
-def test_scheduled_refresh_failure_is_isolated(tmp_path):
+def test_runtime_records_refresh_failure(tmp_path):
     config = AppConfig(output_dir=str(tmp_path / "archive"))
 
-    class StopAfterSecondWait:
-        def __init__(self):
-            self.calls = 0
-
-        def wait(self, _seconds):
-            self.calls += 1
-            return self.calls > 1
-
-    refresh_calls = 0
-
     def failing_refresh(_config):
-        nonlocal refresh_calls
-        refresh_calls += 1
         raise RuntimeError("boom")
 
-    _scheduled_refresh_loop(config, 1, StopAfterSecondWait(), failing_refresh)
+    runtime = AgentRuntime(config, refresh_fn=failing_refresh)
+    try:
+        runtime.perform_refresh()
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("refresh failure should propagate")
 
-    assert refresh_calls == 1
+    status = runtime.status_snapshot()
+    assert status["status"] == "error"
+    assert status["last_error"] == "boom"
 
 
 def test_web_dir_uses_pyinstaller_bundle_root(monkeypatch, tmp_path):

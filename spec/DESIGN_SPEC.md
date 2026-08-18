@@ -44,9 +44,9 @@ Pipeline:
 
 Runtime surfaces:
 - CLI for `scan`, `build`, `serve`, `clean`, and `rebuild`
-- Optional local HTTP server for browser-safe "open original" and "open folder" actions
-- Static frontend for search, filters, heatmap, preview modal, and starring slides
-- Windows per-user desktop agent that owns startup refresh, viewer generation, the local server, scheduled incremental refresh, and per-user logging while running in the signed-in user's interactive session
+- Loopback-only threaded HTTP server for static viewer delivery, browser-safe local open actions, agent status/settings, manual scan, logs, and shutdown/restart control
+- Static frontend for search, filters, heatmap, preview modal, starring slides, and agent settings/status
+- Windows per-user desktop agent that owns startup refresh, viewer generation, serialized scheduled/manual refresh, the local server, per-user logging, and a notification-area control surface while running in the signed-in user's interactive session
 
 ## Data Model
 
@@ -104,7 +104,7 @@ Direct `file:///` links are unreliable in browsers, especially when served over 
 The accepted company rollout uses three phases:
 
 1. **Packaged desktop agent and installer.** The runtime foundation now provides per-user paths/config bootstrap, a long-running agent, scheduled refresh, packaged-resource lookup, and durable logs. Windows PyInstaller/Inno Setup definitions package that runtime for per-user installation and user-logon startup; Windows build/install/PPTX smoke validation is still required before this phase is considered complete. PowerPoint COM automation remains in the signed-in user's interactive session rather than a Windows Service.
-2. **Self-service controls.** Add a notification-area/tray surface and browser settings for status, Open Archive, Scan Now, scan-folder selection, refresh settings, logs, restart, and exit. YAML remains an internal representation rather than a required user workflow.
+2. **Self-service controls.** The agent now exposes loopback-only status/settings/scan/shutdown controls, generates a browser settings page, persists scan roots/file types/refresh interval to the existing YAML config, serializes manual and scheduled refreshes, and starts a Windows notification-area menu using existing `pywin32` for Open Archive, Scan Now, Settings, View Logs, Restart, and Exit. Windows packaged tray behavior still requires smoke validation.
 3. **Enterprise distribution.** Add signing, silent installation, managed defaults, diagnostics/version reporting, and an update/distribution path suitable for corporate endpoint management.
 
 The local-first architecture remains unchanged: source files and generated archive data stay on the user's machine unless a future accepted requirement explicitly introduces shared or cloud storage. A central multi-user server is not part of this rollout.

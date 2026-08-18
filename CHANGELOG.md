@@ -9,9 +9,14 @@ All notable changes to this project will be documented in this file.
 - PyInstaller frozen-resource support for viewer templates/static assets.
 - Windows packaging scaffold with console and windowless agent executables, a per-user Inno Setup installer, and current-user logon startup registration.
 - Portable runtime/packaging tests and documented Windows smoke-test procedure.
+- Phase 2 self-service agent controls: loopback status/settings/scan/restart API, browser settings page, persisted refresh interval, serialized manual/scheduled refresh, and Windows notification-area actions using existing `pywin32`.
+
+### Changed
+- Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
 
 ### Notes
-- Windows executable/installer/PPTX smoke validation is still pending; REQ-DEPLOY-001 / M004 remain active.
+- Windows executable/installer/PPTX smoke validation is still pending; REQ-DEPLOY-001 / M004 remain unvalidated on Windows.
+- Windows notification-area/menu behavior is implemented with portable/structural coverage but still requires packaged Windows smoke validation; REQ-DEPLOY-002 / M005 remain active.
 
 ## [0.2.0] - 2026-04-02
 

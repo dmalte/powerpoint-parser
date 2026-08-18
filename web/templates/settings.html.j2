@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ title }} — Settings</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.settings-shell{max-width:860px;margin:0 auto;padding:32px 24px 64px}.settings-header{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:24px}.settings-card{background:var(--card-bg,#fff);border:1px solid var(--border,#dfe3e8);border-radius:12px;padding:20px;margin-bottom:18px}.settings-row{display:grid;grid-template-columns:180px 1fr;gap:16px;margin:14px 0;align-items:start}.settings-row input[type=text],.settings-row input[type=number]{width:100%;box-sizing:border-box;padding:9px 10px}.root-row{display:flex;gap:8px;margin:8px 0}.root-row input{flex:1}.settings-actions{display:flex;gap:10px;flex-wrap:wrap}.status-line{display:flex;gap:12px;flex-wrap:wrap}.status-pill{padding:5px 10px;border-radius:999px;background:#eef2ff}.status-error{color:#a40000;white-space:pre-wrap}.settings-note{color:#667085;font-size:.9rem}.settings-message{min-height:1.4em;margin-top:10px}.settings-message.error{color:#b42318}.settings-message.ok{color:#067647}@media(max-width:650px){.settings-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="settings-shell">
+  <div class="settings-header">
+    <div><h1>{{ title }}</h1><div class="settings-note">Local agent settings</div></div>
+    <a class="btn" href="/">Back to Archive</a>
+  </div>
+
+  <section class="settings-card">
+    <h2>Agent status</h2>
+    <div class="status-line">
+      <span class="status-pill" id="agent-status">Loading…</span>
+      <span id="last-refresh"></span>
+    </div>
+    <div id="last-error" class="status-error"></div>
+    <div class="settings-actions" style="margin-top:14px">
+      <button class="btn btn-primary" id="scan-now">Scan Now</button>
+      <button class="btn" id="open-logs">Open Logs</button>
+      <button class="btn" id="restart-agent">Restart Agent</button>
+    </div>
+  </section>
+
+  <section class="settings-card">
+    <h2>Archive settings</h2>
+    <div class="settings-row">
+      <label>Folders to index</label>
+      <div><div id="scan-roots"></div><button class="btn" id="add-root" type="button">Add Folder</button><div class="settings-note">Enter local folder paths. The agent validates that each folder exists before saving.</div></div>
+    </div>
+    <div class="settings-row">
+      <label>File types</label>
+      <div><label><input type="checkbox" id="type-pptx"> PowerPoint (.pptx)</label><br><label><input type="checkbox" id="type-pdf"> PDF (.pdf)</label></div>
+    </div>
+    <div class="settings-row">
+      <label for="scan-interval">Refresh interval</label>
+      <div><input id="scan-interval" type="number" min="0" step="1"><div class="settings-note">Seconds between incremental refreshes. Use 0 to disable automatic refresh.</div></div>
+    </div>
+    <div class="settings-actions"><button class="btn btn-primary" id="save-settings">Save Settings</button></div>
+    <div id="settings-message" class="settings-message"></div>
+  </section>
+</div>
+<script src="js/settings.js"></script>
+</body>
+</html>

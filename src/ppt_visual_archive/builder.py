@@ -72,6 +72,13 @@ def _build(config: AppConfig, db: IndexDB) -> None:
         f.write(html)
     logger.info("Wrote %s", html_path)
 
+    settings_template = env.get_template("settings.html.j2")
+    settings_html = settings_template.render(title=config.viewer.title)
+    settings_path = output / "settings.html"
+    with open(settings_path, "w", encoding="utf-8") as f:
+        f.write(settings_html)
+    logger.info("Wrote %s", settings_path)
+
 
 def _export_data(db: IndexDB, config: AppConfig) -> dict:
     """Build the JSON data structure consumed by the viewer."""

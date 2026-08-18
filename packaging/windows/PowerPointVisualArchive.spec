@@ -11,6 +11,8 @@ hidden_imports = [
     "pywintypes",
     "win32com",
     "win32com.client",
+    "win32api",
+    "win32gui",
     "win32timezone",
 ]
 

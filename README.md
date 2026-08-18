@@ -108,7 +108,9 @@ If `pptviewer` is still not found in PowerShell, either the virtualenv is not ac
 ### Agent Options
 
 - `--port PORT` — Local viewer port (default 8080)
-- `--scan-interval SECONDS` — Seconds between incremental scan/build refreshes (default 1800; `0` disables periodic refresh)
+- `--scan-interval SECONDS` — Optional one-run override for the persisted incremental refresh interval; `0` disables periodic refresh
+
+When the agent is running, open `http://127.0.0.1:8080/settings.html` (or click **Settings** in the viewer) to see agent status, trigger **Scan Now**, open logs, restart the agent, and edit scan folders, file types, and the persisted refresh interval without touching YAML. On Windows, the installed agent also exposes the same common actions from a notification-area icon.
 
 With no explicit `--config`, existing development locations are checked first, followed by the per-user installed config location. On Windows that default is `%LOCALAPPDATA%\PowerPointVisualArchive\config.yaml`; the default archive and logs live beside it under `archive\` and `logs\`.
 
@@ -126,6 +128,7 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - `render.jpeg_quality` — JPEG quality 1-100 (default 82)
 - `processing.incremental` — skip unchanged files (default true)
 - `processing.purge_deleted` — remove assets for deleted files (default true)
+- `processing.scan_interval_seconds` — automatic agent refresh interval (default 1800; `0` disables automatic refresh)
 
 ## Viewer Features
 
@@ -139,6 +142,8 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - **Calendar heatmap** — switch between the last 12 months or a specific year, then click any day to filter to that date
 - **Slide detail modal** — preview, metadata, open original file, open containing folder
 - **Keyboard navigation** — arrow keys in modal, Escape to close
+- **Agent settings** — localhost status/settings page for Scan Now, roots, file types, refresh interval, logs, and restart while the agent is running
+- **Windows tray controls** — Open Archive, Scan Now, Settings, View Logs, Restart, and Exit from the notification area
 
 ## Development
 
