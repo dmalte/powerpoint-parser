@@ -10,13 +10,15 @@ All notable changes to this project will be documented in this file.
 - Windows packaging scaffold with console and windowless agent executables, a per-user Inno Setup installer, and current-user logon startup registration.
 - Portable runtime/packaging tests and documented Windows smoke-test procedure.
 - Phase 2 self-service agent controls: loopback status/settings/scan/restart API, browser settings page, persisted refresh interval, serialized manual/scheduled refresh, and Windows notification-area actions using existing `pywin32`.
+- Large-archive viewer optimizations: derived search/file-type caching, removal of the O(n²) per-card index lookup, 240-card grid pagination with full-result modal navigation, batched DOM insertion, generated-image revalidation headers, and a deterministic 6,000-slide benchmark fixture.
 
 ### Changed
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
 
 ### Notes
 - Windows executable/installer/PPTX smoke validation is still pending; REQ-DEPLOY-001 / M004 remain unvalidated on Windows.
-- Windows notification-area/menu behavior is implemented with portable/structural coverage but still requires packaged Windows smoke validation; REQ-DEPLOY-002 / M005 remain active.
+- Windows notification-area/menu behavior is implemented with portable/structural coverage but still requires packaged Windows smoke validation; REQ-DEPLOY-002 / M005 remain unvalidated on Windows.
+- The 6,000-slide synthetic fixture is validated structurally, but representative Edge/Chrome timing and memory measurements are still pending; REQ-PERF-001 / M007 remain active.
 
 ## [0.2.0] - 2026-04-02
 

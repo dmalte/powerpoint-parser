@@ -137,7 +137,7 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - **Quick filters** — Today, This Week, This Month
 - **Stars** — star slides locally in the browser and filter to starred slides only
 - **Sidebar** — browse by folder or presentation
-- **Thumbnail grid** — lazy-loaded, grouped by deck/day/week; optional "Wrap per deck" to start each presentation on a new row
+- **Thumbnail grid** — lazy-loaded, grouped by deck/day/week, and paginated to at most 240 live cards for large archives; optional "Wrap per deck" to start each presentation on a new row
 - **PDF support** — scan, render, and browse PDF pages alongside PowerPoint slides
 - **Calendar heatmap** — switch between the last 12 months or a specific year, then click any day to filter to that date
 - **Slide detail modal** — preview, metadata, open original file, open containing folder

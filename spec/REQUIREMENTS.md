@@ -113,10 +113,10 @@ lists are implementation work and do not replace this inventory.
 ## Performance and Scale
 
 - [ ] **REQ-PERF-001** — Keep the local viewer responsive for archives containing at least 6,000 indexed slides/pages on representative company Windows laptops, with measured performance budgets for initial load, filtering/search, sorting/grouping, scrolling, and thumbnail/preview loading. The implementation should avoid creating DOM nodes for the entire archive at once and should preserve local-first operation.
-  - Status: planned
+  - Status: active
   - Milestone: M007
   - Priority: medium
-  - Feature: not selected
+  - Feature: specs/003-large-archive-performance
   - Depends on: REQ-VIEWER-001, REQ-DEPLOY-002
   - Validation: A reproducible 6,000-slide benchmark fixture records exported-data size, initial interactive time, filter/search latency, DOM node/card count, memory behavior, and image-serving behavior on a representative Windows laptop; acceptance budgets are finalized in the future feature spec before implementation completion.
   - Source: large-archive performance planning, 2026-08-18

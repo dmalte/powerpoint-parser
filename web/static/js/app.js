@@ -9,6 +9,8 @@
   let currentModalIdx = -1;  // index in filteredSlides
   let starredSlides = loadStarredSlides();
   let heatmapWindow = loadHeatmapWindow();
+  const GRID_PAGE_SIZE = 240;
+  let gridPage = 0;
 
   const filters = {
     search: "",
@@ -43,8 +45,9 @@
       return;
     }
 
-    // Build lookup
+    // Build lookup and cache derived fields used by filtering/rendering.
     DATA.decks.forEach(d => { deckMap[d.id] = d; });
+    normalizeData();
 
     renderDashboard();
     renderQuickFilterYears();
@@ -125,6 +128,8 @@
     document.getElementById("sort-select").addEventListener("change", applyFilters);
     document.getElementById("group-select").addEventListener("change", applyFilters);
     document.getElementById("deck-break-toggle").addEventListener("change", applyFilters);
+    document.getElementById("page-prev").addEventListener("click", () => changeGridPage(-1));
+    document.getElementById("page-next").addEventListener("click", () => changeGridPage(1));
 
     const heatmapWindowSelect = document.getElementById("heatmap-window-select");
     if (heatmapWindowSelect) {
@@ -182,11 +187,53 @@
   }
 
   /* ═══════════════ FILTERING ═══════════════ */
+  function normalizeData() {
+    DATA.decks.forEach(deck => {
+      const name = deck.file_name || "";
+      deck._fileType = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+      deck._searchDeck = name.toLowerCase();
+      deck._searchFolder = (deck.folder_path || "").toLowerCase();
+    });
+
+    DATA.slides.forEach((slide, sourceIndex) => {
+      const deck = deckMap[slide.deck_id];
+      slide._sourceIndex = sourceIndex;
+      slide._searchFields = {
+        deck: deck?._searchDeck || "",
+        folder: deck?._searchFolder || "",
+        title: (slide.title || "").toLowerCase(),
+        subtitle: (slide.subtitle || "").toLowerCase(),
+        body: (slide.body || "").toLowerCase(),
+        extra: (slide.extra || "").toLowerCase(),
+        notes: (slide.notes || "").toLowerCase(),
+      };
+      slide._searchCacheKey = "";
+      slide._searchBlob = "";
+    });
+  }
+
+  function activeSearchScopeKey() {
+    return Object.entries(filters.searchScopes)
+      .filter(([, enabled]) => enabled)
+      .map(([scope]) => scope)
+      .join("|");
+  }
+
+  function searchBlob(slide, scopeKey) {
+    if (slide._searchCacheKey !== scopeKey) {
+      const fields = slide._searchFields || {};
+      slide._searchBlob = scopeKey.split("|").filter(Boolean).map(scope => fields[scope] || "").join(" ");
+      slide._searchCacheKey = scopeKey;
+    }
+    return slide._searchBlob;
+  }
+
   function applyFilters() {
     const q = filters.search;
     const committedTerms = filters.searchTerms;
     const hasSearch = q || committedTerms.length > 0;
     const range = filters.dateRange;
+    const scopeKey = hasSearch ? activeSearchScopeKey() : "";
 
     filteredSlides = DATA.slides.filter(s => {
       const deck = deckMap[s.deck_id];
@@ -197,11 +244,8 @@
       if (filters.folder && deck.folder_path !== filters.folder) return false;
       if (filters.starredOnly && !isStarred(s.id)) return false;
 
-      // File type filter
-      if (filters.fileType !== "all") {
-        const ext = (deck.file_name || "").split(".").pop().toLowerCase();
-        if (ext !== filters.fileType) return false;
-      }
+      // File type filter (derived once during normalization)
+      if (filters.fileType !== "all" && deck._fileType !== filters.fileType) return false;
 
       // Date range
       if (range) {
@@ -209,17 +253,9 @@
         if (d < range.from || d > range.to) return false;
       }
 
-      // Text search — supports quoted phrases and multi-term AND
+      // Text search — cached per active search-scope combination.
       if (hasSearch) {
-        const haystack = [];
-        if (filters.searchScopes.deck) haystack.push(deck.file_name);
-        if (filters.searchScopes.folder) haystack.push(deck.folder_path);
-        if (filters.searchScopes.title) haystack.push(s.title);
-        if (filters.searchScopes.subtitle) haystack.push(s.subtitle);
-        if (filters.searchScopes.body) haystack.push(s.body);
-        if (filters.searchScopes.extra) haystack.push(s.extra);
-        if (filters.searchScopes.notes) haystack.push(s.notes);
-        const blob = haystack.join(" ").toLowerCase();
+        const blob = searchBlob(s, scopeKey);
 
         // Each committed term must match (AND between tags)
         for (const term of committedTerms) {
@@ -235,7 +271,9 @@
     // Sort
     const sortVal = document.getElementById("sort-select").value;
     sortSlides(filteredSlides, sortVal);
+    filteredSlides.forEach((slide, index) => { slide._filteredIndex = index; });
 
+    gridPage = 0;
     renderActiveFilters();
     renderGrid(filteredSlides);
     document.getElementById("result-count").textContent =
@@ -441,34 +479,55 @@
   /* ── Slide grid ── */
   function renderGrid(slides) {
     const container = document.getElementById("slide-grid");
-    container.innerHTML = "";
+    const totalPages = Math.max(1, Math.ceil(slides.length / GRID_PAGE_SIZE));
+    gridPage = Math.max(0, Math.min(gridPage, totalPages - 1));
+    const pageStart = gridPage * GRID_PAGE_SIZE;
+    const pageSlides = slides.slice(pageStart, pageStart + GRID_PAGE_SIZE);
 
     const groupMode = document.getElementById("group-select").value;
     const deckBreak = document.getElementById("deck-break-toggle").checked;
-    const groups = groupSlides(slides, groupMode);
+    const groups = groupSlides(pageSlides, groupMode);
+    const fragment = document.createDocumentFragment();
 
     groups.forEach(group => {
       if (group.label) {
         const header = document.createElement("div");
         header.className = "group-header";
         header.textContent = group.label;
-        container.appendChild(header);
+        fragment.appendChild(header);
       }
       let prevDeckId = null;
-      group.items.forEach((slide, idx) => {
-        // Insert a row-break divider when the deck changes (if enabled)
+      group.items.forEach(slide => {
         if (deckBreak && groupMode === "none" && prevDeckId !== null && slide.deck_id !== prevDeckId) {
           const brk = document.createElement("div");
           brk.className = "deck-break";
-          container.appendChild(brk);
+          fragment.appendChild(brk);
         }
         prevDeckId = slide.deck_id;
-
-        const globalIdx = slides.indexOf(slide);
-        const card = createSlideCard(slide, globalIdx);
-        container.appendChild(card);
+        fragment.appendChild(createSlideCard(slide, slide._filteredIndex));
       });
     });
+
+    container.replaceChildren(fragment);
+    renderPagination(slides.length, pageStart, pageSlides.length, totalPages);
+  }
+
+  function renderPagination(total, pageStart, visibleCount, totalPages) {
+    const first = total === 0 ? 0 : pageStart + 1;
+    const last = pageStart + visibleCount;
+    document.getElementById("result-range").textContent = total ? `Showing ${first}–${last}` : "No results";
+    document.getElementById("page-indicator").textContent = `Page ${gridPage + 1} of ${totalPages}`;
+    document.getElementById("page-prev").disabled = gridPage === 0;
+    document.getElementById("page-next").disabled = gridPage >= totalPages - 1 || total === 0;
+  }
+
+  function changeGridPage(delta) {
+    const totalPages = Math.max(1, Math.ceil(filteredSlides.length / GRID_PAGE_SIZE));
+    const nextPage = Math.max(0, Math.min(gridPage + delta, totalPages - 1));
+    if (nextPage === gridPage) return;
+    gridPage = nextPage;
+    renderGrid(filteredSlides);
+    document.getElementById("content").scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function createSlideCard(slide, globalIdx) {

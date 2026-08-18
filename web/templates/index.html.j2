@@ -114,8 +114,14 @@
     <div class="grid-toolbar">
       <div class="grid-toolbar-left">
         <span id="result-count"></span>
+        <span id="result-range"></span>
       </div>
       <div class="grid-toolbar-right">
+        <div class="grid-pagination" aria-label="Slide result pages">
+          <button class="btn" id="page-prev" type="button">Previous</button>
+          <span id="page-indicator">Page 1 of 1</span>
+          <button class="btn" id="page-next" type="button">Next</button>
+        </div>
         <label>Group:
           <select id="group-select">
             <option value="none">None</option>

@@ -113,12 +113,12 @@ The local-first architecture remains unchanged: source files and generated archi
 
 - Incremental scanning avoids unnecessary rerendering.
 - Thumbnails are lazy-loaded with `IntersectionObserver`, so off-screen slide images are not fetched immediately.
-- The viewer currently fetches one complete `data/export.json`, parses it into memory, filters/sorts the entire slide array in the browser, and rebuilds the complete matching slide-card DOM on each filter change.
-- `renderGrid()` currently calls `slides.indexOf(slide)` for each rendered slide. A 6,000-slide full render therefore performs roughly 18 million element-position checks in addition to DOM creation; this should be removed before larger architectural changes are considered.
-- Lazy image loading does not bound DOM size: a 6,000-slide result still creates 6,000 slide cards plus buttons, metadata elements, listeners, and observed `<img>` nodes. This is expected to become the primary browser scalability limit.
+- The viewer still fetches one complete `data/export.json` and filters/sorts the entire slide array in browser memory, but it no longer renders the complete matching result set into the DOM.
+- The previous `renderGrid()` per-card `slides.indexOf(slide)` hotspot has been removed; filtered indexes are assigned once after sorting.
+- Lazy image loading is combined with fixed-size grid pagination, so a 6,000-slide result creates at most 240 slide cards at once rather than 6,000 card subtrees.
 - A synthetic 6,000-slide export using the current JSON schema measured approximately 4.7 MB with light text, 12.7 MB with moderate text, and 29.9 MB with heavy extracted text. These are sizing probes rather than browser acceptance measurements; real archives must be benchmarked on representative Windows laptops.
-- At the 5,000–6,000 slide target, the preferred optimization order is frontend-first: remove accidental O(n²) work, precompute searchable text/derived deck fields, batch DOM creation, and implement pagination or virtualized/windowed rendering so only a bounded number of slide cards exist at once.
-- The current localhost server is a simple single-threaded `HTTPServer`. Because the viewer runs over loopback and thumbnails are lazy-loaded, it is not expected to be the first bottleneck at 6,000 slides, but M007 should measure image-request queuing and consider `ThreadingHTTPServer` plus cache headers as a low-complexity server improvement.
+- At the 5,000–6,000 slide target, the frontend-first optimization is now implemented: derived file/search fields are normalized once, scoped search blobs are cached, the accidental per-card O(n²) `indexOf` lookup is removed, page renders use a `DocumentFragment`, and the grid is hard-bounded to 240 cards while modal navigation still spans the full filtered result set.
+- The localhost server now uses `ThreadingHTTPServer`. Generated deck image responses use browser revalidation cache headers, `export.json` uses `no-cache`, and control API responses remain `no-store`. Real image-request behavior still needs representative Windows browser measurement.
 - Keep SQLite as the authoritative index. Do not introduce a database-backed search API solely for the 6,000-slide target unless measured browser/data-loading results justify it. If archives later grow well beyond the target or exported JSON becomes materially large, a second-stage design may split summary/search data from slide details or expose paginated/query endpoints backed by SQLite.
 
 ### Planned Large-Archive Optimization Sequence

@@ -197,8 +197,13 @@ input[type="search"]:focus { border-color: #4a7cff; }
   margin-bottom: 12px;
   gap: 8px;
 }
-.grid-toolbar-left { font-size: .88rem; color: #667; }
-.grid-toolbar-right { display: flex; gap: 10px; align-items: center; }
+.grid-toolbar-left { display: flex; gap: 10px; font-size: .88rem; color: #667; }
+#result-range { color: #889; }
+.grid-toolbar-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.grid-pagination { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.grid-pagination .btn { padding: 3px 8px; }
+.grid-pagination button:disabled { opacity: .45; cursor: default; }
+#page-indicator { font-size: .8rem; color: #667; }
 .grid-toolbar-right label { font-size: .82rem; color: #667; }
 .grid-toolbar-right select {
   font: inherit; font-size: .82rem;

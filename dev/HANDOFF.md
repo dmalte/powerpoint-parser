@@ -1,30 +1,31 @@
 # Handoff
 
-- Last Updated: 2026-08-18T14:12:15-07:00
-- Active Feature: `specs/002-self-service-controls`
+- Last Updated: 2026-08-18T14:22:17-07:00
+- Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-Implement M005 self-service desktop controls, then proceed directly to M007 large-archive performance as requested while M004 installer smoke validation remains deferred.
+Implement M007 / REQ-PERF-001 large-archive browser performance for at least 6,000 slides/pages, while M004/M005 packaged Windows acceptance remains deferred by explicit operator direction.
 
 ## Completed
 
-- Created/selected `specs/002-self-service-controls`; M005 is active and M004 is paused only for Windows validation.
-- Added backward-compatible persisted `processing.scan_interval_seconds`.
-- Refactored the agent around `AgentRuntime` with thread-safe status, serialized manual/scheduled refresh, settings persistence, and restart/exit coordination.
-- Added loopback-only threaded server controls for status, settings, Scan Now, logs, and shutdown/restart.
-- Added generated browser settings/status page and viewer Settings entry point.
-- Added Windows notification-area controls using existing `pywin32` only.
-- Updated PyInstaller hidden imports for tray support.
-- Added focused portable tests for settings persistence, validation, scan serialization, HTTP controls, and tray import isolation.
+- M005 self-service controls checkpoint committed as `2021893`; portable/full tests were green (51 passed).
+- Created/selected `specs/003-large-archive-performance` and passed the feature pre-implementation gate.
+- Added one-time deck/slide normalization and cached scoped lowercased search blobs.
+- Removed the per-card `slides.indexOf(slide)` O(n²) render hotspot.
+- Added fixed 240-card grid pagination with Previous/Next/range display while preserving modal navigation over all filtered results.
+- Batched each grid page through `DocumentFragment`.
+- Added revalidation cache headers for generated deck images and `no-cache` for `export.json`; API responses remain `no-store`.
+- Added deterministic `scripts/benchmark_large_archive.py` and focused performance regression tests.
+- A 6,000-slide / 200-deck fixture with 1,000 text characters per slide produces 12.83 MiB JSON.
 
 ## Decisions
 
-- Reuse `pywin32` for tray behavior; no new production dependency.
-- Keep `config.yaml` authoritative and local; browser settings update the same file.
-- Keep control APIs loopback-only and unauthenticated for local use; do not expose the server externally.
-- Manual and scheduled refreshes share one non-overlapping lock.
-- M005 implementation can proceed before M004 Windows smoke validation by explicit operator direction.
+- Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
+- Bound the live grid DOM to at most 240 slide cards.
+- Preserve full filtered-result search/sort/group semantics and full-result modal navigation.
+- Use cache revalidation rather than immutable caching because generated image paths can be reused after a rebuild.
+- Do not claim real Edge/Chrome latency or memory acceptance before representative Windows hardware is benchmarked.
 
 ## Files Changed
 
@@ -34,32 +35,29 @@ Implement M005 self-service desktop controls, then proceed directly to M007 larg
 - `spec/DESIGN_SPEC.md`
 - `README.md`
 - `CHANGELOG.md`
-- `specs/002-self-service-controls/*`
-- `src/ppt_visual_archive/config.py`
-- `src/ppt_visual_archive/cli.py`
-- `src/ppt_visual_archive/agent.py`
-- `src/ppt_visual_archive/server.py`
-- `src/ppt_visual_archive/tray.py`
-- `src/ppt_visual_archive/builder.py`
+- `specs/003-large-archive-performance/*`
+- `web/static/js/app.js`
+- `web/static/css/style.css`
 - `web/templates/index.html.j2`
-- `web/templates/settings.html.j2`
-- `web/static/js/settings.js`
-- `packaging/windows/PowerPointVisualArchive.spec`
-- `tests/test_agent_runtime.py`
-- `tests/test_self_service_controls.py`
+- `src/ppt_visual_archive/server.py`
+- `scripts/benchmark_large_archive.py`
+- `tests/test_large_archive_performance.py`
+- `dev/HANDOFF.md`
 
 ## Open Issues
 
-- M004 installer/PPTX/logon behavior remains untested on Windows.
-- M005 notification-area icon/menu/restart behavior remains untested in a packaged Windows build; portable behavior is validated.
+- M004 installer/PPTX/logon smoke validation remains pending.
+- M005 packaged Windows tray/menu smoke validation remains pending.
+- M007 representative Edge/Chrome timing, scroll smoothness, and memory measurements on a company-class Windows laptop remain pending.
 
 ## Next Step
 
-Checkpoint M005 implementation, then create/select the M007 large-archive performance feature and implement browser/server optimizations with a reproducible 6,000-slide benchmark fixture.
+Run final diff/source checks and the full suite, checkpoint M007 implementation, then perform the three pending Windows acceptance exercises when a representative Windows host is available.
 
 ## Validation
 
-- `python scripts/workflow_gate.py pre-implement --change-class feature` → passed for `specs/002-self-service-controls`.
-- `.venv/bin/python -m pytest tests/test_agent_runtime.py tests/test_self_service_controls.py -q` → 13 passed.
-- `.venv/bin/python -m pytest tests -q` → 51 passed.
-- Packaged Windows tray smoke validation: not run on this non-Windows host.
+- `python scripts/workflow_gate.py pre-implement --change-class feature` → passed for `specs/003-large-archive-performance`.
+- `.venv/bin/python -m pytest tests/test_large_archive_performance.py -q` → 4 passed.
+- `.venv/bin/python scripts/benchmark_large_archive.py --slides 6000 --text-chars 1000` → `slides=6000 decks=200 json_mib=12.83`.
+- `.venv/bin/python -m pytest tests -q` → 55 passed.
+- Real Windows browser performance acceptance: not run on this host.

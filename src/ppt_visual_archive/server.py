@@ -142,6 +142,14 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             return False
         return True
 
+    def end_headers(self) -> None:
+        route = urlparse(self.path).path
+        if route.startswith("/assets/decks/") and Path(route).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
+            self.send_header("Cache-Control", "private, max-age=0, must-revalidate")
+        elif route == "/data/export.json":
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
+
     def _send_json(self, status: int, payload: dict) -> None:
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
