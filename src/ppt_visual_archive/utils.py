@@ -19,6 +19,29 @@ def setup_logging(verbose: bool = False) -> None:
     )
 
 
+def add_file_logging(path: str | Path, verbose: bool = False) -> Path:
+    """Attach a durable UTF-8 file handler for installed-agent diagnostics."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    resolved = target.resolve()
+
+    for handler in logger.handlers:
+        if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename) == resolved:
+            return resolved
+
+    handler = logging.FileHandler(resolved, encoding="utf-8")
+    handler.setLevel(logging.DEBUG if verbose else logging.INFO)
+    handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s  %(levelname)-7s  %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+    logger.addHandler(handler)
+    return resolved
+
+
 def make_deck_id(file_path: str) -> str:
     """Generate a deterministic, filesystem-safe deck id.
 

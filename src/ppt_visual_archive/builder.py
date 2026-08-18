@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,9 +15,13 @@ from .config import AppConfig
 from .index_db import IndexDB
 from .utils import ensure_dir, logger
 
-# Location of web assets relative to this package
-_PACKAGE_DIR = Path(__file__).resolve().parent
-_WEB_DIR = _PACKAGE_DIR.parent.parent / "web"
+# Location of web assets in source installs or a PyInstaller frozen bundle.
+def _web_dir() -> Path:
+    bundle_root = getattr(sys, "_MEIPASS", None)
+    if bundle_root:
+        return Path(bundle_root) / "web"
+    package_dir = Path(__file__).resolve().parent
+    return package_dir.parent.parent / "web"
 
 
 def build_viewer(config: AppConfig) -> None:
@@ -40,9 +45,11 @@ def _build(config: AppConfig, db: IndexDB) -> None:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     logger.info("Wrote %s (%d KB)", json_path, json_path.stat().st_size // 1024)
 
+    web_dir = _web_dir()
+
     # ── Copy static assets ──
     for subdir in ("css", "js"):
-        src = _WEB_DIR / "static" / subdir
+        src = web_dir / "static" / subdir
         dst = output / subdir
         if src.is_dir():
             if dst.exists():
@@ -51,7 +58,7 @@ def _build(config: AppConfig, db: IndexDB) -> None:
 
     # ── Render HTML ──
     env = Environment(
-        loader=FileSystemLoader(str(_WEB_DIR / "templates")),
+        loader=FileSystemLoader(str(web_dir / "templates")),
         autoescape=True,
     )
     template = env.get_template("index.html.j2")

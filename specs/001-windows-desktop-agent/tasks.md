@@ -18,11 +18,11 @@
 
 ## Phase 1 Runtime Foundation
 
-- [ ] T010 Add per-user application paths and installed config discovery while preserving explicit/development config precedence.
-- [ ] T011 Add `init-config` to create per-user configuration and archive directories without manual YAML editing.
-- [ ] T012 Add the long-running `agent` controller/CLI for initial refresh, localhost serving, and optional periodic incremental refresh.
-- [ ] T013 Make viewer web-resource discovery work in both source and PyInstaller-frozen layouts.
-- [ ] T014 Add focused automated tests for T010-T013 and refresh the handoff.
+- [x] T010 Add per-user application paths and installed config discovery while preserving explicit/development config precedence.
+- [x] T011 Add `init-config` to create per-user configuration and archive directories without manual YAML editing.
+- [x] T012 Add the long-running `agent` controller/CLI for initial refresh, localhost serving, and optional periodic incremental refresh.
+- [x] T013 Make viewer web-resource discovery work in both source and PyInstaller-frozen layouts.
+- [x] T014 Add focused automated tests for T010-T013 and refresh the handoff.
 
 ## Phase 1 Windows Packaging
 

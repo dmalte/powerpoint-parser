@@ -99,3 +99,37 @@ def default_config(output_dir: str, scan_roots: list[str] | None = None) -> AppC
     )
     cfg.resolve_paths()
     return cfg
+
+
+def save_config(config: AppConfig, path: str | Path, overwrite: bool = False) -> Path:
+    """Write an AppConfig using the existing YAML schema."""
+    target = Path(path)
+    if target.exists() and not overwrite:
+        raise FileExistsError(f"Config file already exists: {target}")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    data = {
+        "scan_roots": list(config.scan_roots),
+        "exclude_dirs": list(config.exclude_dirs),
+        "exclude_patterns": list(config.exclude_patterns),
+        "file_types": list(config.file_types),
+        "output_dir": config.output_dir,
+        "db_path": config.db_path,
+        "render": {
+            "thumbnail_width": config.render.thumbnail_width,
+            "preview_width": config.render.preview_width,
+            "image_format": config.render.image_format,
+            "jpeg_quality": config.render.jpeg_quality,
+        },
+        "viewer": {
+            "title": config.viewer.title,
+            "group_by_default": config.viewer.group_by_default,
+        },
+        "processing": {
+            "incremental": config.processing.incremental,
+            "purge_deleted": config.processing.purge_deleted,
+        },
+    }
+    with open(target, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+    return target

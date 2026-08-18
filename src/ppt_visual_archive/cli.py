@@ -9,8 +9,9 @@ from pathlib import Path
 
 import click
 
-from .config import AppConfig, load_config
-from .utils import logger, setup_logging
+from .config import AppConfig, default_config, load_config, save_config
+from .platform_paths import default_archive_dir, default_config_path, default_log_dir
+from .utils import add_file_logging, logger, setup_logging
 
 
 def _resolve_config(config_path: str | None) -> AppConfig:
@@ -18,18 +19,26 @@ def _resolve_config(config_path: str | None) -> AppConfig:
     if config_path:
         return load_config(config_path)
 
-    # Search order: ./config.yaml, ./config/config.yaml
-    candidates = [
-        Path("config.yaml"),
-        Path("config") / "config.yaml",
-    ]
-    for c in candidates:
+    for c in _config_candidates():
         if c.exists():
             click.echo(f"Using config: {c.resolve()}")
             return load_config(c)
 
-    click.echo("No config file found. Use --config or create config.yaml", err=True)
+    click.echo(
+        f"No config file found. Use --config or run 'pptviewer init-config'. "
+        f"Default installed location: {default_config_path()}",
+        err=True,
+    )
     sys.exit(1)
+
+
+def _config_candidates() -> list[Path]:
+    """Return default config search paths in compatibility-preserving order."""
+    return [
+        Path("config.yaml"),
+        Path("config") / "config.yaml",
+        default_config_path(),
+    ]
 
 
 def common_options(command):
@@ -52,6 +61,44 @@ def common_options(command):
 @click.group()
 def main() -> None:
     """PowerPoint Visual Archive Viewer — local slide browser."""
+
+
+@main.command("init-config")
+@click.option(
+    "--root",
+    "scan_roots",
+    multiple=True,
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
+    help="Folder to index. Can be repeated.",
+)
+@click.option("--config", "config_path", default=None, help="Config path; defaults to per-user app data.")
+@click.option("--force", is_flag=True, help="Overwrite an existing config file.")
+@click.option("--include-pdf", is_flag=True, help="Index PDF files as well as PowerPoint files.")
+def init_config(
+    scan_roots: tuple[Path, ...],
+    config_path: str | None,
+    force: bool,
+    include_pdf: bool,
+) -> None:
+    """Create a per-user configuration without hand-editing YAML."""
+    target = Path(config_path) if config_path else default_config_path()
+    archive_dir = default_archive_dir()
+    archive_dir.mkdir(parents=True, exist_ok=True)
+
+    roots = [str(root.resolve()) for root in scan_roots]
+    config = default_config(str(archive_dir), roots)
+    if include_pdf:
+        config.file_types = ["pptx", "pdf"]
+
+    try:
+        saved = save_config(config, target, overwrite=force)
+    except FileExistsError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    click.echo(f"Config created: {saved}")
+    click.echo(f"Archive directory: {config.output_dir}")
+    if not roots:
+        click.echo("No scan roots configured yet; add them before starting the agent.")
 
 
 @main.command()
@@ -107,6 +154,36 @@ def serve(port: int, config_path: str | None, verbose: bool) -> None:
     from .server import run_server
 
     run_server(config.output_dir, port)
+
+
+@main.command()
+@click.option("--port", default=8080, show_default=True, help="Port for local server.")
+@click.option(
+    "--scan-interval",
+    default=1800,
+    show_default=True,
+    type=click.IntRange(min=0),
+    help="Seconds between incremental refreshes; 0 disables periodic refresh.",
+)
+@common_options
+def agent(
+    port: int,
+    scan_interval: int,
+    config_path: str | None,
+    verbose: bool,
+) -> None:
+    """Run the per-user archive agent: refresh, build, serve, and rescan."""
+    config = _resolve_config(config_path)
+    if not config.scan_roots:
+        raise click.ClickException(
+            "No scan roots configured. Run 'pptviewer init-config --root <folder>' first."
+        )
+
+    from .agent import run_agent
+
+    log_path = add_file_logging(default_log_dir() / "agent.log", verbose=verbose)
+    logger.info("Agent log: %s", log_path)
+    run_agent(config, port=port, scan_interval_seconds=scan_interval)
 
 
 @main.command()

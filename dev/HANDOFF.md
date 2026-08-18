@@ -12,6 +12,8 @@ Refine and implement **Windows Packaged Desktop Agent** for milestone M004.
 - Accepted and recorded the three-phase deployment sequence in requirements, roadmap, and consolidated design documentation.
 - Created and selected `specs/001-windows-desktop-agent` for Phase 1 / M004 / REQ-DEPLOY-001.
 - Refined the living feature spec, implementation plan, and task list for the per-user Windows desktop-agent approach.
+- Implemented the Phase 1 runtime foundation: per-user app-data paths, installed config discovery, `init-config`, long-running `agent`, scheduled incremental refresh, durable per-user agent logging, and PyInstaller-frozen web-resource lookup.
+- Added focused portable tests for the installed runtime and agent lifecycle.
 
 ## Decisions
 
@@ -23,10 +25,14 @@ Refine and implement **Windows Packaged Desktop Agent** for milestone M004.
 
 ## Files Changed
 
-- `specs/001-windows-desktop-agent/spec.md`
-- `specs/001-windows-desktop-agent/plan.md`
+- `src/ppt_visual_archive/platform_paths.py`
+- `src/ppt_visual_archive/config.py`
+- `src/ppt_visual_archive/cli.py`
+- `src/ppt_visual_archive/agent.py`
+- `src/ppt_visual_archive/builder.py`
+- `src/ppt_visual_archive/utils.py`
+- `tests/test_agent_runtime.py`
 - `specs/001-windows-desktop-agent/tasks.md`
-- `PROJECT_WORKFLOW.json`
 - `dev/HANDOFF.md`
 
 ## Open Issues
@@ -36,9 +42,11 @@ Refine and implement **Windows Packaged Desktop Agent** for milestone M004.
 
 ## Next Step
 
-Run the feature pre-implementation gate, then implement the Phase 1 runtime foundation: per-user paths/config bootstrap, agent lifecycle, packaged web-resource lookup, and focused tests.
+Add the Windows packaging layer: PyInstaller build definition, per-user Inno Setup installer, and documented Windows smoke-test procedure.
 
 ## Validation
 
 - `python scripts/workflow_gate.py pre-implement --change-class feature` passes for `specs/001-windows-desktop-agent`.
+- `.venv/bin/python -m pytest tests/test_agent_runtime.py -q` → 7 passed.
+- Development dependencies were installed into the existing project `.venv` using the repository setup command so focused tests could run.
 - The local gate does not support the workspace-documented `--owner` writer-lease argument; repository-local gate semantics are being followed for this feature.
