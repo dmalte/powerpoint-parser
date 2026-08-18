@@ -22,6 +22,7 @@ This file defines outcome-level milestones and delivery order. A milestone may s
 | M004 | Phase 1 — Windows packaged desktop agent | Colleagues can install a per-user Windows build that runs in the signed-in user session, owns the local archive server, refreshes incrementally, and starts at logon without Git/Python/console setup | M001, M002 | active | specs/001-windows-desktop-agent |
 | M005 | Phase 2 — Self-service desktop experience | Installed users can control status, scanning, settings, logs, restart, and archive opening through tray/browser UI without editing YAML or using a console | M004 | planned | not selected |
 | M006 | Phase 3 — Enterprise distribution | IT can distribute signed builds silently with managed defaults, diagnostics/version visibility, and a company-suitable update path | M005 | planned | not selected |
+| M007 | Large-archive viewer performance | The local viewer remains responsive with at least 6,000 indexed slides/pages using measured browser/server performance budgets and bounded DOM rendering | M005 | planned | not selected |
 
 ## Deployment Sequence
 
@@ -33,7 +34,7 @@ The accepted rollout is intentionally staged:
 
 ## Next Development Selection
 
-`specs/001-windows-desktop-agent` is the selected substantial feature and implements M004 / REQ-DEPLOY-001. Phases 2 and 3 remain accepted roadmap outcomes but are not active implementation scope.
+`specs/001-windows-desktop-agent` is the selected substantial feature and implements M004 / REQ-DEPLOY-001. Phases 2 and 3 remain accepted roadmap outcomes but are not active implementation scope. M007 / REQ-PERF-001 is also accepted as a later performance milestone; it should begin with benchmarking the existing viewer at 6,000 slides before selecting optimizations.
 
 ## Notes
 
