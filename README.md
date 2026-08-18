@@ -18,6 +18,12 @@ python -m pip install -e .
 
 On Linux, including Raspberry Pi, installation works but PowerPoint slide rendering does not. You can still use PDF scanning and the viewer; `.pptx` rendering requires Windows with Microsoft PowerPoint installed.
 
+### Windows packaged deployment (Phase 1 in progress)
+
+The project now includes the Phase 1 per-user desktop-agent runtime and Windows packaging definitions under `packaging/windows/`. The installed design uses a windowless agent in the signed-in user's session rather than a Windows Service, keeps writable data under per-user application data, and can start automatically at user logon.
+
+The packaging scaffold has portable structural/test coverage, but the Windows installer/PPTX smoke test is still pending. Treat it as an in-progress deployment path until that validation is recorded. See `packaging/windows/README.md` for build and smoke-test steps.
+
 If `.venv` does not exist yet, create it first:
 
 ```bash
@@ -73,12 +79,14 @@ Use `serve` when you want the viewer to open the original `.pptx` or its contain
 
 ## CLI Commands
 
-| Command   | Description |
-|-----------|-------------|
-| `scan`    | Scan folders, export slide images, update index. Only reprocesses changed files. |
-| `build`   | Regenerate the HTML viewer from the existing index. |
-| `serve`   | Start a local HTTP server pointing at the output directory. |
-| `clean`   | Remove orphaned assets and purge deleted deck records. |
+| Command | Description |
+|---|---|
+| `init-config` | Create a per-user configuration and archive directory without hand-editing YAML; accepts repeatable `--root` folders. |
+| `agent` | Run the long-lived per-user runtime: incremental refresh, viewer build, localhost server, and optional periodic refresh. |
+| `scan` | Scan folders, export slide images, update index. Only reprocesses changed files. |
+| `build` | Regenerate the HTML viewer from the existing index. |
+| `serve` | Start a local HTTP server pointing at the output directory. |
+| `clean` | Remove orphaned assets and purge deleted deck records. |
 | `rebuild` | Full reprocess of all files + regenerate viewer. |
 
 If `pptviewer` is still not found in PowerShell, either the virtualenv is not activated or the terminal was opened before activation. Use the explicit launcher instead:
@@ -96,6 +104,13 @@ If `pptviewer` is still not found in PowerShell, either the virtualenv is not ac
 
 - `--force` — Reprocess all files regardless of change detection
 - `--root PATH` — Limit a scan run to one or more folders without touching indexed decks outside that scope
+
+### Agent Options
+
+- `--port PORT` — Local viewer port (default 8080)
+- `--scan-interval SECONDS` — Seconds between incremental scan/build refreshes (default 1800; `0` disables periodic refresh)
+
+With no explicit `--config`, existing development locations are checked first, followed by the per-user installed config location. On Windows that default is `%LOCALAPPDATA%\PowerPointVisualArchive\config.yaml`; the default archive and logs live beside it under `archive\` and `logs\`.
 
 ## Configuration
 

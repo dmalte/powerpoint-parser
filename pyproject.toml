@@ -23,6 +23,9 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
 ]
+packaging = [
+    "pyinstaller>=6.0,<7",
+]
 
 [project.scripts]
 pptviewer = "ppt_visual_archive.cli:main"

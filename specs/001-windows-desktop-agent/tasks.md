@@ -26,15 +26,15 @@
 
 ## Phase 1 Windows Packaging
 
-- [ ] T020 Add a Windows PyInstaller build definition that includes runtime dependencies and viewer web assets.
-- [ ] T021 Add a per-user Inno Setup installer with Start Menu launch and automatic user-logon agent startup.
-- [ ] T022 Document the Windows build/install/smoke-test procedure.
+- [x] T020 Add a Windows PyInstaller build definition that includes runtime dependencies and viewer web assets.
+- [x] T021 Add a per-user Inno Setup installer with Start Menu launch and automatic user-logon agent startup.
+- [x] T022 Document the Windows build/install/smoke-test procedure.
 
 ## Validation and Convergence
 
-- [ ] T030 Run focused tests for the runtime foundation.
-- [ ] T031 Run the configured full relevant test suite.
+- [x] T030 Run focused tests for the runtime foundation.
+- [x] T031 Run the configured full relevant test suite.
 - [ ] T032 Perform and record the Windows packaged-build/install/PPTX smoke test.
-- [ ] T033 Update README and changelog for validated Phase 1 behavior.
-- [ ] T034 Reconcile requirement, roadmap, design, feature documents, and handoff with actual implementation/validation state.
+- [x] T033 Update README and changelog for validated Phase 1 behavior and clearly label pending Windows smoke validation.
+- [x] T034 Reconcile requirement, roadmap, design, feature documents, and handoff with actual implementation/validation state.
 - [ ] T035 Inspect the final diff and add `.completed` only after M004 acceptance criteria are validated.

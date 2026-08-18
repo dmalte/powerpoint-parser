@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Phase 1 per-user desktop-agent runtime with installed config discovery, `init-config`, startup refresh, scheduled incremental refresh, localhost serving, and durable per-user logs.
+- PyInstaller frozen-resource support for viewer templates/static assets.
+- Windows packaging scaffold with console and windowless agent executables, a per-user Inno Setup installer, and current-user logon startup registration.
+- Portable runtime/packaging tests and documented Windows smoke-test procedure.
+
+### Notes
+- Windows executable/installer/PPTX smoke validation is still pending; REQ-DEPLOY-001 / M004 remain active.
+
 ## [0.2.0] - 2026-04-02
 
 ### Added

@@ -46,7 +46,7 @@ Runtime surfaces:
 - CLI for `scan`, `build`, `serve`, `clean`, and `rebuild`
 - Optional local HTTP server for browser-safe "open original" and "open folder" actions
 - Static frontend for search, filters, heatmap, preview modal, and starring slides
-- Planned Windows per-user desktop agent that owns the local server and scheduled incremental refresh while running in the signed-in user's interactive session
+- Windows per-user desktop agent that owns startup refresh, viewer generation, the local server, scheduled incremental refresh, and per-user logging while running in the signed-in user's interactive session
 
 ## Data Model
 
@@ -103,7 +103,7 @@ Direct `file:///` links are unreliable in browsers, especially when served over 
 
 The accepted company rollout uses three phases:
 
-1. **Packaged desktop agent and installer.** Produce a self-contained Windows build so normal users do not install Git, Python, or a virtual environment. Store configuration, logs, database, and generated archive state under per-user application data. Start one long-running agent at user logon; it owns the localhost viewer server and incremental refresh lifecycle. PowerPoint COM automation remains in the signed-in user's interactive session rather than a Windows Service.
+1. **Packaged desktop agent and installer.** The runtime foundation now provides per-user paths/config bootstrap, a long-running agent, scheduled refresh, packaged-resource lookup, and durable logs. Windows PyInstaller/Inno Setup definitions package that runtime for per-user installation and user-logon startup; Windows build/install/PPTX smoke validation is still required before this phase is considered complete. PowerPoint COM automation remains in the signed-in user's interactive session rather than a Windows Service.
 2. **Self-service controls.** Add a notification-area/tray surface and browser settings for status, Open Archive, Scan Now, scan-folder selection, refresh settings, logs, restart, and exit. YAML remains an internal representation rather than a required user workflow.
 3. **Enterprise distribution.** Add signing, silent installation, managed defaults, diagnostics/version reporting, and an update/distribution path suitable for corporate endpoint management.
 
