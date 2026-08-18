@@ -81,6 +81,35 @@ lists are implementation work and do not replace this inventory.
   - Validation: `python scripts/workflow_gate.py status` succeeds and workflow helper tests pass.
   - Source: repository workflow standardization
 
+## Deployment and Distribution
+
+- [ ] **REQ-DEPLOY-001** — Provide a Windows per-user packaged desktop agent that does not require Git, a separately installed Python runtime, virtual-environment setup, console startup, or manual YAML editing for normal operation. The installed agent must run in the signed-in user's session, own the local viewer server, support incremental refresh, use per-user application data, and be launchable automatically at user logon.
+  - Status: active
+  - Milestone: M004
+  - Priority: high
+  - Feature: specs/001-windows-desktop-agent
+  - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002, REQ-VIEWER-001, REQ-PLATFORM-001
+  - Validation: Automated tests cover installed-mode paths/config and agent lifecycle seams; a Windows build produces a self-contained executable and per-user installer; a Windows smoke test confirms logon launch and local viewer access without a development checkout.
+  - Source: accepted three-phase deployment plan, 2026-08-18
+
+- [ ] **REQ-DEPLOY-002** — Add a self-service desktop experience for the installed agent, including tray controls for archive status, opening the archive, scanning now, settings, logs, restart, and exit, plus browser-based configuration of scan folders and refresh behavior.
+  - Status: planned
+  - Milestone: M005
+  - Priority: high
+  - Feature: not selected
+  - Depends on: REQ-DEPLOY-001
+  - Validation: Representative user flows can be completed without a console or direct configuration-file edits.
+  - Source: accepted three-phase deployment plan, 2026-08-18
+
+- [ ] **REQ-DEPLOY-003** — Make Windows distribution enterprise-ready with code signing, unattended installation support, managed/default settings, version and diagnostics surfaces, and an update/distribution path suitable for company software management.
+  - Status: planned
+  - Milestone: M006
+  - Priority: medium
+  - Feature: not selected
+  - Depends on: REQ-DEPLOY-001, REQ-DEPLOY-002
+  - Validation: Signed release artifacts support silent deployment and diagnostics/version verification in a managed Windows environment.
+  - Source: accepted three-phase deployment plan, 2026-08-18
+
 ## Backlog
 
 Add accepted requirements here using stable IDs. Do not renumber existing IDs. Substantial new behavior should be linked to a numbered `specs/<feature>/` record before implementation.

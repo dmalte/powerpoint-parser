@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "workflow_mode": "agent-managed",
-  "active_feature": null,
+  "active_feature": "specs/001-windows-desktop-agent",
   "spec_kit": {
     "enabled": false,
     "integration": "copilot",
