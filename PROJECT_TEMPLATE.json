@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "template": "project-template",
+  "template_version": "legacy-unversioned",
+  "workflow_engine": {
+    "provider": "workspace-control",
+    "api_version": "1",
+    "minimum_version": "1.0.0"
+  },
+  "workflow_migration": {
+    "migrated_on": "2026-08-18",
+    "migrated_to_template_contract": "2.0.0",
+    "source_gate_cohort": "pre-v2-older",
+    "source_workflow_gate_blob": "96a235a2c246a6d4418a3ed0acb1f0ee95af13de",
+    "source_new_feature_blob": "abb8105cf21fb566a1753dcfdd1a6816af49de9e"
+  }
+}

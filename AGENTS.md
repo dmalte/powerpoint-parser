@@ -36,9 +36,9 @@ Follow `workflow_mode` in `PROJECT_WORKFLOW.json`.
 | `hybrid-gated` | Direct fixes are allowed; substantial work uses Spec Kit. |
 | `strict` | Behavior changes use Spec Kit. |
 
-Classify work as `direct`, `feature`, `short`, or `full` before editing
-production code. `WORKFLOW.md` defines non-default mode details and Spec Kit
-sequences. The operator's explicit selection takes precedence over defaults.
+Classify as `direct`, `feature`, `short`, or `full` before production edits.
+`WORKFLOW.md` defines non-default mode details and Spec Kit sequences. Explicit
+operator selection wins.
 
 ## Direct Changes
 
@@ -145,10 +145,10 @@ Use exact commands from `PROJECT_WORKFLOW.json`. Empty commands are unresolved.
 
 ```powershell
 # Narrow correction
-python scripts/workflow_gate.py pre-implement --change-class direct
+python scripts/workflow_gate.py pre-implement --change-class direct --owner <unique-session-id>
 
 # Agent-managed feature
-python scripts/workflow_gate.py pre-implement --change-class feature
+python scripts/workflow_gate.py pre-implement --change-class feature --owner <unique-session-id>
 ```
 
 Override the selected feature only when necessary:

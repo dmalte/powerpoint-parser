@@ -22,7 +22,8 @@
     "agent_may_push": false,
     "agent_may_merge": false,
     "agent_may_create_tags": false,
-    "agent_may_publish_release": false
+    "agent_may_publish_release": false,
+    "commit_on_tracked_task_completion": true
   },
   "project_constraints": [
     "Preserve unrelated user changes.",
@@ -30,5 +31,20 @@
     "Preserve Windows PowerPoint COM rendering while keeping PDF-only workflows usable on non-Windows platforms.",
     "Do not commit local config files, generated archive output, credentials, or machine-specific paths.",
     "Do not add production dependencies without documenting the reason."
-  ]
+  ],
+  "workflow_engine": {
+    "provider": "workspace-control",
+    "api_version": "1",
+    "minimum_version": "1.0.0"
+  },
+  "working_tree": {
+    "dirty_policy": "isolate",
+    "require_pre_implementation_check": true,
+    "require_pre_commit_check": true
+  },
+  "writer_lease": {
+    "enabled": true,
+    "ttl_seconds": 1800,
+    "require_clean_release": true
+  }
 }

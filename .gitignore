@@ -13,3 +13,6 @@ ppt-viewer-output/
 
 .DS_Store
 Thumbs.db
+
+# Task/session workflow state
+.runtime/workflow/
