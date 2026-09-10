@@ -1,28 +1,15 @@
 # Project Agent Instructions
 
-## Required Context
+## Context Acquisition
 
-Before meaningful work, read:
+Before repository work, read this `AGENTS.md`; for nested paths, also read more-specific instructions. Classify the task before loading operational context. Operational context is decision-relevant only when it governs, changes, or validates a required decision.
 
-1. `PROJECT_WORKFLOW.json`
-2. `README.md`
-3. `spec/DESIGN_SPEC.md`
-4. `spec/REQUIREMENTS.md`
-5. `ROADMAP.md`
-6. the feature selected by `active_feature`, when configured
-7. `dev/HANDOFF.md`
+- Source-limited informational answers: use the user-named sources as the answer basis; expand only for governance, ambiguity, or explicit state validation.
+- Broad project status or open-work questions: read matching status-bearing docs (`README.md`, `ROADMAP.md`, `dev/HANDOFF.md`, `PROJECT_WORKFLOW.json`, selected feature docs) and `CHANGELOG.md` or recent Git history when recency is requested.
+- Investigation, debugging, comparison, or review: start from the question; search/read responsible code, tests, interfaces, and only those requirements, design, feature, or workflow docs that govern the decision.
+- Mutation, workflow, or completion: before edits, workflow commands, completion claims, or checkpoints, load `PROJECT_WORKFLOW.json`, inspect `git status --short`, consult the workflow gate, and inspect history when baseline/ownership matters, and load requirements/design/feature docs affected by the change.
 
-Read the workspace-level `WORKFLOW.md` when available. It defines the shared
-mode lifecycles; this file defines repository rules.
-
-Also run:
-
-```powershell
-git status --short
-git log -5 --oneline
-python scripts/workflow_gate.py status
-```
-
+Read the workspace-level `WORKFLOW.md` only when workflow mode, Spec Kit details, or shared lifecycle rules are decision-relevant.
 Preserve unrelated user changes.
 
 ## Workflow Dispatch
