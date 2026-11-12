@@ -30,7 +30,9 @@ Out of scope:
 - Viewer architecture: static HTML/CSS/JS generated from indexed data
 - Activity date semantics: deck file modified time
 - Incremental behavior: unchanged decks are skipped; changed decks are fully rebuilt
-- Agent viewer generation is skipped on no-change scans only when a persisted publication marker matches bundled frontend/config and expected output file timestamps/sizes. Explicit CLI build/rebuild still regenerate.
+- File discovery fails without mutating index data if any scan root is missing or traversal/stat is incomplete. Corrupt PDFs do not replace previously indexed document rows.
+- Replacement deck metadata and slide rows now commit in one SQLite transaction after successful extraction, retaining old rows if processing or SQL fails.
+- Agent viewer generation is skipped on no-change scans only when a persisted publication marker matches bundled frontend/config, expected output file timestamps/sizes, and a digest of active SQLite deck signatures/slide counts. Explicit CLI build/rebuild still regenerate.
 - Output generation uses same-volume staging, individual atomic file replacement, and a last-written completion marker. Publishing the viewer entrypoint after the JSON/scripts protects first-load requests; the promise is per-file integrity, not multi-resource atomicity.
 - Scoped rescans: selected folders can be rescanned without affecting decks outside the chosen scope
 

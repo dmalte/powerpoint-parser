@@ -97,11 +97,8 @@ def _run_scan_inner(
 
     logger.info("Processing %d files...", len(to_process))
 
-    # For changed decks, clean old slides from DB
-    with metrics.step("sqlite_delete_slides"):
-        for sr in changeset.changed:
-            deck_id = make_deck_id(sr.file_path)
-            db.delete_slides_for_deck(deck_id)
+    # Keep existing rows intact until successful replacement processing.
+    # The new deck and its replacement slide set commit in one transaction.
 
     # Partition files by type
     pptx_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pptx")]
@@ -128,8 +125,7 @@ def _run_scan_inner(
                     result = _process_single_pptx(config, renderer, sr)
                 if result.success:
                     with metrics.step("sqlite_upsert"):
-                        db.upsert_deck(result.deck)
-                        db.upsert_slides(result.slides)
+                        db.replace_deck_and_slides(result.deck, result.slides)
                     success_count += 1
                     processed_slides += len(result.slides)
                     logger.info(
@@ -157,8 +153,7 @@ def _run_scan_inner(
             result = _process_single_pdf(config, sr)
         if result.success:
             with metrics.step("sqlite_upsert"):
-                db.upsert_deck(result.deck)
-                db.upsert_slides(result.slides)
+                db.replace_deck_and_slides(result.deck, result.slides)
             success_count += 1
             processed_slides += len(result.slides)
             logger.info(
@@ -273,7 +268,13 @@ def _process_single_pdf(
     except Exception as e:
         return ProcessingResult(deck=deck, success=False, error=str(e))
 
-    deck.slide_count = result.get("slide_count", 0)
+    if result.get("slide_count", 0) <= 0 or not result.get("slides"):
+        return ProcessingResult(
+            deck=deck, success=False,
+            error="PDF could not be decoded into any readable pages",
+        )
+
+    deck.slide_count = result["slide_count"]
 
     slides: list[Slide] = []
     for page in result.get("slides", []):

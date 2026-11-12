@@ -56,7 +56,15 @@
 - [x] T070 Implement compatible-run matching and configurable regression warning evaluator.
 - [x] T071 Generate offline HTML trends and machine-readable JSON comparing committed revisions.
 - [x] T072 Test clean/dirty matching, thresholds, incomplete p95s, HTML escaping and CLI integration.
-- [ ] T073 Validate against Pi benchmark history, reconcile documentation, and checkpoint locally without pushing.
+- [x] T073 Validate against Pi benchmark history, reconcile documentation, and checkpoint locally without pushing.
+
+## M007e — Recovery and Fault Tolerance (2026-11-12)
+
+- [x] T080 Guard missing/inaccessible root traversal to prevent false deletions.
+- [x] T081 Make changed PDF/PowerPoint deck replacement transactional; preserve prior rows on failures and reject invalid PDFs.
+- [x] T082 Detect DB changes missed by the published viewer after interrupted refresh; recover on restart.
+- [x] T083 Add deterministic permission, corrupt-document, SQL failure, low-disk and restart-recovery tests.
+- [x] T084 Run tests, review actual limitations, update docs/handoff and commit locally.
 
 ## Validation and Convergence
 

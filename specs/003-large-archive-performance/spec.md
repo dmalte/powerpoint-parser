@@ -85,3 +85,12 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - Compare only clean runs with identical library size/text length, workload iteration count, operating system/architecture, and exact browser version; identify mismatches explicitly instead of calling them regressions.
 - Compare the most recent compatible *different* Git revisions; allow warning thresholds to be configured without enabling hard failure by default. Missing API metrics and low-sample p95s remain inconclusive.
 - Provide charted history, per-metric percentage changes, revision provenance and warnings. No cloud upload, no source document data, and no production dependency.
+
+## M007e — Scan and Restart Recovery (2026-11-12)
+
+- A missing or inaccessible scan root, traversal failure or file stat error must fail the scan before deletion inference or any SQLite mutation; disconnected drives must not appear as mass deletions.
+- A corrupt, zero-page or unreadable PDF must not be accepted as a successful empty deck. The scan should report the per-file failure and retain the previously indexed deck and slides for retry.
+- Changed presentation metadata and slides should be committed as one SQLite transaction, never deleting old slide rows before a successful render/import. Invalid database operations roll back the old deck content.
+- The viewer publication marker must detect a changed SQLite archive after a crash between database commit and viewer publication, even when the subsequent filesystem scan sees no changes. No SQLite schema migration.
+- Simulated out-of-space/staging failures must preserve the last complete viewer and remain repairable. Startup/refresh errors remain visible; good data is preserved.
+- Tests use temporary PDF/archive fixtures and injected failures; actual Windows COM, filesystem lock semantics, and recovery from power loss remain pending on Windows.

@@ -28,6 +28,8 @@ M007 is high priority for release readiness. Browser and scan/build hooks, local
 
 M007d comparison tooling now produces an offline performance-history HTML dashboard and machine-readable warnings from compatible clean-revision runs. It deliberately excludes different browser builds/machines/input shapes and p95s based on fewer than five observations. Real hardware performance acceptance remains pending.
 
+M007e now protects indexed data against disconnected scan roots, unreadable input, changed-document processing errors and a crash after SQLite commit but before viewer publishing. It includes fault-injection tests for disk space and SQL rollback. This does not prove COM/media recovery on Windows.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

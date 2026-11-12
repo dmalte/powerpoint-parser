@@ -162,6 +162,53 @@ class IndexDB:
                 ),
             )
 
+    def replace_deck_and_slides(self, deck: Deck, slides: list[Slide]) -> None:
+        """Replace a rendered deck as one transaction, preserving old rows on error.
+
+        This is intentionally separate from the existing incremental upsert
+        helpers: old slides must not be deleted until a valid rendered result
+        exists, and no partial deck update may commit if insertion fails.
+        """
+        if any(slide.deck_id != deck.deck_id for slide in slides):
+            raise ValueError("All replacement slides must belong to the same deck")
+        with self._tx() as cur:
+            cur.execute(
+                """INSERT INTO decks
+                   (deck_id, file_path, file_name, folder_path, file_size,
+                    modified_time, processed_time, slide_count, file_signature, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(deck_id) DO UPDATE SET
+                    file_path=excluded.file_path, file_name=excluded.file_name,
+                    folder_path=excluded.folder_path, file_size=excluded.file_size,
+                    modified_time=excluded.modified_time, processed_time=excluded.processed_time,
+                    slide_count=excluded.slide_count, file_signature=excluded.file_signature,
+                    status=excluded.status
+                """,
+                (
+                    deck.deck_id, deck.file_path, deck.file_name, deck.folder_path,
+                    deck.file_size, deck.modified_time, deck.processed_time,
+                    deck.slide_count, deck.file_signature, deck.status,
+                ),
+            )
+            cur.execute("DELETE FROM slides WHERE deck_id = ?", (deck.deck_id,))
+            cur.executemany(
+                """INSERT INTO slides
+                   (slide_id, deck_id, slide_number, title, subtitle_text, body_text,
+                    extra_text, extracted_text, notes_text, thumb_path,
+                    preview_path, width, height)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        slide.slide_id, slide.deck_id, slide.slide_number,
+                        slide.title, slide.subtitle_text, slide.body_text,
+                        slide.extra_text, slide.extracted_text, slide.notes_text,
+                        slide.thumb_path, slide.preview_path, slide.width, slide.height,
+                    )
+                    for slide in slides
+                ],
+            )
+
     def mark_deleted(self, deck_id: str) -> None:
         with self._tx() as cur:
             cur.execute(

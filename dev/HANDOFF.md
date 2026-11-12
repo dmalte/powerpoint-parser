@@ -1,6 +1,6 @@
 # Handoff
 
-- Last Updated: 2026-11-12T13:44:30-08:00
+- Last Updated: 2026-11-12T13:51:41-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
@@ -30,6 +30,11 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007c: Built-in HTTP streams an open JSON file and uses no-store, avoiding stale same-second 304 responses. Browser fetch likewise bypasses the cache.
 - Added eight M007c regression tests for first publication order, unchanged/changed/deleted scans, stale/missing artifacts, staging/publish failure recovery, conditional HTTP caching and concurrent readers.
 - M007d added scripts/benchmark_history.py, a small example threshold file, and six regression tests; outputs are local offline HTML history and JSON comparisons. Clean compatible revisions are required for automatic warnings.
+- M007d clean-revision comparison e0958de vs c685153 completed for 6,000 and 20,000 slides on Pi: 2 comparable scenarios, 0 warning metrics using example thresholds.
+- M007e strict scanner rejects missing/inaccessible scan roots, traversal/stat failures before any deletion inference, protecting prior indexed data.
+- M007e invalid PDFs no longer replace existing slide sets; IndexDB replace_deck_and_slides commits changed metadata and slides in one transaction, rolling back on failures.
+- M007e .viewer-build marker v2 includes a digest of active SQLite deck signatures and slide counts so a scan that committed but crashed before export will force recovery on restart without a DB schema migration.
+- Added tests/test_recovery.py (7 tests): mount failure, walk/stat error, corrupt PDF retry, transaction rollback, crash after SQLite commit, and simulated ENOSPC publication.
 
 
 ## Decisions
@@ -43,6 +48,8 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - Report latest 20 backend runs through loopback-only HTTP; preserve static file viewing without a backend metrics endpoint.
 - Keep benchmark fixtures deterministic but treat their shared JPEGs and Pi Chromium latency as synthetic frontend regression evidence, not PowerPoint/Windows performance acceptance.
 - Keep the initial processing worker asynchronous and serialized with all other refresh actions. An indexed archive stays accessible while updating; initial missing-index loads show a status page.
+- Fail an incomplete scan rather than interpreting unreadable roots/files as deletions; existing index survives until the next successful retry.
+- Keep thumbnail files outside the SQL transaction. Renderer writes to existing asset paths remain a known risk, requiring a separate versioned-media design if observed.
 - The marker is not a database migration; no-change scans still discover files, but avoid JSON/HTML serialization when the output is complete. Template changes or interrupted publication cause a forced rebuild.
 - Guarantee only that each generated JSON/HTML/CSS/JS file is complete. Multi-resource snapshots, in-place image generation and SQLite transactions remain outside M007c.
 
@@ -68,6 +75,8 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - `tests/test_background_startup.py`, `tests/test_agent_runtime.py`, `web/static/js/settings.js`
 - web/templates/settings.html.j2, .gitignore
 - M007c: src/ppt_visual_archive/agent.py, src/ppt_visual_archive/server.py, web/static/js/app.js, web/static/js/agent-status.js, tests/test_incremental_publishing.py
+- M007d: scripts/benchmark_history.py, config/performance_thresholds.example.json, tests/test_benchmark_history.py
+- M007e: src/ppt_visual_archive/scanner.py, src/ppt_visual_archive/pipeline.py, src/ppt_visual_archive/index_db.py, src/ppt_visual_archive/builder.py, tests/test_recovery.py
 
 - `dev/HANDOFF.md`
 
@@ -80,10 +89,11 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - The packaged Windows installer with the newly added performance files has not been built or smoke-tested.
 - M007c replaces generated files atomically per path, but does not provide a single transactional view across multiple HTTP requests, SQLite updates or changed/deleted thumbnails. Real PPTX/Windows acceptance remains pending.
 - Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
+- Image assets are not versioned; renderers can update on-disk files before SQL commit. True cross-media atomicity and abrupt power-loss durability are outside the current increment.
 
 ## Next Step
 
-Complete M007e reliability recovery, M004a portable installer preflight, then M007f evidence-led large-library optimization. Build comparable clean-revision reports as part of M007d. Windows M004/M005 smoke acceptance and real PPTX processing benchmarks remain pending.
+Proceed with M004a static installer/build preflight, then M007f measurement-led optimization. M007e fault/restart recovery has passed portable tests. Windows M004/M005 smoke acceptance and real PPTX processing benchmarks remain pending.
 
 ## Validation
 
@@ -99,5 +109,6 @@ Complete M007e reliability recovery, M004a portable installer preflight, then M0
 - M007c: eight focused tests verify no-change skip, changed/deleted PDF, source/asset invalidation, staging/publish failures, HTTP concurrent readers, first-install ordering and stale validator prevention; all passed on Pi.
 - M007c one-page PDF example: initial refresh ~440 ms; unchanged scans ~5.5 ms, 5.2 ms, 5.1 ms, with log operations scan+build then scan only. Not a representative large-library or Windows benchmark.
 - Full regression suite after M007c: 74 passed (2026-11-12); JavaScript syntax checks and Git diff checks passed.
-- M007d focused tests: 6 passed; initial existing reports have no pair of compatible clean revisions, so new post-commit benchmark evidence is needed.
+- M007d focused tests: 6 passed; 7 saved Pi runs yielded 2 clean comparable cases (6K and 20K) with zero warning metrics using example thresholds.
+- M007e focused failure-injection tests: 7 passed. Full repository suite: 87 passed (2026-11-12).
 - Real Windows browser performance acceptance: not run on this host.

@@ -82,3 +82,10 @@ Update design/requirements/roadmap/README/changelog/handoff with implemented opt
 - Add an stdlib-only reporter over the existing .runtime/benchmarks JSON schema; preserve generated reports outside Git. Match environment including exact browser build and input shape to avoid false cross-device comparisons. A dirty or legacy unknown-worktree baseline must not become the automatic reference.
 - Emit offline, escaped HTML with sortable chronological results and per-size sparklines, plus a JSON comparison suitable for automation. Default policy reports warnings at configurable per-metric percentage thresholds; optional explicit fail-on-warning is intended only for stable CI environments.
 - Use deterministic synthetic reports in regression tests for mismatch, missing metric, insufficient sample count and a genuine warning; run it against the existing Pi reports as an integration check.
+
+## M007e — Failure-Oriented Reliability Plan (2026-11-12)
+
+- Scanner verifies the entire configured root set before enumeration, raises on os.walk and stat errors, and never infers deletions from an incomplete traversal.
+- PDF ingestion rejects zero-page/failed decodes. IndexDB exposes transactional replace_deck_and_slides (upsert deck, delete prior slide rows, insert replacements) and pipeline uses it only after the renderer has succeeded; existing deck metadata/slide rows survive processing failures.
+- Extend .viewer-build.json marker to include a deterministic hash of active SQLite deck signatures and slide counts. viewer_is_current compares that hash through a read-only SQLite connection. This detects a crash after committed DB changes but before regeneration without altering the DB schema.
+- Inject permission, malformed PDF, SQL failure, interruption, and disk-full faults in tests, then verify later refresh recovers. Keep per-deck image snapshotting/power-loss guarantees out of scope; these would require versioned asset generation and platform tests.

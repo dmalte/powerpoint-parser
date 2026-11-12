@@ -205,6 +205,14 @@ This creates ignored local files at .runtime/benchmarks/history.html and .runtim
 
 The JSON thresholds file maps each metric to the maximum percentage increase that triggers a **warning**. Missing metrics and p95 measurements with fewer than five observations are inconclusive, not regressions. Default invocation returns success even with warnings. Use --fail-on-warning only for a controlled, repeatable CI environment; this returns exit code 2 when warnings exist. No telemetry is uploaded. This is a synthetic frontend regression tool, not a substitute for real-image or Windows acceptance tests.
 
+### Recoverable scans and indexed data (M007e)
+
+A missing or inaccessible scan root is treated as a failed scan, not an empty folder. This prevents detached drives or permission errors from triggering mass deletions of previously indexed material. Corrupt/unreadable PDFs are reported as failed documents; previously indexed deck metadata and slides remain available for a later retry.
+
+Changed decks are committed to SQLite as a **single deck-plus-slides transaction** after processing completes; failed replacement inserts roll back. The .viewer-build.json freshness marker also includes a checksum of the indexed deck inventory. If processing committed changes but the process stopped before the viewer regenerated, the next incremental run detects that mismatch and rebuilds even when the filesystem scan reports no changes.
+
+Staged export errors, including simulated disk-full conditions, preserve the last complete output and trigger a retry. Real PowerPoint COM rendering and the overwriting of in-place thumbnail images are not transactionally isolated by this work; fully versioned image generations and power-loss durability require separate design/Windows acceptance.
+
 ## Development
 
 ```bash

@@ -19,17 +19,24 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
     seen_paths: set[str] = set()
     active_roots = [str(Path(root).resolve()) for root in (roots or config.scan_roots)]
     allowed_exts = {ext.lower().lstrip(".") for ext in config.file_types}
+    if not active_roots:
+        raise ValueError("No scan roots configured; refusing to infer deletions")
+
+    # A detached drive must never be treated as an empty library. Check every
+    # root before touching the archive; also fail on traversal/stat errors below.
+    for root in active_roots:
+        path = Path(root)
+        if not path.exists():
+            raise FileNotFoundError(f"Scan root unavailable: {root}")
+        if not path.is_dir():
+            raise NotADirectoryError(f"Scan root is not a directory: {root}")
+
+    def on_walk_error(exc: OSError) -> None:
+        raise exc
 
     for root in active_roots:
         root_path = Path(root)
-        if not root_path.exists():
-            logger.warning("Scan root does not exist: %s", root)
-            continue
-        if not root_path.is_dir():
-            logger.warning("Scan root is not a directory: %s", root)
-            continue
-
-        for dirpath, dirnames, filenames in os.walk(root_path):
+        for dirpath, dirnames, filenames in os.walk(root_path, onerror=on_walk_error):
             # Prune excluded directories (in-place modification of dirnames)
             dirnames[:] = [
                 d for d in dirnames
@@ -55,9 +62,11 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
 
                 try:
                     stat = os.stat(full_path)
-                except OSError as e:
-                    logger.warning("Cannot stat %s: %s", full_path, e)
-                    continue
+                except OSError as exc:
+                    # Skipping the file would misclassify an indexed document
+                    # as deleted. Abort this scan and retry after I/O recovers.
+                    logger.error("Incomplete scan: cannot stat %s: %s", full_path, exc)
+                    raise
 
                 file_size = stat.st_size
                 modified_time = stat.st_mtime

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 import time
@@ -48,7 +49,7 @@ def build_viewer(config: AppConfig) -> None:
 
 # The marker is written last. A source change or failed publication makes the next
 # incremental refresh rebuild even if the scanner found no document changes.
-VIEWER_BUILD_VERSION = 1
+VIEWER_BUILD_VERSION = 2
 _BUILD_MARKER = ".viewer-build.json"
 _PUBLISHED_CORE = (Path("settings.html"), Path("data/export.json"), Path("index.html"))
 
@@ -81,6 +82,39 @@ def _source_fingerprint(config: AppConfig, web_dir: Path) -> str:
     return checksum.hexdigest()
 
 
+def _database_fingerprint(connection: sqlite3.Connection) -> str:
+    """Hash the active indexed inventory without exposing private deck paths.
+
+    The indexed deck signature and the actual slide-row count change when the
+    processing pipeline commits, even when the next filesystem scan is a no-op.
+    """
+    digest = hashlib.sha256()
+    rows = connection.execute(
+        """SELECT d.deck_id, d.file_signature, d.processed_time, d.slide_count,
+                  COUNT(s.slide_id) AS indexed_slides
+           FROM decks d LEFT JOIN slides s ON s.deck_id = d.deck_id
+           WHERE d.status = 'active'
+           GROUP BY d.deck_id
+           ORDER BY d.deck_id"""
+    )
+    for row in rows:
+        digest.update(json.dumps(tuple(row), separators=(",", ":")).encode("utf-8"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _read_database_fingerprint(config: AppConfig) -> str:
+    db_file = Path(config.db_path).resolve()
+    if not db_file.is_file():
+        raise FileNotFoundError("Archive database is missing")
+    # Read-only URI prevents freshness checks from accidentally creating a DB.
+    connection = sqlite3.connect(db_file.as_uri() + "?mode=ro", uri=True)
+    try:
+        return _database_fingerprint(connection)
+    finally:
+        connection.close()
+
+
 def viewer_is_current(config: AppConfig) -> bool:
     """A prior complete publication is present and matches source assets/config.
 
@@ -95,6 +129,8 @@ def viewer_is_current(config: AppConfig) -> bool:
         web_dir = _web_dir()
         if manifest.get("source_fingerprint") != _source_fingerprint(config, web_dir):
             return False
+        if manifest.get("index_fingerprint") != _read_database_fingerprint(config):
+            return False
         expected = {relative.as_posix() for relative in _PUBLISHED_CORE}
         expected.update(rel.as_posix() for rel in _static_sources(web_dir))
         files = manifest.get("files")
@@ -104,7 +140,7 @@ def viewer_is_current(config: AppConfig) -> bool:
             stat = (output / relative).stat()
             if not (stat.st_size == stamp["size"] and stat.st_mtime_ns == stamp["mtime_ns"]):
                 return False
-    except (FileNotFoundError, OSError, ValueError, TypeError, KeyError, AttributeError):
+    except (FileNotFoundError, OSError, ValueError, TypeError, KeyError, AttributeError, sqlite3.Error):
         return False
     return True
 
@@ -133,7 +169,8 @@ def _atomic_write_marker(output: Path, manifest: dict) -> None:
 
 
 def _publish_staged_site(
-    output: Path, stage: Path, relative_files: list[Path], source_fingerprint: str
+    output: Path, stage: Path, relative_files: list[Path],
+    source_fingerprint: str, index_fingerprint: str,
 ) -> None:
     """Stage first, then publish individual intact files; marker is commit evidence.
 
@@ -158,6 +195,7 @@ def _publish_staged_site(
         _atomic_write_marker(output, {
             "schema_version": VIEWER_BUILD_VERSION,
             "source_fingerprint": source_fingerprint,
+            "index_fingerprint": index_fingerprint,
             "files": stamps,
         })
     except Exception:
@@ -216,7 +254,10 @@ def _build(config: AppConfig, db: IndexDB, metrics: TimedRun) -> None:
         # must not expose the viewer page until its data and scripts exist.
         publish_order = static_files + list(_PUBLISHED_CORE)
         with metrics.step("publish"):
-            _publish_staged_site(output, stage, publish_order, fingerprint)
+            _publish_staged_site(
+                output, stage, publish_order, fingerprint,
+                _database_fingerprint(db._conn),
+            )
 
     logger.info("Published viewer: %s (%d KB JSON)", output / "index.html",
                 metrics.counts["json_bytes"] // 1024)
