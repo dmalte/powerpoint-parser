@@ -35,6 +35,20 @@ The installer runs per user with `PrivilegesRequired=lowest` and installs under 
 
 The installer creates a current-user Startup shortcut for `PowerPointArchiveAgent.exe`, so the archive agent launches in the signed-in user's interactive Windows session at logon.
 
+## Cross-platform packaging preflight (M004a)
+
+Run on the Raspberry Pi, Mac or Windows before building:
+
+    python scripts/preflight_windows_package.py --json .runtime/packaging/preflight.json
+
+This stdlib-only command checks source assets, PyInstaller entries, conditional pywin32, the Inno Setup per-user/startup/config-preservation definitions, version consistency, and PowerShell native-command error handling. It reports a warning when Windows-built artifacts are not supplied. The build helper now runs this preflight before dependency installation and checks PE signatures after the build:
+
+    python scripts/preflight_windows_package.py --artifacts dist --version 0.1.0
+
+Use --skip-installer when only the two EXEs were built. The version must match the project's declared version; update pyproject, build default and installer default together when preparing a new release. The optional PE signature check does not prove executable behavior, security signature, installer correctness, or PowerPoint COM support.
+
+**Passing preflight is not Windows acceptance.** The real build, install, upgrade, logon, COM rendering, tray controls and uninstall checks below are still required.
+
 ## Windows smoke test
 
 Use a clean Windows test account where Git and Python are not installed for end-user validation.

@@ -30,6 +30,14 @@
 - [x] T021 Add a per-user Inno Setup installer with Start Menu launch and automatic user-logon agent startup.
 - [x] T022 Document the Windows build/install/smoke-test procedure.
 
+## M004a — Installer Build Preflight (2026-11-12)
+
+- [x] T040 Implement portable static validation of installer specs, build script, launcher modules and bundled frontend assets.
+- [x] T041 Fail Windows build on native subprocess errors and missing setup artifact, with version checks.
+- [x] T042 Add optional Windows artifact presence/signature validation and path-free JSON report.
+- [x] T043 Test known-good/known-bad preflight fixtures and run full portable suite.
+- [x] T044 Reconcile packaging documentation, roadmap and handoff; checkpoint locally without claiming Windows smoke acceptance.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused tests for the runtime foundation.

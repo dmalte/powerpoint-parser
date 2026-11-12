@@ -63,12 +63,8 @@ archive pipeline and browser viewer.
    per-user location, accepts one or more scan roots, creates the per-user archive
    directory, and refuses to overwrite an existing config unless explicitly
    requested.
-4. `pptviewer agent` performs an incremental scan and viewer build before serving
-   the local archive. It can periodically repeat incremental scan/build work when
-   a positive scan interval is configured.
-5. Agent failures during a scheduled refresh are logged and do not intentionally
-   terminate the localhost server; startup failures before the first usable viewer
-   remain visible and fail the process.
+4. The agent serves localhost promptly and performs the first scan/build in the background. It can periodically repeat incremental processing while the viewer remains available.
+5. Refresh failures are logged and exposed through status/progress; the localhost server remains available even if the initial scan fails.
 6. Windows packaging produces a self-contained application containing Python
    dependencies and the `web/` templates/static assets required by the builder.
 7. The Windows installer installs per-user, launches the agent in the interactive
@@ -109,3 +105,10 @@ working and provides a deterministic user-data fallback for tests and CLI use.
 - The final product display name/icon and signing identity are intentionally
   deferred; packaging should use a stable placeholder application identity that
   can be branded later without changing runtime data semantics.
+
+## M004a — Cross-Platform Installer Preflight (2026-11-12)
+
+- Run a dependency-light static preflight on any Python 3.10+ platform before attempting the Windows build; validate source inputs, both launchers, bundled viewer assets, PyInstaller requirements, per-user Inno Setup installer, startup/config preservation, and consistent release version defaults.
+- Validate build.ps1 propagates native command failures and verifies the expected two executables and installer output. Optional artifact checks only inspect existing PE headers and file presence; no installer is executed.
+- Produce a local JSON result with explicit pass/fail/warning and state that Windows PyInstaller, Inno Setup, logon startup, PowerPoint COM and uninstall smoke tests remain unverified.
+- This does not sign builds, implement a Windows Service, or authorize enterprise rollout.

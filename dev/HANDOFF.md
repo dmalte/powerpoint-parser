@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T13:51:41-08:00
+- Last Updated: 2026-11-12T13:57:37-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,000 slides/pages. M007a browser baselines, M007b background startup/progress, and M007c incremental viewer freshness/atomic file publication are implemented and tested on the Pi. M004/M005 Windows packaged acceptance remains pending.
+M007 shared performance and M004a packaging-preflight increments are implemented. Next: M007f measured large-library optimization. M004/M005 real Windows packaged acceptance remains pending.
 
 ## Completed
 
@@ -35,6 +35,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007e invalid PDFs no longer replace existing slide sets; IndexDB replace_deck_and_slides commits changed metadata and slides in one transaction, rolling back on failures.
 - M007e .viewer-build marker v2 includes a digest of active SQLite deck signatures and slide counts so a scan that committed but crashed before export will force recovery on restart without a DB schema migration.
 - Added tests/test_recovery.py (7 tests): mount failure, walk/stat error, corrupt PDF retry, transaction rollback, crash after SQLite commit, and simulated ENOSPC publication.
+- M004a: added portable packaging source and optional PE header checks, build.ps1 fail-fast validation, local JSON reporting, and five preflight regression tests. 14 static checks passed; Windows artifacts absent (warning, not acceptance).
 
 
 ## Decisions
@@ -77,6 +78,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007c: src/ppt_visual_archive/agent.py, src/ppt_visual_archive/server.py, web/static/js/app.js, web/static/js/agent-status.js, tests/test_incremental_publishing.py
 - M007d: scripts/benchmark_history.py, config/performance_thresholds.example.json, tests/test_benchmark_history.py
 - M007e: src/ppt_visual_archive/scanner.py, src/ppt_visual_archive/pipeline.py, src/ppt_visual_archive/index_db.py, src/ppt_visual_archive/builder.py, tests/test_recovery.py
+- M004a: packaging/windows/build.ps1, scripts/preflight_windows_package.py, tests/test_windows_preflight.py, packaging/windows/README.md, specs/001-windows-desktop-agent/{spec,plan,tasks}.md
 
 - `dev/HANDOFF.md`
 
@@ -93,7 +95,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 
 ## Next Step
 
-Proceed with M004a static installer/build preflight, then M007f measurement-led optimization. M007e fault/restart recovery has passed portable tests. Windows M004/M005 smoke acceptance and real PPTX processing benchmarks remain pending.
+Implement M007f evidence-led optimization next, then run cross-platform benchmark history and validate. M004a preflight passes on Pi, but the actual Windows installer, PPTX COM, logon and tray smoke tests remain pending.
 
 ## Validation
 

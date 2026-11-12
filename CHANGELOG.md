@@ -20,6 +20,8 @@ All notable changes to this project will be documented in this file.
 - M007e interrupted-scan recovery tests and source-safety fixes: strict scan root/traversal checks, invalid PDF rejection, transactional replacement of deck+slides, and SQLite-index-aware viewer freshness.
 
 ### Changed
+
+- M004a cross-platform Windows packaging source/artifact preflight with local JSON diagnostics, release-version checks and fail-fast native build script validation. Windows installer smoke remains unverified.
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
 - Agent no longer blocks the HTTP server on first indexing; initial scans use the same serialized worker as manual refreshes.
 - Archive JSON is sent with no-store semantics and opened-file streaming rather than second-resolution conditional caching, preventing a stale 304 response after a quick publication.

@@ -18,6 +18,10 @@ python -m pip install -e .
 
 On Linux, including Raspberry Pi, installation works but PowerPoint slide rendering does not. You can still use PDF scanning and the viewer; `.pptx` rendering requires Windows with Microsoft PowerPoint installed.
 
+### Windows installer source preflight
+
+Run python scripts/preflight_windows_package.py on Linux/macOS/Windows to check the package definitions and bundled frontend assets without building or running Windows binaries. For a local JSON report, add --json .runtime/packaging/preflight.json. The Windows build script invokes preflight automatically before and after packaging. A pass does **not** certify an installer; real Windows and PowerPoint smoke tests remain pending.
+
 ### Windows packaged deployment (Phase 1 in progress)
 
 The project now includes the Phase 1 per-user desktop-agent runtime and Windows packaging definitions under `packaging/windows/`. The installed design uses a windowless agent in the signed-in user's session rather than a Windows Service, keeps writable data under per-user application data, and can start automatically at user logon.

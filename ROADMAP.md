@@ -30,6 +30,8 @@ M007d comparison tooling now produces an offline performance-history HTML dashbo
 
 M007e now protects indexed data against disconnected scan roots, unreadable input, changed-document processing errors and a crash after SQLite commit but before viewer publishing. It includes fault-injection tests for disk space and SQL rollback. This does not prove COM/media recovery on Windows.
 
+M004a portable packaging preflight is implemented: source consistency, conditional COM dependency, user-scoped startup/config preservation, version alignment, build error propagation and optional PE header checks. This does not change M004's paused Windows installer acceptance status.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

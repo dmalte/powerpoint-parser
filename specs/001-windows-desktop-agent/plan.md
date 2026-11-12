@@ -143,3 +143,10 @@ Update throughout the feature:
 - `README.md` for installed and developer workflows;
 - `CHANGELOG.md` after validated runtime/packaging behavior exists;
 - `dev/HANDOFF.md` after each meaningful implementation/validation step.
+
+## M004a — Static Preflight Validation (2026-11-12)
+
+- Add scripts/preflight_windows_package.py reading the real spec, installer, PowerShell build and launchers without executing any Windows binaries. It checks bundle resource roots, pywin32/COM conditional dependency, per-user install and startup behavior, configuration preservation, 2 executable names, version defaults, and required application web assets.
+- Add optional --artifacts directory to check the expected Windows-built executables and setup EXE without claiming runtime success; separate static and artifact-check outcomes clearly. Keep the reporter stdlib-only on Python 3.10+.
+- Add explicit native exit-code handling in build.ps1 after py/venv creation, pip, PyInstaller, and Inno Setup, and verify installer output existence.
+- Use positive and intentionally tampered staging-file tests. Keep packaged Windows/COM smoke as M004 acceptance gate, not a passed preflight item.

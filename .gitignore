@@ -19,3 +19,6 @@ Thumbs.db
 
 # Task/session workflow state
 .runtime/workflow/
+
+# Local generated diagnostic and preflight reports
+.runtime/
