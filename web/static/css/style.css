@@ -421,3 +421,32 @@ input[type="search"]:focus { border-color: #4a7cff; }
   #sidebar { display: none; }
   .modal-body { flex-direction: column; }
 }
+
+
+/* Local-only measurement panel. Hidden until explicitly opened. */
+.perf-panel {
+  position: fixed;
+  z-index: 450;
+  top: 58px;
+  right: 16px;
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(80vh, 800px);
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #cbd2df;
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: 0 12px 35px rgba(0,0,0,.22);
+}
+.perf-panel.hidden { display: none; }
+.perf-panel h2 { font-size: 1rem; margin-bottom: 6px; }
+.perf-panel p { font-size: .8rem; color: #556; margin-bottom: 8px; }
+#perf-summary {
+  background: #f5f6fa;
+  padding: 10px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 52vh;
+}
+.perf-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }

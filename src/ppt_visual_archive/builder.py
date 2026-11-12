@@ -13,6 +13,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from .config import AppConfig
 from .index_db import IndexDB
+from .perf_metrics import TimedRun
 from .utils import ensure_dir, logger
 
 # Location of web assets in source installs or a PyInstaller frozen bundle.
@@ -26,58 +27,74 @@ def _web_dir() -> Path:
 
 def build_viewer(config: AppConfig) -> None:
     """Generate the static HTML viewer from the current index."""
-    db = IndexDB(config.db_path)
+    metrics = TimedRun("build")
+    status = "ok"
     try:
-        _build(config, db)
+        with metrics.step("total"):
+            db = IndexDB(config.db_path)
+            try:
+                _build(config, db, metrics)
+            finally:
+                db.close()
+    except Exception:
+        status = "error"
+        raise
     finally:
-        db.close()
+        metrics.finish(status=status)
 
 
-def _build(config: AppConfig, db: IndexDB) -> None:
+def _build(config: AppConfig, db: IndexDB, metrics: TimedRun) -> None:
     output = Path(config.output_dir)
     ensure_dir(output)
     ensure_dir(output / "data")
 
     # ── Export JSON data ──
-    data = _export_data(db, config)
+    with metrics.step("sqlite_export"):
+        data = _export_data(db, config)
+    metrics.count("decks", len(data["decks"]))
+    metrics.count("slides", len(data["slides"]))
     json_path = output / "data" / "export.json"
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    with metrics.step("json_write"):
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
+    metrics.count("json_bytes", json_path.stat().st_size)
     logger.info("Wrote %s (%d KB)", json_path, json_path.stat().st_size // 1024)
 
     web_dir = _web_dir()
 
     # ── Copy static assets ──
-    for subdir in ("css", "js"):
-        src = web_dir / "static" / subdir
-        dst = output / subdir
-        if src.is_dir():
-            if dst.exists():
-                shutil.rmtree(dst)
-            shutil.copytree(src, dst)
+    with metrics.step("static_assets_copy"):
+        for subdir in ("css", "js"):
+            src = web_dir / "static" / subdir
+            dst = output / subdir
+            if src.is_dir():
+                if dst.exists():
+                    shutil.rmtree(dst)
+                shutil.copytree(src, dst)
 
     # ── Render HTML ──
-    env = Environment(
-        loader=FileSystemLoader(str(web_dir / "templates")),
-        autoescape=True,
-    )
-    template = env.get_template("index.html.j2")
-    html = template.render(
-        title=config.viewer.title,
-        generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
-        stats=data["stats"],
-    )
-    html_path = output / "index.html"
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
-    logger.info("Wrote %s", html_path)
+    with metrics.step("html_render_write"):
+        env = Environment(
+            loader=FileSystemLoader(str(web_dir / "templates")),
+            autoescape=True,
+        )
+        template = env.get_template("index.html.j2")
+        html = template.render(
+            title=config.viewer.title,
+            generated_at=datetime.now().strftime("%Y-%m-%d %H:%M"),
+            stats=data["stats"],
+        )
+        html_path = output / "index.html"
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        logger.info("Wrote %s", html_path)
 
-    settings_template = env.get_template("settings.html.j2")
-    settings_html = settings_template.render(title=config.viewer.title)
-    settings_path = output / "settings.html"
-    with open(settings_path, "w", encoding="utf-8") as f:
-        f.write(settings_html)
-    logger.info("Wrote %s", settings_path)
+        settings_template = env.get_template("settings.html.j2")
+        settings_html = settings_template.render(title=config.viewer.title)
+        settings_path = output / "settings.html"
+        with open(settings_path, "w", encoding="utf-8") as f:
+            f.write(settings_html)
+        logger.info("Wrote %s", settings_path)
 
 
 def _export_data(db: IndexDB, config: AppConfig) -> dict:

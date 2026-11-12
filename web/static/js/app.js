@@ -10,6 +10,7 @@
   let starredSlides = loadStarredSlides();
   let heatmapWindow = loadHeatmapWindow();
   const GRID_PAGE_SIZE = 240;
+  const perf = window.PPTViewerPerf;
   let gridPage = 0;
 
   const filters = {
@@ -35,9 +36,19 @@
   /* ═══════════════ INIT ═══════════════ */
   document.addEventListener("DOMContentLoaded", async () => {
     try {
+      const requestStart = perf.now();
       const resp = await fetch("data/export.json");
+      perf.end("data.fetch_headers_ms", requestStart);
       if (!resp.ok) throw new Error("Failed to load data/export.json");
-      DATA = await resp.json();
+      const bodyStart = perf.now();
+      const raw = await resp.text();
+      perf.end("data.body_read_ms", bodyStart);
+      const declaredSize = resp.headers.get("Content-Length");
+      perf.setExportBytes(declaredSize !== null ? Number(declaredSize) : new Blob([raw]).size);
+      const parseStart = perf.now();
+      DATA = JSON.parse(raw);
+      perf.end("data.json_parse_ms", parseStart);
+      perf.setLibrary(DATA.decks.length, DATA.slides.length);
     } catch (e) {
       document.getElementById("slide-grid").innerHTML =
         '<p style="padding:20px;color:#c00;">Could not load data. Run <code>pptviewer build</code> first, then open via <code>pptviewer serve</code>.</p>';
@@ -46,9 +57,12 @@
     }
 
     // Build lookup and cache derived fields used by filtering/rendering.
+    const normalizeStart = perf.now();
     DATA.decks.forEach(d => { deckMap[d.id] = d; });
     normalizeData();
+    perf.end("data.normalize_ms", normalizeStart);
 
+    const initialUiStart = perf.now();
     renderDashboard();
     renderQuickFilterYears();
     renderFolderList();
@@ -57,6 +71,10 @@
     renderHeatmap();
     applyFilters();
     bindEvents();
+    perf.end("startup.initial_ui_ms", initialUiStart);
+    // From browser navigation start to the first fully built grid (excludes image fetches).
+    perf.record("startup.interactive_ms", perf.now());
+    perf.refreshPanel();
   });
 
   /* ═══════════════ EVENTS ═══════════════ */
@@ -229,6 +247,7 @@
   }
 
   function applyFilters() {
+    const interactionStart = perf.now();
     const q = filters.search;
     const committedTerms = filters.searchTerms;
     const hasSearch = q || committedTerms.length > 0;
@@ -268,9 +287,12 @@
       return true;
     });
 
+    perf.end(hasSearch ? "interaction.search_filter_ms" : "interaction.filter_ms", interactionStart);
     // Sort
+    const sortStart = perf.now();
     const sortVal = document.getElementById("sort-select").value;
     sortSlides(filteredSlides, sortVal);
+    perf.end("interaction.sort_ms", sortStart);
     filteredSlides.forEach((slide, index) => { slide._filteredIndex = index; });
 
     gridPage = 0;
@@ -278,6 +300,7 @@
     renderGrid(filteredSlides);
     document.getElementById("result-count").textContent =
       `${filteredSlides.length} slide${filteredSlides.length !== 1 ? "s" : ""}`;
+    perf.end("interaction.filter_to_grid_ms", interactionStart);
   }
 
   function sortSlides(arr, mode) {
@@ -478,6 +501,7 @@
 
   /* ── Slide grid ── */
   function renderGrid(slides) {
+    const gridStart = perf.now();
     const container = document.getElementById("slide-grid");
     const totalPages = Math.max(1, Math.ceil(slides.length / GRID_PAGE_SIZE));
     gridPage = Math.max(0, Math.min(gridPage, totalPages - 1));
@@ -510,6 +534,7 @@
 
     container.replaceChildren(fragment);
     renderPagination(slides.length, pageStart, pageSlides.length, totalPages);
+    perf.end("grid.render_ms", gridStart);
   }
 
   function renderPagination(total, pageStart, visibleCount, totalPages) {
@@ -565,6 +590,12 @@
     actions.appendChild(openBtn);
 
     const img = document.createElement("img");
+    img.addEventListener("load", () => {
+      if (img._perfStart !== undefined) perf.end("image.thumbnail_ms", img._perfStart);
+    }, { once: true });
+    img.addEventListener("error", () => {
+      perf.count("image.thumbnail_errors");
+    }, { once: true });
     img.dataset.src = slide.thumb;
     img.alt = slide.title || `Slide ${slide.num}`;
     img.loading = "lazy";
@@ -735,6 +766,7 @@
 
   /* ═══════════════ MODAL ═══════════════ */
   function openModal(idx) {
+    const modalStart = perf.now();
     currentModalIdx = idx;
     const slide = filteredSlides[idx];
     if (!slide) return;
@@ -742,7 +774,11 @@
 
     const overlay = document.getElementById("modal-overlay");
 
-    document.getElementById("modal-image").src = slide.preview || slide.thumb || "";
+    const preview = document.getElementById("modal-image");
+    const previewStart = perf.now();
+    preview.onload = () => perf.end("image.preview_ms", previewStart);
+    preview.onerror = () => perf.count("image.preview_errors");
+    preview.src = slide.preview || slide.thumb || "";
     document.getElementById("modal-title").textContent = slide.title || `Slide ${slide.num}`;
     document.getElementById("modal-deck").textContent = deck?.file_name || "";
     document.getElementById("modal-slide-num").textContent = `${slide.num} of ${deck?.slide_count || "?"}`;
@@ -773,6 +809,7 @@
     else { notesSection.style.display = "none"; }
 
     overlay.classList.remove("hidden");
+    perf.end("modal.open_ms", modalStart);
   }
 
   function closeModal() {
@@ -791,6 +828,7 @@
       if (entry.isIntersecting) {
         const img = entry.target;
         if (img.dataset.src) {
+          img._perfStart = perf.now();
           img.src = img.dataset.src;
           img.removeAttribute("data-src");
         }

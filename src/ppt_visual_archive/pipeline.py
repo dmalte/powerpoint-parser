@@ -12,6 +12,7 @@ from .config import AppConfig
 from .extractor import extract_metadata
 from .index_db import IndexDB
 from .models import ChangeSet, Deck, DeckStatus, ProcessingResult, ScanResult, Slide
+from .perf_metrics import TimedRun
 from .pdf_processor import extract_and_render_pdf
 from .renderer import PowerPointRenderer
 from .scanner import detect_changes, scan_files
@@ -24,11 +25,20 @@ def run_scan(
     scan_roots: Iterable[str] | None = None,
 ) -> dict:
     """Full scan + process pipeline. Returns summary stats."""
-    db = IndexDB(config.db_path)
+    metrics = TimedRun("scan")
+    status = "ok"
     try:
-        return _run_scan_inner(config, db, force, scan_roots)
+        with metrics.step("total"):
+            db = IndexDB(config.db_path)
+            try:
+                return _run_scan_inner(config, db, force, scan_roots, metrics)
+            finally:
+                db.close()
+    except Exception:
+        status = "error"
+        raise
     finally:
-        db.close()
+        metrics.finish(status=status)
 
 
 def _run_scan_inner(
@@ -36,40 +46,50 @@ def _run_scan_inner(
     db: IndexDB,
     force: bool,
     scan_roots: Iterable[str] | None,
+    metrics: TimedRun,
 ) -> dict:
     # 1. Scan filesystem
     active_roots = [str(Path(root).resolve()) for root in (scan_roots or config.scan_roots)]
-    scan_results = scan_files(config, roots=active_roots)
+    with metrics.step("filesystem_scan"):
+        scan_results = scan_files(config, roots=active_roots)
+    metrics.count("discovered_files", len(scan_results))
+    metrics.count("scan_roots", len(active_roots))
 
     # 2. Detect changes
-    if force:
-        # Treat everything as new
-        changeset = ChangeSet(new=scan_results)
-    else:
-        changeset = detect_changes(scan_results, db, deletion_scope_roots=active_roots)
+    with metrics.step("change_detection"):
+        if force:
+            # Treat everything as new
+            changeset = ChangeSet(new=scan_results)
+        else:
+            changeset = detect_changes(scan_results, db, deletion_scope_roots=active_roots)
+    for name in ("new", "changed", "unchanged", "deleted"):
+        metrics.count(name, len(getattr(changeset, name)))
 
     # 3. Handle deletions
-    for deck_id in changeset.deleted:
-        if config.processing.purge_deleted:
-            _purge_deck_assets(config, deck_id)
-            db.purge_deck(deck_id)
-            logger.info("Purged deleted deck: %s", deck_id)
-        else:
-            db.mark_deleted(deck_id)
-            logger.info("Marked deck as deleted: %s", deck_id)
+    with metrics.step("deletion_updates"):
+        for deck_id in changeset.deleted:
+            if config.processing.purge_deleted:
+                _purge_deck_assets(config, deck_id)
+                db.purge_deck(deck_id)
+                logger.info("Purged deleted deck: %s", deck_id)
+            else:
+                db.mark_deleted(deck_id)
+                logger.info("Marked deck as deleted: %s", deck_id)
 
     # 4. Process new and changed files
     to_process = changeset.new + changeset.changed
     if not to_process:
+        metrics.count("processed_slides", 0)
         logger.info("No new or changed files to process")
         return _build_summary(changeset, 0, 0)
 
     logger.info("Processing %d files...", len(to_process))
 
     # For changed decks, clean old slides from DB
-    for sr in changeset.changed:
-        deck_id = make_deck_id(sr.file_path)
-        db.delete_slides_for_deck(deck_id)
+    with metrics.step("sqlite_delete_slides"):
+        for sr in changeset.changed:
+            deck_id = make_deck_id(sr.file_path)
+            db.delete_slides_for_deck(deck_id)
 
     # Partition files by type
     pptx_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pptx")]
@@ -79,20 +99,27 @@ def _run_scan_inner(
     error_count = 0
     total_to_process = len(to_process)
     processed_index = 0
+    processed_slides = 0
+    metrics.count("pptx_files_to_process", len(pptx_files))
+    metrics.count("pdf_files_to_process", len(pdf_files))
 
     # ── Process PPTX files with COM renderer ──
     if pptx_files:
         renderer = PowerPointRenderer(config.render)
         try:
-            renderer.start()
+            with metrics.step("pptx_renderer_start"):
+                renderer.start()
             for sr in pptx_files:
                 processed_index += 1
                 logger.info(_format_processing_message(processed_index, total_to_process, sr))
-                result = _process_single_pptx(config, renderer, sr)
+                with metrics.step("pptx_render_extract"):
+                    result = _process_single_pptx(config, renderer, sr)
                 if result.success:
-                    db.upsert_deck(result.deck)
-                    db.upsert_slides(result.slides)
+                    with metrics.step("sqlite_upsert"):
+                        db.upsert_deck(result.deck)
+                        db.upsert_slides(result.slides)
                     success_count += 1
+                    processed_slides += len(result.slides)
                     logger.info(
                         "[%d/%d] Processed: %s (%d slides)",
                         processed_index, total_to_process,
@@ -106,17 +133,21 @@ def _run_scan_inner(
                         sr.file_name, result.error,
                     )
         finally:
-            renderer.stop()
+            with metrics.step("pptx_renderer_stop"):
+                renderer.stop()
 
     # ── Process PDF files ──
     for sr in pdf_files:
         processed_index += 1
         logger.info(_format_processing_message(processed_index, total_to_process, sr))
-        result = _process_single_pdf(config, sr)
+        with metrics.step("pdf_render_extract"):
+            result = _process_single_pdf(config, sr)
         if result.success:
-            db.upsert_deck(result.deck)
-            db.upsert_slides(result.slides)
+            with metrics.step("sqlite_upsert"):
+                db.upsert_deck(result.deck)
+                db.upsert_slides(result.slides)
             success_count += 1
+            processed_slides += len(result.slides)
             logger.info(
                 "[%d/%d] Processed: %s (%d pages)",
                 processed_index, total_to_process,
@@ -130,6 +161,9 @@ def _run_scan_inner(
                 sr.file_name, result.error,
             )
 
+    metrics.count("processed_slides", processed_slides)
+    metrics.count("processed_ok", success_count)
+    metrics.count("processed_err", error_count)
     return _build_summary(changeset, success_count, error_count)
 
 

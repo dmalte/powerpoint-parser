@@ -25,6 +25,15 @@
 - [x] T021 Add deterministic 6,000-slide benchmark/export fixture generator.
 - [x] T022 Add focused regression tests for browser source invariants, fixture, and HTTP cache behavior.
 
+## Performance Feedback Hooks (2026-11-12)
+
+- [x] T040 Add bounded browser performance sampler and downloadable JSON report panel.
+- [x] T041 Record real viewer fetch/parse/normalization/search/sort/grid/modal/image/scroll timing.
+- [x] T042 Record path-free backend scan/build stage timing and recent local JSONL runs.
+- [x] T043 Provide local backend report endpoint and include events when exporting the browser report.
+- [x] T044 Add portable regression tests and live browser smoke validation (6,000 slides, headless Chromium on Pi).
+- [x] T045 Reconcile README, design, requirements, roadmap, changelog, and handoff, then inspect final diff.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

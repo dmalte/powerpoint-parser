@@ -22,7 +22,9 @@ This file defines outcome-level milestones and delivery order. A milestone may s
 | M004 | Phase 1 — Windows packaged desktop agent | Colleagues can install a per-user Windows build that runs in the signed-in user session, owns the local archive server, refreshes incrementally, and starts at logon without Git/Python/console setup | M001, M002 | paused | specs/001-windows-desktop-agent |
 | M005 | Phase 2 — Self-service desktop experience | Installed users can control status, scanning, settings, logs, restart, and archive opening through tray/browser UI without editing YAML or using a console | M004 | paused | specs/002-self-service-controls |
 | M006 | Phase 3 — Enterprise distribution | IT can distribute signed builds silently with managed defaults, diagnostics/version visibility, and a company-suitable update path | M005 | planned | not selected |
-| M007 | Large-archive viewer performance | The local viewer remains responsive with at least 6,000 indexed slides/pages using measured browser/server performance budgets and bounded DOM rendering | M005 | active | specs/003-large-archive-performance |
+| M007 | Large-archive viewer and ingestion performance | Profile and keep viewer interactions responsive at 6,000+ slides/pages while measuring scan/processing time using locally exportable diagnostics and bounded rendering | M005 | active | specs/003-large-archive-performance |
+
+M007 is high priority for release readiness. Browser and scan/build timing hooks plus a user-exported feedback report are implemented and validated on Raspberry Pi with 6,000 synthetic slides. Windows performance acceptance remains open; M004/M005 package acceptance is still paused until representative Windows testing.
 
 ## Deployment Sequence
 

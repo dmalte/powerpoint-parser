@@ -109,6 +109,14 @@ The accepted company rollout uses three phases:
 
 The local-first architecture remains unchanged: source files and generated archive data stay on the user's machine unless a future accepted requirement explicitly introduces shared or cloud storage. A central multi-user server is not part of this rollout.
 
+## Performance Diagnostics
+
+- `web/static/js/performance.js` provides bounded, in-memory browser sampling using `performance.now()`, Navigation Timing, and supported Long Task/heap APIs. `app.js` measures fetch/read/JSON parsing, normalized search, filter/sort, grid rendering, image loading, modal opening and interactions. A scroll-only animation-frame sampler records frame gaps.
+- The top-bar Performance panel displays measurements. Only the user's explicit Download action saves a JSON report; no background transport or persistent browser telemetry is introduced.
+- `TimedRun` in `src/ppt_visual_archive/perf_metrics.py` aggregates timings for filesystem scans, change detection, PPTX/PDF rendering/extraction, SQLite upserts, and static viewer builds. Per-user `logs/performance.jsonl` stores bounded-size local JSONL records with only operation labels, numeric counts and stage durations.
+- `GET /api/performance` on the existing loopback-only server returns up to 20 recent backend records, allowing downloads to combine browser and backend evidence without exposing source paths or raw logs.
+- Real acceptance budgets for Windows Edge/Chrome remain pending. Headless Chromium running on Raspberry Pi is an instrumentation smoke test, not representative hardware validation.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

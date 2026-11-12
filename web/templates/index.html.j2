@@ -17,6 +17,7 @@
     <input type="search" id="search-input" placeholder="Search… use quotes for phrases, space = AND" autocomplete="off">
   </div>
   <div class="topbar-right">
+    <button class="btn" id="perf-toggle" type="button" aria-controls="perf-panel" aria-expanded="false">Performance</button>
     <a class="btn" href="settings.html" title="Agent settings and status">Settings</a>
     <span class="stat-pill" id="stat-decks" title="Total presentations">{{ stats.deck_count }} decks</span>
     <span class="stat-pill" id="stat-slides" title="Total slides">{{ stats.slide_count }} slides</span>
@@ -24,6 +25,18 @@
     <span class="topbar-generated">Generated {{ generated_at }}</span>
   </div>
 </header>
+
+<!-- Local-only browser performance diagnostics; no automatic upload. -->
+<section id="perf-panel" class="perf-panel hidden" aria-label="Performance diagnostics">
+  <h2>Performance diagnostics</h2>
+  <p>Timings from this browser session. No slide text, paths or search queries are recorded.</p>
+  <pre id="perf-summary" aria-live="polite">Loading measurements…</pre>
+  <div class="perf-actions">
+    <button class="btn" id="perf-refresh" type="button">Refresh</button>
+    <button class="btn" id="perf-clear" type="button">Clear samples</button>
+    <button class="btn btn-primary" id="perf-download" type="button">Download JSON report</button>
+  </div>
+</section>
 
 <!-- ═══════════════ MAIN LAYOUT ═══════════════ -->
 <div id="app">
@@ -199,6 +212,7 @@
   </div>
 </div>
 
+<script src="js/performance.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

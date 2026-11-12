@@ -48,6 +48,14 @@ No persisted schema changes. Runtime-only properties prefixed with `_` are added
 - Full pytest suite.
 - Later Chrome/Edge benchmark on representative company Windows laptop.
 
+## Local Diagnostics and Measurement Plan (2026-11-12)
+
+- A small browser helper loaded before `app.js` captures navigation timing and bounded operation durations for fetch/parse/init, filter/sort/grid/pagination, thumbnails, preview, scroll frame gaps, and supported long tasks/memory. Record only numeric timings/counters; never persist search terms or file names.
+- A top-bar Performance panel summarizes measurements and downloads an explicitly requested JSON report. It requests recent backend metrics via a loopback-only `GET /api/performance`; opening the viewer as `file://` still exports browser measurements without backend data.
+- Backend `TimedRun` records aggregate durations and counts around scan discovery, change detection, PPTX/PDF processing, DB updates, and viewer export. Append JSONL to per-user application log directory. Provide a bounded last-20 event endpoint; never serve logs containing paths.
+- Export data and SQLite schemas stay untouched. No telemetry leaves the user's machine automatically. Measure cost should be bounded; do not add dependencies or always-on high-frequency sampling.
+- Structural and runtime tests verify the report's privacy boundary, stage timings, API response, and generated viewer asset. Browser smoke tests are useful but do not substitute for Windows acceptance numbers.
+
 ## Documentation Convergence
 
 Update design/requirements/roadmap/README/changelog/handoff with implemented optimizations and clearly distinguish portable validation from pending real-browser measurements.

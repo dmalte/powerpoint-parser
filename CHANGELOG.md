@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - Portable runtime/packaging tests and documented Windows smoke-test procedure.
 - Phase 2 self-service agent controls: loopback status/settings/scan/restart API, browser settings page, persisted refresh interval, serialized manual/scheduled refresh, and Windows notification-area actions using existing `pywin32`.
 - Large-archive viewer optimizations: derived search/file-type caching, removal of the O(n²) per-card index lookup, 240-card grid pagination with full-result modal navigation, batched DOM insertion, generated-image revalidation headers, and a deterministic 6,000-slide benchmark fixture.
+- Local-only performance diagnostics: exportable browser session timing and scan/build JSONL timing records, a loopback report endpoint, and 6,000-slide Raspberry Pi headless-browser smoke verification.
 
 ### Changed
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.

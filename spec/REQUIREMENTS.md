@@ -112,13 +112,13 @@ lists are implementation work and do not replace this inventory.
 
 ## Performance and Scale
 
-- [ ] **REQ-PERF-001** — Keep the local viewer responsive for archives containing at least 6,000 indexed slides/pages on representative company Windows laptops, with measured performance budgets for initial load, filtering/search, sorting/grouping, scrolling, and thumbnail/preview loading. The implementation should avoid creating DOM nodes for the entire archive at once and should preserve local-first operation.
+- [ ] **REQ-PERF-001** — Keep the local viewer responsive for archives containing at least 6,000 indexed slides/pages on representative company Windows laptops, with measured performance budgets for initial load, filtering/search, sorting/grouping, scrolling, and thumbnail/preview loading; also collect aggregate scan, per-format processing, and archive-export timings locally with a path-free, user-downloadable diagnostics report. The implementation should avoid creating DOM nodes for the entire archive at once and should preserve local-first operation.
   - Status: active
   - Milestone: M007
-  - Priority: medium
+  - Priority: high
   - Feature: specs/003-large-archive-performance
   - Depends on: REQ-VIEWER-001, REQ-DEPLOY-002
-  - Validation: A reproducible 6,000-slide benchmark fixture records exported-data size, initial interactive time, filter/search latency, DOM node/card count, memory behavior, and image-serving behavior on a representative Windows laptop; acceptance budgets are finalized in the future feature spec before implementation completion.
+  - Validation: Local browser timing hooks (including download) and backend scan/build metrics have automated and headless Chromium coverage with a 6,000-slide synthetic archive. Representative Windows initial-interactive, filter/search, scroll, image and memory acceptance measurements and budgets remain outstanding.
   - Source: large-archive performance planning, 2026-08-18
 
 ## Backlog

@@ -48,6 +48,11 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         route = urlparse(self.path).path
+        if route == "/api/performance":
+            from .perf_metrics import recent_runs
+
+            self._send_json(200, {"runs": recent_runs(limit=20)})
+            return
         if route == "/api/status":
             if not self._require_control():
                 return

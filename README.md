@@ -145,6 +145,30 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - **Agent settings** — localhost status/settings page for Scan Now, roots, file types, refresh interval, logs, and restart while the agent is running
 - **Windows tray controls** — Open Archive, Scan Now, Settings, View Logs, Restart, and Exit from the notification area
 
+## Performance diagnostics and feedback
+
+The viewer includes built-in, **local-only** performance measurements (M007).
+After changing the source JS/templates, run `pptviewer build --config config.yaml`
+(or restart the installed agent) to regenerate `index.html` and the bundled scripts.
+
+1. Open the viewer in the browser, preferably through `pptviewer serve` or `pptviewer agent`.
+2. Click **Performance** in the top bar. It shows measurements from the current browser session.
+3. Exercise actual workflows: search for text, change sorting/grouping, paginate, scroll, and open previews.
+4. Click **Refresh** to inspect p50/p95/max timings or **Download JSON report** to save a report for analysis. **Clear samples** starts a new interaction measurement window (but does not reload navigation stats).
+
+The report includes navigation/init timing; JSON fetch, reading and parsing; data normalization; text search, filtering, sorting, grid generation; thumbnail and preview load times; observed scroll-frame gaps, browser long tasks, and optional Chromium JS heap usage. Browsers without heap/long-task support report those fields as unavailable. p50 and p95 cover up to the most recent 200 samples per operation. This instrumentation measures the real session rather than a synthetic wall-clock estimate.
+
+Scan/build processing also records aggregated, monotonic timing stages and numeric file/page counts in `performance.jsonl`, under the user's app-data log directory:
+
+- Windows: `%LOCALAPPDATA%\PowerPointVisualArchive\logs\performance.jsonl`
+- Linux: `~/.local/share/PowerPointVisualArchive/logs/performance.jsonl` (unless `XDG_DATA_HOME` is configured)
+
+The loopback server exposes the most recent 20 backend performance records through `GET /api/performance` (no authentication, only locally accessible); browser JSON downloads include these records when the endpoint is available. When the HTML is opened without the built-in server, exports still contain browser measurements but cannot include backend records.
+
+**Privacy:** No automatic uploads, cloud endpoint, saved search queries, slide content, deck names, source paths, or individual user files are included in performance records. The downloaded report does include browser/version information and library-size counters. Review the file before sharing it outside your system.
+
+**Validation status:** 6,000-slide headless Chromium smoke testing has passed on Raspberry Pi; **company-class Windows Chrome/Edge acceptance measurements are still required**. The Pi measurements are not Windows performance targets or a Windows installer validation.
+
 ## Development
 
 ```bash
