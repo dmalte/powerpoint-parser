@@ -30,6 +30,8 @@ Out of scope:
 - Viewer architecture: static HTML/CSS/JS generated from indexed data
 - Activity date semantics: deck file modified time
 - Incremental behavior: unchanged decks are skipped; changed decks are fully rebuilt
+- Agent viewer generation is skipped on no-change scans only when a persisted publication marker matches bundled frontend/config and expected output file timestamps/sizes. Explicit CLI build/rebuild still regenerate.
+- Output generation uses same-volume staging, individual atomic file replacement, and a last-written completion marker. Publishing the viewer entrypoint after the JSON/scripts protects first-load requests; the promise is per-file integrity, not multi-resource atomicity.
 - Scoped rescans: selected folders can be rescanned without affecting decks outside the chosen scope
 
 ## Architecture
@@ -117,7 +119,9 @@ The local-first architecture remains unchanged: source files and generated archi
 - `TimedRun` in `src/ppt_visual_archive/perf_metrics.py` aggregates timings for filesystem scans, change detection, PPTX/PDF rendering/extraction, SQLite upserts, and static viewer builds. Per-user `logs/performance.jsonl` stores bounded-size local JSONL records with only operation labels, numeric counts and stage durations.
 - `GET /api/performance` on the existing loopback-only server returns up to 20 recent backend records, allowing downloads to combine browser and backend evidence without exposing source paths or raw logs.
 - A cross-platform, dependency-light development harness (`scripts/benchmark_viewer.py` + `scripts/measure_viewer.mjs`, Node.js 22+ CDP) exercises the real viewer using deterministic synthetic datasets, scripted interactions, per-revision reports, and bounded DOM assertions at 6,000/20,000 slides. The shared JPEG placeholders intentionally do not represent real thumbnail performance.
-- Initial indexing now happens on a worker before/while the built-in HTTP server starts; / and /index.html serve a static first-run loading page until index.html exists. The agent exposes counts/phase, not paths, as `progress` in /api/status; Settings and viewer show progress while an update runs.
+- Initial indexing now happens on a worker before/while the built-in HTTP server starts; / and /index.html serve a static first-run loading page until index.html exists. The agent exposes counts/phase, not paths, as progress in /api/status; Settings and viewer show progress while an update runs.
+- The indexed web archive is staged in a hidden temporary directory, then CSS/JS, settings, JSON, and index page are swapped individually using os.replace. The private .viewer-build.json marker holds source/config fingerprint and published sizes/timestamps; a missing/mismatched marker forces regeneration. Output directories remain present throughout publication.
+- The built-in server streams a single opened export file without conditional Last-Modified validation and sends Cache-Control: no-store; the browser requests the export with no-store to avoid stale same-second 304s.
 - Real acceptance budgets for Windows Edge/Chrome remain pending. Headless Chromium running on Raspberry Pi is an instrumentation smoke test, not representative hardware validation.
 
 ## Performance Notes
@@ -129,7 +133,7 @@ The local-first architecture remains unchanged: source files and generated archi
 - Lazy image loading is combined with fixed-size grid pagination, so a 6,000-slide result creates at most 240 slide cards at once rather than 6,000 card subtrees.
 - A synthetic 6,000-slide export using the current JSON schema measured approximately 4.7 MB with light text, 12.7 MB with moderate text, and 29.9 MB with heavy extracted text. These are sizing probes rather than browser acceptance measurements; real archives must be benchmarked on representative Windows laptops.
 - At the 5,000–6,000 slide target, the frontend-first optimization is now implemented: derived file/search fields are normalized once, scoped search blobs are cached, the accidental per-card O(n²) `indexOf` lookup is removed, page renders use a `DocumentFragment`, and the grid is hard-bounded to 240 cards while modal navigation still spans the full filtered result set.
-- The localhost server now uses `ThreadingHTTPServer`. Generated deck image responses use browser revalidation cache headers, `export.json` uses `no-cache`, and control API responses remain `no-store`. Real image-request behavior still needs representative Windows browser measurement.
+- The localhost server now uses `ThreadingHTTPServer`. Generated deck image responses use browser revalidation cache headers, `export.json` uses `no-store`, and control API responses remain `no-store`. Real image-request behavior still needs representative Windows browser measurement.
 - Keep SQLite as the authoritative index. Do not introduce a database-backed search API solely for the 6,000-slide target unless measured browser/data-loading results justify it. If archives later grow well beyond the target or exported JSON becomes materially large, a second-stage design may split summary/search data from slide details or expose paginated/query endpoints backed by SQLite.
 
 ### Planned Large-Archive Optimization Sequence
@@ -147,6 +151,7 @@ M007 / REQ-PERF-001 should begin with a reproducible 6,000-slide benchmark and t
 - PowerPoint COM can be slow or brittle on corrupted decks and is unavailable on non-Windows hosts
 - Browser security rules limit local file access without the local server
 - Very large archives may outgrow a single exported JSON file
-- Cross-platform behavior must not accidentally make `pywin32` a required dependency on non-Windows systems
+- Cross-platform behavior must not accidentally make pywin32 a required dependency on non-Windows systems
+- File-by-file publication avoids torn files but cannot guarantee a single coherent generation across separate browser requests; image processing and SQLite updates are not part of the atomic file-swap boundary.
 - PowerPoint COM is tied to an interactive Windows user session; packaging must not move rendering into a Session 0 Windows Service
 - Windows packaging must bundle the web templates/static assets used by the generated viewer and preserve writable per-user data outside the installation directory

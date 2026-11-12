@@ -30,7 +30,9 @@
         indicator.textContent = 'Scan failed — see Settings';
         indicator.hidden = false;
       } else if (data.status === 'idle' && seenActiveScan) {
-        indicator.textContent = 'Archive updated — reload for new results';
+        indicator.textContent = data.last_summary?.viewer_rebuilt === false
+          ? 'Archive checked — no changes'
+          : 'Archive updated — reload for new results';
         indicator.hidden = false;
         seenActiveScan = false;
       }

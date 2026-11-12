@@ -43,6 +43,14 @@
 - [x] T054 Run complete tests and representative Pi benchmark, reconcile durable documentation and final diff, and checkpoint changes locally without pushing.
 
 
+## M007c — Reliable Incremental Updates (2026-11-12)
+
+- [x] T060 Record accepted no-op freshness, atomic-file publication, and failure-retry semantics in feature docs.
+- [x] T061 Add lightweight published-viewer fingerprint/completion marker and no-change rebuild bypass.
+- [x] T062 Stage complete JSON/HTML/CSS/JS output, publish each file atomically without removing live directories, and invalidate marker on interrupted commit.
+- [x] T063 Validate first run, unchanged/changed/deleted refresh, missing/stale output, failure recovery and concurrent browser readers.
+- [x] T064 Run full tests, collect performance evidence, reconcile docs/handoff, inspect diff, and commit locally without pushing.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

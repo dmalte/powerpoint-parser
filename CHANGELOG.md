@@ -14,10 +14,13 @@ All notable changes to this project will be documented in this file.
 - Local-only performance diagnostics: exportable browser session timing and scan/build JSONL timing records, a loopback report endpoint, and 6,000-slide Raspberry Pi headless-browser smoke verification.
 - Repeatable 6,000/20,000-slide headless Chromium benchmarking harness with real frontend interaction metrics, bounded-grid assertions, and revision-tagged local JSON reports.
 - Background-first agent startup with an HTTP-served first-run loading page, path-free progress fields in /api/status, and in-viewer/Settings scan progress indicators.
+- M007c archive publication marker, source/config fingerprint, missing-file recovery, and no-op scan rebuild avoidance.
+- M007c temporary-staged JSON/HTML/CSS/JS with per-file atomic replacement, failed-publish recovery, and concurrent-reader validation.
 
 ### Changed
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
 - Agent no longer blocks the HTTP server on first indexing; initial scans use the same serialized worker as manual refreshes.
+- Archive JSON is sent with no-store semantics and opened-file streaming rather than second-resolution conditional caching, preventing a stale 304 response after a quick publication.
 
 ### Notes
 - Windows executable/installer/PPTX smoke validation is still pending; REQ-DEPLOY-001 / M004 remain unvalidated on Windows.

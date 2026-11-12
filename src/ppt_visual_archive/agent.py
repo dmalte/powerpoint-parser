@@ -29,6 +29,8 @@ def refresh_archive(
         from .pipeline import run_scan
 
         scan_fn = run_scan
+    from .builder import viewer_is_current
+
     if build_fn is None:
         from .builder import build_viewer
 
@@ -40,13 +42,22 @@ def refresh_archive(
         summary = scan_fn(config, force=False, progress_callback=progress_callback)
     else:
         summary = scan_fn(config, force=False)
-    if progress_callback:
-        count = summary.get("new", 0) + summary.get("changed", 0)
-        progress_callback({
-            "phase": "building", "completed": count, "total": count,
-            "errors": summary.get("processed_err", 0),
-        })
-    build_fn(config)
+    # Avoid a full SQLite export, JSON serialization, template render and
+    # static-file copy on unchanged scans. A missing/stale/incomplete viewer
+    # always forces publication, including after an interrupted prior build.
+    has_changes = any(summary.get(key, 0) for key in ("new", "changed", "deleted"))
+    should_build = has_changes or not viewer_is_current(config)
+    if should_build:
+        if progress_callback:
+            count = summary.get("new", 0) + summary.get("changed", 0)
+            progress_callback({
+                "phase": "building", "completed": count, "total": count,
+                "errors": summary.get("processed_err", 0),
+            })
+        build_fn(config)
+    else:
+        logger.info("Viewer files are current; skipping unnecessary rebuild")
+    summary["viewer_rebuilt"] = should_build
     return summary
 
 

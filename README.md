@@ -185,6 +185,16 @@ The synthetic fixtures deliberately use a **shared placeholder JPEG**. The timin
 
 The first Pi run (6 search iterations, 1,000 characters per slide) measured approximately 953 ms initial viewer readiness and 131 ms p95 filter-to-grid at 6,000 slides; 1,377 ms and 195 ms respectively at 20,000 slides. Both retained at most 240 grid cards. These are environment-specific baselines, not release budgets.
 
+### Incremental refresh and safe publication (M007c)
+
+The background agent now skips viewer generation when the filesystem scan reports no new, changed, or deleted documents **and** the current publication is complete. The first scan after an upgrade from a legacy archive refreshes the HTML/JSON once to establish its freshness marker. Missing generated assets, modified frontend sources, or a changed viewer title also trigger a rebuild, even when document files are unchanged.
+
+A rebuild prepares JSON, templates, CSS and JavaScript in a temporary directory. Each complete file is then atomically substituted into the live archive; the first-run index page is published after JSON and scripts are available. A small private `.viewer-build.json` marker records the final generated-file timestamps/sizes and a fingerprint of the bundled frontend/configuration. The marker is written last; if publication fails, the next refresh detects it and tries again. Existing CSS/JS directories are not deleted while clients are reading them.
+
+The built-in HTTP server and browser always request `data/export.json` without cache reuse, avoiding incorrect same-second 304 Not Modified replies when an export changes. An unchanged scan still performs filesystem discovery, but it avoids the expensive SQLite export, JSON serialization, and frontend file generation. The status response reports `last_summary.viewer_rebuilt` (true/false) so the UI can distinguish a no-change check from an update.
+
+**Scope:** This is atomic **per file**, not an ACID transaction across multiple browser requests, SQLite operations, or PDF/PPTX image files. Browser sessions spanning the brief publication window can observe multiple complete generations. Real Windows packaging/PowerPoint and large-library hardware measurements are still pending.
+
 ## Development
 
 ```bash

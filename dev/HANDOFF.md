@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T13:12:24-08:00
+- Last Updated: 2026-11-12T13:32:12-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,000 slides/pages. M007a repeatable browser baselines and M007b non-blocking startup/progress are implemented. M004/M005 packaged Windows acceptance remains pending.
+Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,000 slides/pages. M007a browser baselines, M007b background startup/progress, and M007c incremental viewer freshness/atomic file publication are implemented and tested on the Pi. M004/M005 Windows packaged acceptance remains pending.
 
 ## Completed
 
@@ -15,7 +15,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - Removed the per-card `slides.indexOf(slide)` O(n²) render hotspot.
 - Added fixed 240-card grid pagination with Previous/Next/range display while preserving modal navigation over all filtered results.
 - Batched each grid page through `DocumentFragment`.
-- Added revalidation cache headers for generated deck images and `no-cache` for `export.json`; API responses remain `no-store`.
+- Added revalidation cache headers for generated deck images and now no-store for export.json; API responses remain no-store.
 - Added deterministic `scripts/benchmark_large_archive.py` and focused performance regression tests.
 - A 6,000-slide / 200-deck fixture with 1,000 text characters per slide produces 12.83 MiB JSON.
 - Added browser performance metrics for fetch, body reading, JSON parse, normalization, initial interaction, search/filter, sort, grid rendering, image load, modal opening, scrolling, long tasks, and optional JS heap.
@@ -25,6 +25,11 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007a: Added `scripts/benchmark_viewer.py` and `scripts/measure_viewer.mjs` for revision-tagged headless Chromium/CDP workloads. Measured 6,000 and 20,000 synthetic slides with 1,000-character bodies and retained a 240-card DOM bound. Reports are generated under ignored `.runtime/benchmarks/`.
 - M007b: Queued first scan asynchronously, made localhost serving immediate, added a first-run loading page that polls progress, and made /api/status expose sanitized numeric phase/completed/total/errors while keeping the old viewer active during refresh. Settings and the viewer's top bar show progress; failures remain visible while server runs.
 - Added portable real-PDF progress/API/error/first-run tests and Chromium CDP benchmark integration tests.
+- M007c: Agent skips expensive viewer builds after an unchanged scan when a source/config fingerprint and completion marker confirm the existing generated site is intact; reports viewer_rebuilt in last_summary.
+- M007c: Builder stages export JSON, HTML, CSS and JS away from live paths; os.replace swaps intact files, index page goes last for initial publication, and a last-written marker forces repair after an interrupted publish.
+- M007c: Built-in HTTP streams an open JSON file and uses no-store, avoiding stale same-second 304 responses. Browser fetch likewise bypasses the cache.
+- Added eight M007c regression tests for first publication order, unchanged/changed/deleted scans, stale/missing artifacts, staging/publish failure recovery, conditional HTTP caching and concurrent readers.
+
 
 ## Decisions
 
@@ -37,6 +42,9 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - Report latest 20 backend runs through loopback-only HTTP; preserve static file viewing without a backend metrics endpoint.
 - Keep benchmark fixtures deterministic but treat their shared JPEGs and Pi Chromium latency as synthetic frontend regression evidence, not PowerPoint/Windows performance acceptance.
 - Keep the initial processing worker asynchronous and serialized with all other refresh actions. An indexed archive stays accessible while updating; initial missing-index loads show a status page.
+- The marker is not a database migration; no-change scans still discover files, but avoid JSON/HTML serialization when the output is complete. Template changes or interrupted publication cause a forced rebuild.
+- Guarantee only that each generated JSON/HTML/CSS/JS file is complete. Multi-resource snapshots, in-place image generation and SQLite transactions remain outside M007c.
+
 
 ## Files Changed
 
@@ -53,11 +61,13 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - `src/ppt_visual_archive/perf_metrics.py`
 - `tests/test_performance_instrumentation.py`
 - `web/static/js/performance.js`
-- `src/ppt_visual_archive/pipeline.py`, `src/ppt_visual_archive/builder.py` stage timings
+- src/ppt_visual_archive/pipeline.py, src/ppt_visual_archive/builder.py stage timings and M007c staged atomic publishing
 - `scripts/benchmark_viewer.py`, `scripts/measure_viewer.mjs`, `tests/test_browser_benchmark.py`
 - `src/ppt_visual_archive/agent.py`, `web/static/loading.html`, `web/static/js/agent-status.js`
 - `tests/test_background_startup.py`, `tests/test_agent_runtime.py`, `web/static/js/settings.js`
-- `web/templates/settings.html.j2`, `.gitignore`
+- web/templates/settings.html.j2, .gitignore
+- M007c: src/ppt_visual_archive/agent.py, src/ppt_visual_archive/server.py, web/static/js/app.js, web/static/js/agent-status.js, tests/test_incremental_publishing.py
+
 - `dev/HANDOFF.md`
 
 ## Open Issues
@@ -67,12 +77,12 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007 representative Edge/Chrome timing, scroll smoothness, and memory measurements on a company-class Windows laptop remain pending.
 - Frontend report measures browser-observable gaps, not a guaranteed sustained FPS. Firefox may not expose JS heap; handle null metrics explicitly.
 - The packaged Windows installer with the newly added performance files has not been built or smoke-tested.
-- Incremental static viewer rebuilds are still non-atomic and occur even when unchanged; M007c is a separate proposed follow-on.
+- M007c replaces generated files atomically per path, but does not provide a single transactional view across multiple HTTP requests, SQLite updates or changed/deleted thumbnails. Real PPTX/Windows acceptance remains pending.
 - Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
 
 ## Next Step
 
-Use the new repeatable 6,000/20,000-slide benchmark on Windows/Chrome/Edge and on Mac for cross-platform comparisons; collect reports from real archives to size thumbnail and processing bottlenecks. Select M007c (skip unchanged rebuilds and atomic static publishing) separately if requested. Complete M004 installer/PPTX/logon and M005 tray smoke validation on Windows; rebuild the installer to include new assets.
+Use the repeatable 6,000/20,000-slide benchmarks on Windows/Chrome/Edge and on Mac, and collect real archive/thumbnail timing reports. Complete M004 installer/PPTX/logon and M005 tray validation on Windows; rebuild the installer to incorporate the new M007c code. Only consider full multi-file/versioned snapshots or atomic image rendering if measured failures justify their additional complexity.
 
 ## Validation
 
@@ -85,4 +95,7 @@ Use the new repeatable 6,000/20,000-slide benchmark on Windows/Chrome/Edge and o
 - M007a benchmark: 6,000 slides, 953 ms initial readiness, 131 ms p95 filter-to-grid; 20,000 slides, 1,377 ms initial readiness, 195 ms p95 filter-to-grid (Pi headless Chromium, 1,000 synthetic text characters per slide, placeholders, 240-card bound).
 - M007b tests: first-run HTTP responds with live status before slow refresh finishes; completion loads actual viewer, errors stay visible, and a real PDF scan emits source-free progress records.
 - `.venv/bin/python -m pytest tests -q` → 66 passed (2026-11-12); Node JS syntax checks and `git diff --check` passed.
+- M007c: eight focused tests verify no-change skip, changed/deleted PDF, source/asset invalidation, staging/publish failures, HTTP concurrent readers, first-install ordering and stale validator prevention; all passed on Pi.
+- M007c one-page PDF example: initial refresh ~440 ms; unchanged scans ~5.5 ms, 5.2 ms, 5.1 ms, with log operations scan+build then scan only. Not a representative large-library or Windows benchmark.
+- Full regression suite after M007c: 74 passed (2026-11-12); JavaScript syntax checks and Git diff checks passed.
 - Real Windows browser performance acceptance: not run on this host.

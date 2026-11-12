@@ -56,7 +56,6 @@ No persisted schema changes. Runtime-only properties prefixed with `_` are added
 - Export data and SQLite schemas stay untouched. No telemetry leaves the user's machine automatically. Measure cost should be bounded; do not add dependencies or always-on high-frequency sampling.
 - Structural and runtime tests verify the report's privacy boundary, stage timings, API response, and generated viewer asset. Browser smoke tests are useful but do not substitute for Windows acceptance numbers.
 
-## Documentation Convergence
 ## Automated Browser Benchmark and Nonblocking Agent (2026-11-12)
 
 - A Python driver prepares real generated viewer HTML/JS plus synthetic JSON from the existing fixture generator, then invokes a Node.js built-in-WebSocket Chrome DevTools Protocol harness against a loopback HTTP server. It exercises search, sorting/grouping, pagination, and modal interactions at 6,000 and 20,000 slides; records the in-app performance report, DOM bound and CDP heap/DOM metrics, alongside Git revision and browser version. No npm package or production dependency is required. Synthetic thumbnails are placeholders; real image/Office performance must be measured separately.
@@ -65,4 +64,15 @@ No persisted schema changes. Runtime-only properties prefixed with `_` are added
 - No PPTX COM change, macOS renderer, install/startup change, cloud telemetry, persisted schema migration, or server-side search is introduced. Validate async correctness, error recovery and API progress with deterministic tests, and benchmark on Pi as functional evidence only.
 
 
+## Documentation Convergence
+
 Update design/requirements/roadmap/README/changelog/handoff with implemented optimizations and clearly distinguish portable validation from pending real-browser measurements.
+
+## M007c — Incremental Freshness and Atomic File Swap (2026-11-12)
+
+- agent.refresh_archive checks scan results and builder.viewer_is_current(config). A no-change scan skips build_viewer only if a persisted output marker matches the current web asset fingerprints and expected output files. It reports a boolean rebuild decision in the refresh summary; API status remains backward compatible.
+- builder.build_viewer generates data/export.json, HTML templates, and static CSS/JS under a sibling staging directory on the same output volume, with no live file writes during generation. Publish using os.replace per file; retain existing static directories rather than deleting them. No external dependencies.
+- Store a private .viewer-build.json marker after successful publication with schema version, source/config fingerprint and expected published file sizes/mtime. Invalidate the marker immediately before the first live file swap. A failure during staging preserves the full previous publication; a failure during publication forces retry next refresh. Stage directory cleanup is automatic.
+- Swap static CSS/JS first, settings next, JSON next, and index.html last so a new installation never exposes the viewer entrypoint before the data is readable. The export endpoint opens a stable file descriptor and ignores coarse If-Modified-Since validators; both server and JavaScript use no-store semantics.
+- Content-level atomicity is per file. A full-page browser load racing a multi-file publication can still combine different complete generations; image exports are still modified by their processors. No claim of multi-file ACID semantics.
+- Acceptance covers first run, repeat no-op refresh, actual changes/deletion, changed title/assets, missing asset, exception before/after publish, live threaded HTTP reading of large exports, and regression against current CLI/agent tests.

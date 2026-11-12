@@ -37,7 +37,7 @@
   document.addEventListener("DOMContentLoaded", async () => {
     try {
       const requestStart = perf.now();
-      const resp = await fetch("data/export.json");
+      const resp = await fetch("data/export.json", { cache: "no-store" });
       perf.end("data.fetch_headers_ms", requestStart);
       if (!resp.ok) throw new Error("Failed to load data/export.json");
       const bodyStart = perf.now();

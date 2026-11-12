@@ -6,6 +6,7 @@ import functools
 import http.server
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,12 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             if not (Path(self.directory) / "index.html").is_file():
                 self._send_loading_page()
                 return
+        if route == "/data/export.json":
+            # Avoid stale 304 responses from second-resolution Last-Modified
+            # validators after a fast atomic replacement. This is a local
+            # snapshot file, so serve the opened inode with no-store.
+            self._send_export_data()
+            return
         if route == "/api/performance":
             from .perf_metrics import recent_runs
 
@@ -132,6 +139,21 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _send_export_data(self) -> None:
+        """Serve one complete JSON generation even if it is swapped mid-read."""
+        path = Path(self.directory) / "data" / "export.json"
+        try:
+            stream = path.open("rb")
+        except OSError:
+            self.send_error(404, "Archive index has not been generated")
+            return
+        with stream:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(os.fstat(stream.fileno()).st_size))
+            self.end_headers()
+            shutil.copyfileobj(stream, self.wfile)
+
     def _handle_open_action(self, route: str) -> None:
         try:
             payload = self._read_json()
@@ -168,7 +190,7 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
         if route.startswith("/assets/decks/") and Path(route).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
             self.send_header("Cache-Control", "private, max-age=0, must-revalidate")
         elif route == "/data/export.json":
-            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def _send_json(self, status: int, payload: dict) -> None:
