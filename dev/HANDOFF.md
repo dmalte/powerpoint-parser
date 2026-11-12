@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T14:27:05-08:00
+- Last Updated: 2026-11-12T15:21:02-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-M008 macOS source implementation is prepared and validated on Raspberry Pi. Actual PowerPoint-for-Mac AppleScript execution, Automation consent and native app packaging/login acceptance remain pending. M004/M005 Windows packaged acceptance remains pending.
+M008a–d Pi work is implemented: immutable slide image generations, safe macOS installer lifecycle, readiness diagnostics and reference/visual comparison suite. Native Mac PowerPoint, app/login and Automation acceptance remain pending; M004/M005 Windows acceptance is separate.
 
 ## Completed
 
@@ -45,6 +45,12 @@ M008 macOS source implementation is prepared and validated on Raspberry Pi. Actu
 - M008: Application Support/Logs paths, Finder open/reveal/open-logs, and PyInstaller .app + user LaunchAgent source scaffold. No Mac changes performed.
 - M008: 15 focused portable tests passed; source preflight 14 pass / 1 warning (no Mac binary); full Pi suite 108 passed.
 
+- M008a: shared image generations stage and validate complete PPTX/PDF slide JPEGs before an atomic per-deck generation-directory rename and SQLite commit. Old image URLs remain intact during updates, deletions and failed SQLite writes. This intentionally retains historical image generations until safe garbage collection is designed.
+- M008b: macOS app/CLI/plist upgrades are staged with backups; failed replacement or simulated launchctl bootstrap restores prior binaries. Uninstall is explicit and preserves config/SQLite/images/logs; app/CLI copies retain PyInstaller symlinks. Native installer tests remain pending.
+- M008c: scripts/diagnose_macos.py reports local renderer/dependency/config/folder/storage/LaunchAgent readiness with no private paths or telemetry, leaving native Automation/TCC and code signing unverified.
+- M008d: scripts/build_macos_fixtures.py creates two PPTX decks (8 slides) covering vector shapes, pictures, tables, charts, Unicode, notes and hidden slides; scripts/compare_slide_images.py compares native render outputs by slide/image dimensions, MAE and visual HTML previews. Pi tests use generated images.
+- Added 24 new portable tests for M008a–d: image versions 7, installer lifecycle 7, diagnostics 4, reference/comparison 6. Full repository suite: 132 passing tests. macOS source preflight: 15 pass, one expected native artifact warning.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -57,7 +63,7 @@ M008 macOS source implementation is prepared and validated on Raspberry Pi. Actu
 - Keep benchmark fixtures deterministic but treat their shared JPEGs and Pi Chromium latency as synthetic frontend regression evidence, not PowerPoint/Windows performance acceptance.
 - Keep the initial processing worker asynchronous and serialized with all other refresh actions. An indexed archive stays accessible while updating; initial missing-index loads show a status page.
 - Fail an incomplete scan rather than interpreting unreadable roots/files as deletions; existing index survives until the next successful retry.
-- Keep thumbnail files outside the SQL transaction. Renderer writes to existing asset paths remain a known risk, requiring a separate versioned-media design if observed.
+- The shared processing pipeline now publishes immutable whole-deck image versions before SQL promotion. The versions are never overwritten or removed implicitly; disk growth is an accepted reliability trade-off until explicit retention/GC.
 - The marker is not a database migration; no-change scans still discover files, but avoid JSON/HTML serialization when the output is complete. Template changes or interrupted publication cause a forced rebuild.
 - Guarantee only that each generated JSON/HTML/CSS/JS file is complete. Multi-resource snapshots, in-place image generation and SQLite transactions remain outside M007c.
 
@@ -97,6 +103,9 @@ M008 macOS source implementation is prepared and validated on Raspberry Pi. Actu
 - M008: packaging/macos/PowerPointVisualArchive.spec, build.sh, install_agent.py, README.md, scripts/preflight_macos_package.py, tests/test_macos_renderer.py, tests/test_macos_packaging.py.
 - M008: specs/004-macos-desktop-agent, PROJECT_WORKFLOW.json and consolidated project docs.
 
+- M008a–d code: src/ppt_visual_archive/asset_generations.py, models.py, pipeline.py, packaging/macos/install_agent.py, scripts/preflight_macos_package.py, scripts/diagnose_macos.py, scripts/build_macos_fixtures.py, scripts/compare_slide_images.py.
+- M008a–d tests: tests/test_image_generations.py, tests/test_macos_installer_lifecycle.py, tests/test_macos_diagnostics.py, tests/test_macos_reference.py; additional changes in specs/004-macos-desktop-agent, packaging/macos/README.md and consolidated docs.
+
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -106,15 +115,15 @@ M008 macOS source implementation is prepared and validated on Raspberry Pi. Actu
 - The packaged Windows installer with the newly added performance files has not been built or smoke-tested.
 - M007c replaces generated files atomically per path, but does not provide a single transactional view across multiple HTTP requests, SQLite updates or changed/deleted thumbnails. Real PPTX/Windows acceptance remains pending.
 - Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
-- Image assets are not versioned; renderers can update on-disk files before SQL commit. True cross-media atomicity and abrupt power-loss durability are outside the current increment.
+- Generation-specific asset paths eliminate in-place overwrites; a process crash between directory rename and SQLite commit may leave an orphan version. Safe garbage collection and abrupt power-loss durability remain separate work.
 
 - M008 native PowerPoint/osascript PDF conversion is unverified. Automation consent, PDF page parity and font/layout fidelity, actual .app build and login/LaunchAgent, and Finder actions remain pending.
-- M008 is only a developer install scaffold: signing/notarization, upgrades/uninstall and transactional image publishing are not proven.
+- M008 installer upgrade, rollback and uninstall behavior are validated with Pi-based fault injection, but native launchctl/signing/notarization, actual Mac PowerPoint and system permissions are unverified.
 - M004/M005 Windows installer/COM/logon/tray and M007 real image/browser benchmarks remain pending.
 
 ## Next Step
 
-M008 next: run a native Mac smoke test with a real PPTX to verify AppleScript, Automation permission, images and app login. Only after acceptance mark M008 done. M004/M005 Windows checks and M007 real-library benchmarks remain separate.
+M008 next: execute a real Mac PowerPoint AppleScript/PDF export and compare native slide images against reference decks; build and install the signed-in user .app, test Automation consent, LaunchAgent login, upgrade/rollback/uninstall, and measure real library performance. Then address findings. Do not mark M008 accepted until these tests pass. Windows M004/M005 acceptance remains pending.
 
 ## Validation
 
@@ -138,5 +147,9 @@ M008 next: run a native Mac smoke test with a real PPTX to verify AppleScript, A
 - M008 focused renderer/packaging tests: 15 passed on Pi.
 - M008 packaging source preflight: 14 pass, zero fail, one expected warning (no native Mac artifacts).
 - Full repository tests after M008: 108 passed (2026-11-12).
-- Native Mac PowerPoint/AppleScript, bundled app and login acceptance: NOT RUN.
+- M008a–d portable tests: 24 new checks passed (7 image generations, 7 installer lifecycle, 4 readiness diagnostics, 6 reference/image comparison).
+- M008a–d full tests: 132 passed (2026-11-12); packaging source preflight 15 passed, one warning (Mac app binary not built on Pi).
+- Reference PPTX fixture run: 2 decks, 8 slides; hidden-slide flag and notes validated with python-pptx. Image comparator verified with generated JPEGs.
+- M008 native PowerPoint/AppleScript, bundle, TCC and LoginAgent: NOT RUN.
+
 - Real Windows browser performance acceptance: not run on this host.

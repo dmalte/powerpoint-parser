@@ -9,6 +9,7 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from .config import AppConfig
+from .asset_generations import ImageGeneration
 from .extractor import extract_metadata
 from .index_db import IndexDB
 from .models import ChangeSet, Deck, DeckStatus, ProcessingResult, ScanResult, Slide
@@ -80,9 +81,11 @@ def _run_scan_inner(
     with metrics.step("deletion_updates"):
         for deck_id in changeset.deleted:
             if config.processing.purge_deleted:
-                _purge_deck_assets(config, deck_id)
+                # Keep assets: a previously opened browser can still reference
+                # the old JSON generation until its tab reloads. Explicit
+                # garbage collection after a retention policy is separate work.
                 db.purge_deck(deck_id)
-                logger.info("Purged deleted deck: %s", deck_id)
+                logger.info("Purged deleted deck from index (assets retained): %s", deck_id)
             else:
                 db.mark_deleted(deck_id)
                 logger.info("Marked deck as deleted: %s", deck_id)
@@ -125,7 +128,7 @@ def _run_scan_inner(
                     result = _process_single_pptx(config, renderer, sr)
                 if result.success:
                     with metrics.step("sqlite_upsert"):
-                        db.replace_deck_and_slides(result.deck, result.slides)
+                        _commit_with_generation(db, result)
                     success_count += 1
                     processed_slides += len(result.slides)
                     logger.info(
@@ -153,7 +156,7 @@ def _run_scan_inner(
             result = _process_single_pdf(config, sr)
         if result.success:
             with metrics.step("sqlite_upsert"):
-                db.replace_deck_and_slides(result.deck, result.slides)
+                _commit_with_generation(db, result)
             success_count += 1
             processed_slides += len(result.slides)
             logger.info(
@@ -176,139 +179,123 @@ def _run_scan_inner(
     return _build_summary(changeset, success_count, error_count)
 
 
+def _commit_with_generation(db: IndexDB, result: ProcessingResult) -> None:
+    """Publish index references only after all new images are ready."""
+    try:
+        db.replace_deck_and_slides(result.deck, result.slides)
+    except Exception:
+        # SQLite rolls back the prior generation. Remove only this unreferenced
+        # new version: the old index/export keep their intact image paths.
+        if result.image_generation_dir:
+            shutil.rmtree(result.image_generation_dir, ignore_errors=True)
+        raise
+
+
 def _process_single_pptx(
     config: AppConfig, renderer: SlideRenderer, sr: ScanResult
 ) -> ProcessingResult:
-    """Process one PPTX presentation: render + extract + build deck/slide objects."""
+    """Render a PPTX into one new immutable generation, then index original text."""
     deck_id = make_deck_id(sr.file_path)
-    assets_dir = os.path.join(config.output_dir, "assets", "decks", deck_id)
-    ensure_dir(assets_dir)
-
     deck = Deck(
-        deck_id=deck_id,
-        file_path=sr.file_path,
-        file_name=sr.file_name,
-        folder_path=sr.folder_path,
-        file_size=sr.file_size,
-        modified_time=sr.modified_time,
-        processed_time=time.time(),
-        file_signature=sr.file_signature,
+        deck_id=deck_id, file_path=sr.file_path,
+        file_name=sr.file_name, folder_path=sr.folder_path,
+        file_size=sr.file_size, modified_time=sr.modified_time,
+        processed_time=time.time(), file_signature=sr.file_signature,
         status=DeckStatus.ACTIVE.value,
     )
+    with ImageGeneration(config.output_dir, deck_id) as gen:
+        try:
+            rendered = renderer.export_slides(sr.file_path, str(gen.stage))
+        except Exception as exc:
+            return ProcessingResult(deck=deck, success=False, error=str(exc))
+        try:
+            gen.validate(rendered)
+        except (RuntimeError, OSError, ValueError) as exc:
+            return ProcessingResult(deck=deck, success=False, error=str(exc))
 
-    # ── Render slide images ──
-    try:
-        render_results = renderer.export_slides(sr.file_path, assets_dir)
-    except Exception as e:
-        return ProcessingResult(deck=deck, success=False, error=str(e))
-
-    if not render_results:
-        return ProcessingResult(deck=deck, success=False, error="No slide images were generated")
-
-    # ── Extract metadata from original PPTX, never from the temporary PDF ──
-    try:
-        meta = extract_metadata(sr.file_path)
-    except Exception as e:
-        logger.warning("Metadata extraction failed for %s: %s", sr.file_name, e)
-        meta = {"slide_count": len(render_results), "slides": []}
-
-    expected_count = meta.get("slide_count", 0)
-    if expected_count and expected_count != len(render_results):
+        try:
+            metadata = extract_metadata(sr.file_path)
+        except Exception as exc:
+            logger.warning("Metadata extraction failed for %s: %s", sr.file_name, exc)
+            metadata = {"slide_count": len(rendered), "slides": []}
+        expected = metadata.get("slide_count", 0)
+        if expected and expected != len(rendered):
+            return ProcessingResult(
+                deck=deck, success=False,
+                error=f"Rendered {len(rendered)} slides but source contains {expected}",
+            )
+        deck.slide_count = len(rendered)
+        metadata_slides = {entry["slide_number"]: entry for entry in metadata.get("slides", [])}
+        slides: list[Slide] = []
+        for record in rendered:
+            number = record["slide_number"]
+            source = metadata_slides.get(number, {})
+            slides.append(Slide(
+                slide_id=f"{deck_id}_s{number:03d}", deck_id=deck_id,
+                slide_number=number, title=source.get("title", ""),
+                subtitle_text=source.get("subtitle_text", ""),
+                body_text=source.get("body_text", ""),
+                extra_text=source.get("extra_text", ""),
+                extracted_text=source.get("extracted_text", ""),
+                notes_text=source.get("notes_text", ""),
+                thumb_path=gen.relative(record["thumb_path"]),
+                preview_path=gen.relative(record["preview_path"]),
+                width=record.get("width", 0), height=record.get("height", 0),
+            ))
+        gen.publish(rendered)
         return ProcessingResult(
-            deck=deck, success=False,
-            error=f"Rendered {len(render_results)} slides but source contains {expected_count}",
+            deck=deck, slides=slides, success=True,
+            image_generation_dir=str(gen.path),
         )
-    deck.slide_count = len(render_results)
-
-    # ── Build slide objects ──
-    slides: list[Slide] = []
-    meta_slides = {m["slide_number"]: m for m in meta.get("slides", [])}
-
-    for rr in render_results:
-        snum = rr["slide_number"]
-        ms = meta_slides.get(snum, {})
-
-        # Relative path from output root for the viewer
-        thumb_rel = f"assets/decks/{deck_id}/{rr.get('thumb_path', '')}" if rr.get("thumb_path") else ""
-        preview_rel = f"assets/decks/{deck_id}/{rr.get('preview_path', '')}" if rr.get("preview_path") else ""
-
-        slide = Slide(
-            slide_id=f"{deck_id}_s{snum:03d}",
-            deck_id=deck_id,
-            slide_number=snum,
-            title=ms.get("title", ""),
-            subtitle_text=ms.get("subtitle_text", ""),
-            body_text=ms.get("body_text", ""),
-            extra_text=ms.get("extra_text", ""),
-            extracted_text=ms.get("extracted_text", ""),
-            notes_text=ms.get("notes_text", ""),
-            thumb_path=thumb_rel,
-            preview_path=preview_rel,
-            width=rr.get("width", 0),
-            height=rr.get("height", 0),
-        )
-        slides.append(slide)
-
-    return ProcessingResult(deck=deck, slides=slides, success=True)
 
 
-def _process_single_pdf(
-    config: AppConfig, sr: ScanResult
-) -> ProcessingResult:
-    """Process one PDF file: render pages + extract text."""
+def _process_single_pdf(config: AppConfig, sr: ScanResult) -> ProcessingResult:
+    """Render each PDF page into a fresh immutable image generation."""
     deck_id = make_deck_id(sr.file_path)
-    assets_dir = os.path.join(config.output_dir, "assets", "decks", deck_id)
-    ensure_dir(assets_dir)
-
     deck = Deck(
-        deck_id=deck_id,
-        file_path=sr.file_path,
-        file_name=sr.file_name,
-        folder_path=sr.folder_path,
-        file_size=sr.file_size,
-        modified_time=sr.modified_time,
-        processed_time=time.time(),
-        file_signature=sr.file_signature,
+        deck_id=deck_id, file_path=sr.file_path,
+        file_name=sr.file_name, folder_path=sr.folder_path,
+        file_size=sr.file_size, modified_time=sr.modified_time,
+        processed_time=time.time(), file_signature=sr.file_signature,
         status=DeckStatus.ACTIVE.value,
     )
-
-    try:
-        result = extract_and_render_pdf(sr.file_path, assets_dir, config.render)
-    except Exception as e:
-        return ProcessingResult(deck=deck, success=False, error=str(e))
-
-    if result.get("slide_count", 0) <= 0 or not result.get("slides"):
+    with ImageGeneration(config.output_dir, deck_id) as gen:
+        try:
+            data = extract_and_render_pdf(sr.file_path, str(gen.stage), config.render)
+        except Exception as exc:
+            return ProcessingResult(deck=deck, success=False, error=str(exc))
+        rendered = data.get("slides") or []
+        if data.get("slide_count", 0) <= 0 or len(rendered) != data["slide_count"]:
+            return ProcessingResult(
+                deck=deck, success=False,
+                error="PDF could not be decoded into any readable pages",
+            )
+        try:
+            gen.validate(rendered)
+        except (RuntimeError, OSError, ValueError) as exc:
+            return ProcessingResult(deck=deck, success=False, error=str(exc))
+        deck.slide_count = len(rendered)
+        slides: list[Slide] = []
+        for page in rendered:
+            number = page["slide_number"]
+            slides.append(Slide(
+                slide_id=f"{deck_id}_s{number:03d}", deck_id=deck_id,
+                slide_number=number, title=page.get("title", ""),
+                subtitle_text=page.get("subtitle_text", ""),
+                body_text=page.get("body_text", ""),
+                extra_text=page.get("extra_text", ""),
+                extracted_text=page.get("extracted_text", ""),
+                notes_text=page.get("notes_text", ""),
+                thumb_path=gen.relative(page["thumb_path"]),
+                preview_path=gen.relative(page["preview_path"]),
+                width=page.get("thumb_width", 0),
+                height=page.get("thumb_height", 0),
+            ))
+        gen.publish(rendered)
         return ProcessingResult(
-            deck=deck, success=False,
-            error="PDF could not be decoded into any readable pages",
+            deck=deck, slides=slides, success=True,
+            image_generation_dir=str(gen.path),
         )
-
-    deck.slide_count = result["slide_count"]
-
-    slides: list[Slide] = []
-    for page in result.get("slides", []):
-        snum = page["slide_number"]
-        thumb_rel = f"assets/decks/{deck_id}/{page['thumb_path']}" if page.get("thumb_path") else ""
-        preview_rel = f"assets/decks/{deck_id}/{page['preview_path']}" if page.get("preview_path") else ""
-
-        slide = Slide(
-            slide_id=f"{deck_id}_s{snum:03d}",
-            deck_id=deck_id,
-            slide_number=snum,
-            title=page.get("title", ""),
-            subtitle_text=page.get("subtitle_text", ""),
-            body_text=page.get("body_text", ""),
-            extra_text=page.get("extra_text", ""),
-            extracted_text=page.get("extracted_text", ""),
-            notes_text=page.get("notes_text", ""),
-            thumb_path=thumb_rel,
-            preview_path=preview_rel,
-            width=page.get("thumb_width", 0),
-            height=page.get("thumb_height", 0),
-        )
-        slides.append(slide)
-
-    return ProcessingResult(deck=deck, slides=slides, success=True)
 
 
 def _format_processing_message(index: int, total: int, sr: ScanResult) -> str:

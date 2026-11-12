@@ -37,6 +37,8 @@ M007f targets measured grid-rendering overhead, preserving the existing JSON sea
 
 M008 macOS work is now prepared on the Pi: renderer selection, AppleScript PowerPoint-to-ephemeral-PDF-to-image pipeline, explicit LibreOffice option, Finder integration, native application-data paths, and source packaging/install preflight. Native PowerPoint AppleScript, macOS Automation consent, app bundle build, and LaunchAgent login tests remain unchecked. Windows COM and archive output format are unchanged.
 
+M008a–d source work is implemented and Pi-tested: immutable per-deck image generations with SQLite rollback safety, data-preserving staged macOS upgrades/uninstall, path-free readiness diagnostics, and original PowerPoint reference decks with offline per-slide image comparison. User-session permissions, macOS bundle/launchctl and true PowerPoint visual fidelity remain native acceptance gates. Older image versions are retained deliberately until a safe cleanup policy is defined.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

@@ -53,6 +53,27 @@ The initial config under ~/Library/Application Support/PowerPointVisualArchive/c
 
 The current script is a **developer-oriented install scaffold**, not a signed/notarized distribution package or a tested upgrade/uninstaller.
 
+## Pi-prepared lifecycle, readiness and acceptance tools (M008a–d)
+
+The app and CLI are now staged before replacing the prior installed versions. If LaunchAgent bootstrap fails, the prior app, CLI and plist are restored. Previous configuration, archive database and logs are retained during upgrade and uninstall. The installer accepts --install and --uninstall only on a signed-in Mac; --plan is safe on Pi. Upgrading an existing config no longer requires --root.
+
+    python packaging/macos/install_agent.py --plan
+    python packaging/macos/install_agent.py --install --artifacts dist --root /path/to/presentations
+    python packaging/macos/install_agent.py --uninstall
+
+**Native installation/rollback/uninstall behavior has not been run on macOS.** Installer failure paths are mocked and validated on Pi. A failure to stop an already-running LaunchAgent may require native troubleshooting; this code is not a signed/notarized consumer installer.
+
+A nonexecuting, path-free readiness report:
+
+    python scripts/diagnose_macos.py --json .runtime/macos-readiness.json
+
+Reference fixture generation and visual comparison (after actual Mac and Windows rendering):
+
+    python scripts/build_macos_fixtures.py --output .runtime/mac-reference
+    python scripts/compare_slide_images.py --reference /path/to/windows/deck-version --candidate /path/to/mac/deck-version --kind preview --output .runtime/image-comparison
+
+Current PDF/PPTX image generations are immutable: old image paths are retained for still-open viewer sessions. This can grow disk usage until explicit safe garbage collection is implemented. The original-text and temporary-PDF behavior is unchanged.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

@@ -70,9 +70,14 @@ def checks(root: Path = ROOT, artifacts: Path | None = None) -> list[dict]:
     add("mac_automation_description", "NSAppleEventsUsageDescription" in spec,
         "App bundle explains Microsoft PowerPoint Automation request")
     add("user_session_install", all(text in installer for text in (
-        '"launchctl", "bootstrap"', '"launchctl", "bootout"', 'gui/{uid}',
+        '"launchctl", action', 'f"gui/{os.getuid()}"',
+        '_launchctl("bootstrap"', '_launchctl("bootout"',
         "Library", "LaunchAgents", "KeepAlive", "RunAtLoad")),
         "Installer plans a per-user LaunchAgent, not a privileged daemon")
+    add("transactional_install", all(text in installer for text in (
+        "def _install_transaction", "backups", "staged", "os.replace",
+        "except Exception:", "def _uninstall_transaction", '"--uninstall"',
+    )), "Installer stages upgrades, supports rollback and explicit data-preserving uninstall")
     add("config_preservation", 'if not paths["config"].exists():' in installer and
         '"init-config"' in installer,
         "Per-user YAML survives repeated installations")

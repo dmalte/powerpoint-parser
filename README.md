@@ -54,6 +54,25 @@ Source-only setup and preflight (can run on Pi):
 
 Real Mac build and optional user-session LaunchAgent installation are described in packaging/macos/README.md. The native build/install, AppleScript automation syntax, Automation consent, PowerPoint PDF fidelity, user-login startup, and macOS Gatekeeper/signing are **not yet validated**.
 
+### Additional Pi-side Mac readiness: M008a–M008d
+
+The shared PPTX/PDF renderer now publishes versioned slide-image generations. A complete new set is staged and validated first, then published as a directory and referenced by SQLite only after a successful replacement transaction. Existing browser tabs can keep reading old images, including during subsequent updates or deletions. **Old generations are intentionally retained**; an explicit garbage-collection/retention policy is future work and archives can grow until that is implemented.
+
+The macOS installer now stages upgrades, restores previous installed app/CLI/LaunchAgent files if launch startup fails, and supports explicit uninstall while retaining config, the archive and logs. These are portable, failure-injected tests of the installer control flow; native launchctl/Automation still require macOS acceptance.
+
+Use these additional Pi-side tools (reports and test decks remain under ignored .runtime):
+
+    python scripts/diagnose_macos.py --json .runtime/macos-readiness.json
+    python scripts/build_macos_fixtures.py --output .runtime/mac-reference
+
+The readiness report omits source paths and document names, does not launch PowerPoint, and marks Automation consent/signing/visual acceptance unverified. The reference suite generates two original PowerPoint decks with eight slides spanning vector shapes, native chart, table, embedded picture, Unicode text, speaker notes, and a hidden slide.
+
+To compare resulting preview images from a specific deck's Windows and Mac versioned-generation directories:
+
+    python scripts/compare_slide_images.py --reference /path/to/windows/images --candidate /path/to/mac/images --kind preview --max-mae 12 --output .runtime/image-comparison
+
+This writes local comparison.json and self-contained comparison.html, including per-slide image statistics, missing-slide checks, and visual differences. Actual render images from PowerPoint for Mac and Windows are required to verify visual fidelity; generated fixtures alone do not prove it.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

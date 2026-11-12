@@ -138,6 +138,14 @@ The local-first architecture remains unchanged: source files and generated archi
 - Native packaging source includes a PyInstaller Mac app and CLI, and an explicit per-user LaunchAgent installer; no LaunchDaemon, sudo, or system-wide Service. Automation consent and the native bundle must be verified on a Mac before M008 can be accepted.
 - Direct Mac AppleScript JPEG image export is not confirmed; PowerPoint GUI JPEG export is not evidence of a scriptable command. Temporary PDF preserves the same final images and reuses the established PyMuPDF rasterizer.
 
+## Image generations and Mac acceptance utilities (M008a–d)
+
+- PPTX and PDF render into a private staging directory under their deck asset root. After validating the entire sequence and all image files, a single same-volume directory rename publishes an immutable v-<uuid> generation, and SQLite references only that version.
+- Failed renderer/image validation does not replace the index. If DB replacement fails, the new generation is removed and old indexed rows/images remain intact. Previous generations are intentionally retained through subsequent rebuilds/deletions so old browser sessions keep working; safe cleanup and disk quotas remain future work.
+- Mac app and CLI upgrades stage new bundles before replacing old versions. A failed launchctl bootstrap rolls back the app, CLI and plist, and uninstall targets only the known agent artifacts. Config, archive and logs are preserved; real Mac launchctl/signing acceptance is still open.
+- A nonexecuting path-free diagnostic CLI checks configuration and platform readiness and leaves AppleScript Automation permission, signing and fidelity explicitly unverified.
+- Reference PPTX fixtures are generated with shape, picture, chart, table, Unicode font, notes and hidden-slide cases; an offline image comparator produces MAE/difference/size metrics and self-contained HTML previews without uploading files.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

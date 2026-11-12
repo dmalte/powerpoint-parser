@@ -130,7 +130,7 @@ lists are implementation work and do not replace this inventory.
   - Priority: high
   - Feature: specs/004-macos-desktop-agent
   - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002, REQ-PLATFORM-001
-  - Validation: mocked converter and rasterizer tests, path/OS dispatch and static packaging preflight on Pi; actual PowerPoint, permissions, Mac build and login require macOS acceptance.
+  - Validation: 132 passing Pi tests including immutable image generations, data-preserving installer upgrade/rollback/uninstall, path-free readiness diagnostics and original reference PPTX/image comparisons; static macOS package preflight passes 15 checks (one expected native-bundle warning). Real PowerPoint, permissions, Mac build and login still require macOS acceptance.
   - Source: macOS desktop preparation request, 2026-11-12
 
 ## Backlog

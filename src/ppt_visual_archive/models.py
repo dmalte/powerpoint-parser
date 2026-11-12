@@ -74,6 +74,7 @@ class ProcessingResult:
     slides: list[Slide] = field(default_factory=list)
     success: bool = True
     error: str = ""
+    image_generation_dir: str = ""  # New, unpublished-to-DB immutable directory
 
 
 @dataclass

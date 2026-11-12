@@ -20,3 +20,23 @@
 - [x] T030 Run full Pi tests and mock-converter integration.
 - [x] T031 Update README/design/requirements/roadmap/changelog/handoff; inspect diff and commit locally.
 - [ ] T032 Real macOS PowerPoint, packaging, permissions, fidelity, login validation pending.
+
+## M008a — Versioned image publication
+- [x] T040 Introduce immutable per-deck image generations and preserve the previous viewer's assets on failed or interrupted processing.
+- [x] T041 Add PDF/PPTX success/rollback, active-reader, and no-leak regression tests.
+
+## M008b — Installer lifecycle
+- [x] T050 Stage app/CLI upgrades, roll back on failure, and support explicit data-preserving uninstall.
+- [x] T051 Test new install, upgrade, failure injection, rollback and repeatable uninstall on Pi.
+
+## M008c — Readiness diagnostics
+- [x] T060 Add native dependency/config/filesystem permission/readiness checks with a path-free JSON report.
+- [x] T061 Test misconfiguration, unavailable binaries, no data leakage and healthy state.
+
+## M008d — Reference fidelity suite
+- [x] T070 Build deterministic PPTX reference decks with complex content and expected metadata.
+- [x] T071 Implement per-slide comparison metrics plus offline HTML/JSON report and tests.
+
+## Convergence
+- [x] T080 Run full tests, update architecture/requirements/roadmap/handoff, review diff and checkpoint locally.
+- [ ] T081 Actual Mac native PowerPoint, install, permissions, fidelity and performance acceptance still pending.

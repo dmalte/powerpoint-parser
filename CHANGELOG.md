@@ -22,6 +22,10 @@ All notable changes to this project will be documented in this file.
 - M007f targeted frontend rendering: cache repeated date labels and disconnect stale image observers before replacing a slide-grid page. Benchmarked with 6,000/20,000-slide scenarios and a 50,000-slide synthetic stress case.
 
 - M008 macOS source preparation: PowerPoint-for-Mac AppleScript temporary-PDF image backend (same JPG/PNG outputs as Windows), explicit LibreOffice option, OS-specific renderer selection, macOS Application Support/Logs, Finder open/reveal, and per-user PyInstaller/LaunchAgent build scaffolding. Native Mac acceptance remains outstanding.
+- M008a shared immutable PPTX/PDF image generations with whole-directory publish, SQLite rollback safety, and retention of older images needed by active browser sessions.
+- M008b staged macOS installer upgrades with rollback and explicit data-preserving uninstall; portable failure-injection tests added.
+- M008c local, path-free Mac dependency/config/permission readiness reports, without triggering PowerPoint automation.
+- M008d original PowerPoint reference decks (images, tables, charts, notes, Unicode, hidden slides) and offline per-slide image/size comparison in HTML and JSON.
 
 ### Changed
 
