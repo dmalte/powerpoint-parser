@@ -14,7 +14,7 @@ from .index_db import IndexDB
 from .models import ChangeSet, Deck, DeckStatus, ProcessingResult, ScanResult, Slide
 from .perf_metrics import TimedRun
 from .pdf_processor import extract_and_render_pdf
-from .renderer import PowerPointRenderer
+from .renderer_factory import SlideRenderer, create_pptx_renderer
 from .scanner import detect_changes, scan_files
 from .utils import ensure_dir, logger, make_deck_id
 
@@ -114,7 +114,7 @@ def _run_scan_inner(
 
     # ── Process PPTX files with COM renderer ──
     if pptx_files:
-        renderer = PowerPointRenderer(config.render)
+        renderer = create_pptx_renderer(config.render)
         try:
             with metrics.step("pptx_renderer_start"):
                 renderer.start()
@@ -177,7 +177,7 @@ def _run_scan_inner(
 
 
 def _process_single_pptx(
-    config: AppConfig, renderer: PowerPointRenderer, sr: ScanResult
+    config: AppConfig, renderer: SlideRenderer, sr: ScanResult
 ) -> ProcessingResult:
     """Process one PPTX presentation: render + extract + build deck/slide objects."""
     deck_id = make_deck_id(sr.file_path)
@@ -202,14 +202,23 @@ def _process_single_pptx(
     except Exception as e:
         return ProcessingResult(deck=deck, success=False, error=str(e))
 
-    # ── Extract metadata ──
+    if not render_results:
+        return ProcessingResult(deck=deck, success=False, error="No slide images were generated")
+
+    # ── Extract metadata from original PPTX, never from the temporary PDF ──
     try:
         meta = extract_metadata(sr.file_path)
     except Exception as e:
         logger.warning("Metadata extraction failed for %s: %s", sr.file_name, e)
         meta = {"slide_count": len(render_results), "slides": []}
 
-    deck.slide_count = max(len(render_results), meta.get("slide_count", 0))
+    expected_count = meta.get("slide_count", 0)
+    if expected_count and expected_count != len(render_results):
+        return ProcessingResult(
+            deck=deck, success=False,
+            error=f"Rendered {len(render_results)} slides but source contains {expected_count}",
+        )
+    deck.slide_count = len(render_results)
 
     # ── Build slide objects ──
     slides: list[Slide] = []

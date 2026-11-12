@@ -24,6 +24,10 @@ render:
   preview_width: 1280
   image_format: "jpg"
   jpeg_quality: 82
+  # On macOS use PowerPoint AppleScript (temporary PDF only for rendering);
+  # choose libreoffice explicitly if its different visual fidelity is acceptable.
+  mac_pptx_backend: powerpoint
+  pptx_conversion_timeout_seconds: 300
 
 viewer:
   title: "PowerPoint Visual Archive"

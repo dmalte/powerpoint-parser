@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -207,9 +208,12 @@ def _open_file(target_path: str) -> None:
     path = Path(target_path)
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"File does not exist: {path}")
-    if os.name != "nt":
-        raise OSError("Opening source files is currently supported on Windows only")
-    os.startfile(str(path))
+    if os.name == "nt":
+        os.startfile(str(path))
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", str(path)])
+    else:
+        raise OSError("Opening source files is currently supported on Windows/macOS only")
 
 
 def _open_folder(target_path: str) -> None:
@@ -219,11 +223,17 @@ def _open_folder(target_path: str) -> None:
         if os.name == "nt":
             subprocess.Popen(["explorer", "/select,", str(path)])
             return
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", "-R", str(path)])
+            return
     else:
         folder = path
 
     if not folder.exists() or not folder.is_dir():
         raise FileNotFoundError(f"Folder does not exist: {folder}")
-    if os.name != "nt":
-        raise OSError("Opening folders is currently supported on Windows only")
-    os.startfile(str(folder))
+    if os.name == "nt":
+        os.startfile(str(folder))
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", str(folder)])
+    else:
+        raise OSError("Opening folders is currently supported on Windows/macOS only")

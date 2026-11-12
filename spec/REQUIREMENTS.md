@@ -122,6 +122,17 @@ lists are implementation work and do not replace this inventory.
   - Source: large-archive performance planning, 2026-08-18
   - Portable verification: Synthetic, revision-tagged Chromium benchmarks at 6,000/20,000 slides and nonblocking first-run HTTP/scan progress checks are implemented (2026-11-12). M007c tests verify no-op publishing and concurrent readers; M007d compares two clean matching benchmarks; M007e now tests missing mounts, I/O/permission errors, corrupt PDFs, transactional deck rollback, interrupted export and disk-full recovery. M007f additionally reduces repeated date formatting and releases stale image observers; comparable clean-revision Pi benchmarks showed improved grid/filter latency at 6K/20K synthetic slides. Real Windows and image/COM acceptance remain pending.
 
+## macOS Preparation
+
+- [ ] **REQ-MAC-001** — Prepare a macOS user-session archive with PowerPoint automation yielding Windows-compatible slide JPEG/text assets, optional LibreOffice rendering, native Finder open/reveal, per-user paths and login/build scaffolding.
+  - Status: active (portable Pi implementation/tests pass; native macOS acceptance pending)
+  - Milestone: M008
+  - Priority: high
+  - Feature: specs/004-macos-desktop-agent
+  - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002, REQ-PLATFORM-001
+  - Validation: mocked converter and rasterizer tests, path/OS dispatch and static packaging preflight on Pi; actual PowerPoint, permissions, Mac build and login require macOS acceptance.
+  - Source: macOS desktop preparation request, 2026-11-12
+
 ## Backlog
 
 Add accepted requirements here using stable IDs. Do not renumber existing IDs. Substantial new behavior should be linked to a numbered `specs/<feature>/` record before implementation.

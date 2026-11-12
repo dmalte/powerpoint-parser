@@ -17,6 +17,8 @@ class RenderConfig:
     preview_width: int = 1280
     image_format: str = "jpg"
     jpeg_quality: int = 82
+    mac_pptx_backend: str = "powerpoint"  # powerpoint (Mac) or explicit libreoffice
+    pptx_conversion_timeout_seconds: int = 300
 
 
 @dataclass
@@ -121,6 +123,8 @@ def save_config(config: AppConfig, path: str | Path, overwrite: bool = False) ->
             "preview_width": config.render.preview_width,
             "image_format": config.render.image_format,
             "jpeg_quality": config.render.jpeg_quality,
+            "mac_pptx_backend": config.render.mac_pptx_backend,
+            "pptx_conversion_timeout_seconds": config.render.pptx_conversion_timeout_seconds,
         },
         "viewer": {
             "title": config.viewer.title,

@@ -128,6 +128,16 @@ The local-first architecture remains unchanged: source files and generated archi
 
 - M007f rendering optimization caches locale-formatted dates and disconnects IntersectionObserver subscriptions for offscreen images on each grid redraw, retaining the 240-card page bound. No search API/schema changes; very large single JSON exports remain a scaling consideration.
 
+## macOS Renderer and Deployment Architecture (M008)
+
+- Windows PPTX: the established PowerPoint COM image renderer is unchanged.
+- Mac PPTX: PowerPoint for Mac AppleScript saves a temporary PDF; a PyMuPDF adapter creates the same thumbnail/preview JPG/PNG files. python-pptx reads text, structured fields and speaker notes from the original PPTX. Converted PDFs are not persisted.
+- Alternate renderer: user can explicitly choose LibreOffice headless PPTX-to-temporary-PDF conversion; no silent fallback because fidelity can change.
+- All slide rendering implementations expose start/stop/export_slides; the same pipeline and SQLite/export/viewer remain in use. Slide-count mismatch or missing converter output rejects reindexing.
+- macOS source paths reside under Application Support and Logs. Finder open/reveal and view-logs use argument-vector process execution, not a shell.
+- Native packaging source includes a PyInstaller Mac app and CLI, and an explicit per-user LaunchAgent installer; no LaunchDaemon, sudo, or system-wide Service. Automation consent and the native bundle must be verified on a Mac before M008 can be accepted.
+- Direct Mac AppleScript JPEG image export is not confirmed; PowerPoint GUI JPEG export is not evidence of a scriptable command. Temporary PDF preserves the same final images and reuses the established PyMuPDF rasterizer.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

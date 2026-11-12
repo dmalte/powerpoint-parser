@@ -36,6 +36,24 @@ python -m venv .venv
 python -m pip install -e .
 ```
 
+## macOS Desktop Path (M008 source prepared; native acceptance pending)
+
+The shared backend and viewer now support a macOS PPTX rendering adapter while preserving the Windows output contract: thumbnails/previews in JPG (or configured PNG), searchable text/notes from the original PPTX, and the same SQLite/JSON archive.
+
+- Windows: PowerPoint COM exports slide images directly (unchanged).
+- Mac: PowerPoint AppleScript automation saves a **temporary PDF**, and existing PyMuPDF rendering creates the final thumbnails/previews. The temp PDF is deleted, never indexed or retained. The intermediate is necessary only for the current automated Mac backend; direct manual JPEG export in PowerPoint for Mac does not imply a stable AppleScript JPEG API.
+- Optional LibreOffice: set render.mac_pptx_backend to libreoffice explicitly; this may render fonts/layout differently and is not an automatic fallback.
+- Original PDF files: indexed directly by the existing PDF processor.
+
+The Mac defaults are ~/Library/Application Support/PowerPointVisualArchive for config/index/archive and ~/Library/Logs/PowerPointVisualArchive for logs. Local file/open-folder actions use Finder, while scan/settings/diagnostics/HTML viewer are shared.
+
+Source-only setup and preflight (can run on Pi):
+
+    python scripts/preflight_macos_package.py
+    python -m pytest tests/test_macos_renderer.py tests/test_macos_packaging.py -q
+
+Real Mac build and optional user-session LaunchAgent installation are described in packaging/macos/README.md. The native build/install, AppleScript automation syntax, Automation consent, PowerPoint PDF fidelity, user-login startup, and macOS Gatekeeper/signing are **not yet validated**.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

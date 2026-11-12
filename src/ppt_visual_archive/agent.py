@@ -246,8 +246,10 @@ class AgentRuntime:
         log_dir.mkdir(parents=True, exist_ok=True)
         if os.name == "nt":
             os.startfile(str(log_dir))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(log_dir)])
         else:
-            raise OSError("Opening the log folder is currently supported on Windows only")
+            raise OSError("Opening the log folder is currently supported on Windows/macOS only")
 
 
 def run_agent(

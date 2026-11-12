@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T14:03:46-08:00
-- Active Feature: `specs/003-large-archive-performance`
+- Last Updated: 2026-11-12T14:27:05-08:00
+- Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-M007f shared browser optimization and clean-revision Pi comparisons are complete. M004a installer preflight is complete; M004/M005 real Windows packaged acceptance remains pending.
+M008 macOS source implementation is prepared and validated on Raspberry Pi. Actual PowerPoint-for-Mac AppleScript execution, Automation consent and native app packaging/login acceptance remain pending. M004/M005 Windows packaged acceptance remains pending.
 
 ## Completed
 
@@ -40,6 +40,11 @@ M007f shared browser optimization and clean-revision Pi comparisons are complete
 - M007f clean-revision comparison 7cc0da7 → 03fc5f4: 6K grid p95 126.7 → 102.5 ms, filter-to-grid p95 136.8 → 110.9 ms, startup 963 → 849 ms; 20K grid p95 146.6 → 67.5 ms, filter-to-grid p95 209.5 → 158.9 ms, startup 1,425 → 1,225 ms. Both had zero warning metrics under example thresholds.
 
 
+- M008: platform-based PPTX renderer factory, Windows COM unchanged; macOS default AppleScript exports only a temporary PDF and PyMuPDF makes normal JPEG/PNG files. Original PPTX text and notes go to SQLite/JSON; no PDF persists.
+- M008: optional LibreOffice backend is explicitly selected, not automatic; source paths are argv, not interpolated into scripts or passed through shell. The Mac automation opens a temporary copy to avoid closing a user's already-open original PPTX; raw stderr is logged locally, not returned through /api/status.
+- M008: Application Support/Logs paths, Finder open/reveal/open-logs, and PyInstaller .app + user LaunchAgent source scaffold. No Mac changes performed.
+- M008: 15 focused portable tests passed; source preflight 14 pass / 1 warning (no Mac binary); full Pi suite 108 passed.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -56,6 +61,10 @@ M007f shared browser optimization and clean-revision Pi comparisons are complete
 - The marker is not a database migration; no-change scans still discover files, but avoid JSON/HTML serialization when the output is complete. Template changes or interrupted publication cause a forced rebuild.
 - Guarantee only that each generated JSON/HTML/CSS/JS file is complete. Multi-resource snapshots, in-place image generation and SQLite transactions remain outside M007c.
 
+
+- Native PowerPoint-for-Mac GUI JPEG export exists, but unattended AppleScript JPEG automation was not established. PDF is only a temporary render intermediate, never archive data.
+- Never silently switch to LibreOffice when native conversion fails; fidelity and permission errors must remain visible.
+- Do not claim Mac acceptance before osascript, Automation permissions, fonts/fidelity, native signing/Gatekeeper and login run on a Mac.
 
 ## Files Changed
 
@@ -84,6 +93,10 @@ M007f shared browser optimization and clean-revision Pi comparisons are complete
 
 - `dev/HANDOFF.md`
 
+- M008: src/ppt_visual_archive/mac_renderer.py, renderer_factory.py, pipeline.py, config.py, platform_paths.py, agent.py, server.py, config/config.example.yaml.
+- M008: packaging/macos/PowerPointVisualArchive.spec, build.sh, install_agent.py, README.md, scripts/preflight_macos_package.py, tests/test_macos_renderer.py, tests/test_macos_packaging.py.
+- M008: specs/004-macos-desktop-agent, PROJECT_WORKFLOW.json and consolidated project docs.
+
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -95,9 +108,13 @@ M007f shared browser optimization and clean-revision Pi comparisons are complete
 - Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
 - Image assets are not versioned; renderers can update on-disk files before SQL commit. True cross-media atomicity and abrupt power-loss durability are outside the current increment.
 
+- M008 native PowerPoint/osascript PDF conversion is unverified. Automation consent, PDF page parity and font/layout fidelity, actual .app build and login/LaunchAgent, and Finder actions remain pending.
+- M008 is only a developer install scaffold: signing/notarization, upgrades/uninstall and transactional image publishing are not proven.
+- M004/M005 Windows installer/COM/logon/tray and M007 real image/browser benchmarks remain pending.
+
 ## Next Step
 
-M007f portable optimization and clean-revision benchmarks are complete. Next: validate M004/M005 on Windows (installer build, PowerPoint COM, startup/tray, real-library performance) and repeat measurements on representative hardware.
+M008 next: run a native Mac smoke test with a real PPTX to verify AppleScript, Automation permission, images and app login. Only after acceptance mark M008 done. M004/M005 Windows checks and M007 real-library benchmarks remain separate.
 
 ## Validation
 
@@ -118,4 +135,8 @@ M007f portable optimization and clean-revision benchmarks are complete. Next: va
 - M004a: 14 static source checks passed, Windows-generated PE artifacts not supplied; five preflight tests passed. Full suite after M004a: 92 passed.
 - M007f: clean-revision 6K/20K Pi benchmarks (7cc0da7 vs 03fc5f4) completed with zero warnings. 50K synthetic stress passed with 240-card limit and 106 MiB JSON; JavaScript heap about 239 MB.
 - Full portable suite after M007f: 93 passed (2026-11-12). JS syntax and Git whitespace checks passed.
+- M008 focused renderer/packaging tests: 15 passed on Pi.
+- M008 packaging source preflight: 14 pass, zero fail, one expected warning (no native Mac artifacts).
+- Full repository tests after M008: 108 passed (2026-11-12).
+- Native Mac PowerPoint/AppleScript, bundled app and login acceptance: NOT RUN.
 - Real Windows browser performance acceptance: not run on this host.

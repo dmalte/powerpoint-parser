@@ -23,6 +23,7 @@ This file defines outcome-level milestones and delivery order. A milestone may s
 | M005 | Phase 2 — Self-service desktop experience | Installed users can control status, scanning, settings, logs, restart, and archive opening through tray/browser UI without editing YAML or using a console | M004 | paused | specs/002-self-service-controls |
 | M006 | Phase 3 — Enterprise distribution | IT can distribute signed builds silently with managed defaults, diagnostics/version visibility, and a company-suitable update path | M005 | planned | not selected |
 | M007 | Large-archive viewer and ingestion performance | Profile and keep viewer interactions responsive at 6,000+ slides/pages while measuring scan/processing time using locally exportable diagnostics and bounded rendering | M005 | active | specs/003-large-archive-performance |
+| M008 | macOS desktop agent preparation | Prepare shared viewer with macOS PPTX rendering, Finder actions, per-user data paths and per-user packaging; Mac native acceptance pending | M001, M002 | active | specs/004-macos-desktop-agent |
 
 M007 is high priority for release readiness. Browser and scan/build hooks, local reporting, a repeatable 6,000/20,000-slide benchmark harness, and background-startup progress were implemented and validated on Pi. M007c now skips unchanged viewer builds when a complete marker matches source assets, and stages JSON/HTML/CSS/JS before atomic file swaps. A one-page PDF probe completed a first build in ~440 ms and repeated no-change refreshes in ~5–6 ms on Pi. Synthetic browser reference data: 6,000 slides ~953 ms interactive / 131 ms p95 filter-to-grid; 20,000 slides ~1,377 ms / 195 ms, with no more than 240 cards. These are **not** Windows acceptance figures; Windows performance acceptance remains open. M004/M005 package acceptance is still paused until representative Windows testing.
 
@@ -33,6 +34,8 @@ M007e now protects indexed data against disconnected scan roots, unreadable inpu
 M004a portable packaging preflight is implemented: source consistency, conditional COM dependency, user-scoped startup/config preservation, version alignment, build error propagation and optional PE header checks. This does not change M004's paused Windows installer acceptance status.
 
 M007f targets measured grid-rendering overhead, preserving the existing JSON search architecture and 240-card page bound. Pi synthetic 50,000-slide stress completed with ~106 MiB JSON, ~237–239 MB JS heap and ~1.8–2.1 s initial readiness; this does not validate real thumbnail or Windows behavior. Clean-revision Pi comparison (7cc0da7 → 03fc5f4) measured grid p95 improvements of ~19% at 6,000 slides and ~54% at 20,000, with filter-to-grid p95 improvements of ~19% and ~24% respectively; all are synthetic one-run measurements and should be repeated on Windows.
+
+M008 macOS work is now prepared on the Pi: renderer selection, AppleScript PowerPoint-to-ephemeral-PDF-to-image pipeline, explicit LibreOffice option, Finder integration, native application-data paths, and source packaging/install preflight. Native PowerPoint AppleScript, macOS Automation consent, app bundle build, and LaunchAgent login tests remain unchecked. Windows COM and archive output format are unchanged.
 
 ## Deployment Sequence
 
