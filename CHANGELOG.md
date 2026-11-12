@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 - M007d offline synthetic benchmark comparison dashboard and JSON output with strict compatible-revision matching, configurable warning thresholds, and history trends.
 - M007e interrupted-scan recovery tests and source-safety fixes: strict scan root/traversal checks, invalid PDF rejection, transactional replacement of deck+slides, and SQLite-index-aware viewer freshness.
 
+- M007f targeted frontend rendering: cache repeated date labels and disconnect stale image observers before replacing a slide-grid page. Benchmarked with 6,000/20,000-slide scenarios and a 50,000-slide synthetic stress case.
+
 ### Changed
 
 - M004a cross-platform Windows packaging source/artifact preflight with local JSON diagnostics, release-version checks and fail-fast native build script validation. Windows installer smoke remains unverified.

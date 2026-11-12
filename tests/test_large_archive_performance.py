@@ -22,6 +22,18 @@ def test_grid_render_is_bounded_and_avoids_quadratic_index_lookup():
     assert "pageSlides = slides.slice" in source
 
 
+def test_repeated_card_rendering_reuses_dates_and_releases_stale_image_observers():
+    source = (ROOT / "web/static/js/app.js").read_text(encoding="utf-8")
+    assert "const formattedDateCache = new Map();" in source
+    assert "formattedDateCache.has(iso)" in source
+    assert "formattedDateCache.set(iso, formatted)" in source
+    # Release observers attached to detached cards before creating a new page.
+    grid = source[source.index("  function renderGrid("):source.index("  function renderPagination(")]
+    assert "lazyObserver.disconnect();" in grid
+    assert grid.index("lazyObserver.disconnect();") < grid.index("createSlideCard(")
+    assert "const GRID_PAGE_SIZE = 240;" in source
+
+
 def test_viewer_exposes_pagination_controls():
     template = (ROOT / "web" / "templates" / "index.html.j2").read_text(encoding="utf-8")
     for control in ("page-prev", "page-next", "page-indicator", "result-range"):

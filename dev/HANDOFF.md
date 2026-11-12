@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T13:57:37-08:00
+- Last Updated: 2026-11-12T14:01:52-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-M007 shared performance and M004a packaging-preflight increments are implemented. Next: M007f measured large-library optimization. M004/M005 real Windows packaged acceptance remains pending.
+M007f browser rendering optimization is implemented and under clean-revision performance comparison; M004a installer preflight is complete. Windows M004/M005 real packaged acceptance remains pending.
 
 ## Completed
 
@@ -36,6 +36,7 @@ M007 shared performance and M004a packaging-preflight increments are implemented
 - M007e .viewer-build marker v2 includes a digest of active SQLite deck signatures and slide counts so a scan that committed but crashed before export will force recovery on restart without a DB schema migration.
 - Added tests/test_recovery.py (7 tests): mount failure, walk/stat error, corrupt PDF retry, transaction rollback, crash after SQLite commit, and simulated ENOSPC publication.
 - M004a: added portable packaging source and optional PE header checks, build.ps1 fail-fast validation, local JSON reporting, and five preflight regression tests. 14 static checks passed; Windows artifacts absent (warning, not acceptance).
+- M007f: cached repeated locale-formatted dates and disconnected stale lazy-image observers before each grid redraw. Added focused regression coverage; benchmarked 50,000 synthetic slides (~106 MiB JSON, ~237 MB JS heap, ~2.1 s initial readiness on Pi).
 
 
 ## Decisions
@@ -95,7 +96,7 @@ M007 shared performance and M004a packaging-preflight increments are implemented
 
 ## Next Step
 
-Implement M007f evidence-led optimization next, then run cross-platform benchmark history and validate. M004a preflight passes on Pi, but the actual Windows installer, PPTX COM, logon and tray smoke tests remain pending.
+Finish M007f clean-revision comparison and record results, then prepare Windows build and COM acceptance when a Windows machine is available. M004a source preflight passes on Pi.
 
 ## Validation
 

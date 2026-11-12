@@ -126,6 +126,8 @@ The local-first architecture remains unchanged: source files and generated archi
 - The built-in server streams a single opened export file without conditional Last-Modified validation and sends Cache-Control: no-store; the browser requests the export with no-store to avoid stale same-second 304s.
 - Real acceptance budgets for Windows Edge/Chrome remain pending. Headless Chromium running on Raspberry Pi is an instrumentation smoke test, not representative hardware validation.
 
+- M007f rendering optimization caches locale-formatted dates and disconnects IntersectionObserver subscriptions for offscreen images on each grid redraw, retaining the 240-card page bound. No search API/schema changes; very large single JSON exports remain a scaling consideration.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

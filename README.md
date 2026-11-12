@@ -217,6 +217,16 @@ Changed decks are committed to SQLite as a **single deck-plus-slides transaction
 
 Staged export errors, including simulated disk-full conditions, preserve the last complete output and trigger a retry. Real PowerPoint COM rendering and the overwriting of in-place thumbnail images are not transactionally isolated by this work; fully versioned image generations and power-loss durability require separate design/Windows acceptance.
 
+### Large-library browser rendering optimization (M007f)
+
+The slide-grid renderer reuses formatted date labels instead of repeatedly invoking locale-aware date conversion for every card. Before a grid redraw it also disconnects the previous page's IntersectionObserver subscriptions, preventing stale offscreen images from remaining observed. Search, sorting, grouping, modal navigation, and the 240-card DOM limit remain unchanged.
+
+The benchmark harness can run a 50,000-slide stress case:
+
+    python scripts/benchmark_viewer.py --slides 50000 --iterations 8 --timeout-seconds 150
+
+These are synthetic text/placeholder-image workloads, not realistic thumbnail decoding or PowerPoint COM processing. A single JSON export can become large (about 106 MiB for 50,000 synthetic slides with 1,000 text characters each), so real-library memory and image performance still require representative hardware validation.
+
 ## Development
 
 ```bash

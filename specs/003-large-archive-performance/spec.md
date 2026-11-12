@@ -94,3 +94,11 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - The viewer publication marker must detect a changed SQLite archive after a crash between database commit and viewer publication, even when the subsequent filesystem scan sees no changes. No SQLite schema migration.
 - Simulated out-of-space/staging failures must preserve the last complete viewer and remain repairable. Startup/refresh errors remain visible; good data is preserved.
 - Tests use temporary PDF/archive fixtures and injected failures; actual Windows COM, filesystem lock semantics, and recovery from power loss remain pending on Windows.
+
+
+## M007f — Measured Large-Library Optimization (2026-11-12)
+
+- Profile the real viewer JavaScript using the existing 6,000/20,000-slide Chromium workload, identify a confirmed bottleneck and make a targeted shared-code optimization rather than replacing the search architecture.
+- Preserve search, sorting, grouping, pagination, starred actions, modal opening, HTML escaping and bounded card count. No Windows-specific changes or backend schema migration.
+- Run equivalent clean-revision benchmarks before/after on the Pi, report both the improvement and any regressions, and add a 50,000-slide stress test where resources permit.
+- Do not claim representative image/PowerPoint performance; shared placeholder images do not test realistic thumbnail decoding or disk I/O.

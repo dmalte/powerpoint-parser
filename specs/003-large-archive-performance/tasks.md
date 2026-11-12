@@ -66,6 +66,14 @@
 - [x] T083 Add deterministic permission, corrupt-document, SQL failure, low-disk and restart-recovery tests.
 - [x] T084 Run tests, review actual limitations, update docs/handoff and commit locally.
 
+## M007f — Evidence-Led Large Library Optimization (2026-11-12)
+
+- [x] T090 Capture committed 6,000/20,000-slide baseline and identify measured bottlenecks.
+- [x] T091 Optimize a confirmed shared frontend/backend bottleneck without changing user-visible semantics.
+- [x] T092 Add regression checks for correctness, accessibility and bounded rendering.
+- [ ] T093 Run comparable post-change benchmarks and a 50,000-slide synthetic stress case.
+- [ ] T094 Update performance docs and handoff, run full suite, inspect diff and commit locally.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

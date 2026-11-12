@@ -10,6 +10,9 @@
   let starredSlides = loadStarredSlides();
   let heatmapWindow = loadHeatmapWindow();
   const GRID_PAGE_SIZE = 240;
+  // Date formatting uses Intl under the hood; the same deck date appears on
+  // many cards. Reuse display strings rather than reformatting every redraw.
+  const formattedDateCache = new Map();
   const perf = window.PPTViewerPerf;
   let gridPage = 0;
 
@@ -503,6 +506,9 @@
   function renderGrid(slides) {
     const gridStart = perf.now();
     const container = document.getElementById("slide-grid");
+    // Old offscreen images remain observed after replaceChildren, retaining
+    // detached card DOM across searches/pages. Release them before rebuilding.
+    lazyObserver.disconnect();
     const totalPages = Math.max(1, Math.ceil(slides.length / GRID_PAGE_SIZE));
     gridPage = Math.max(0, Math.min(gridPage, totalPages - 1));
     const pageStart = gridPage * GRID_PAGE_SIZE;
@@ -906,8 +912,11 @@
 
   function formatDate(iso) {
     if (!iso) return "";
+    if (formattedDateCache.has(iso)) return formattedDateCache.get(iso);
     const d = new Date(iso + "T00:00:00");
-    return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    const formatted = d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    formattedDateCache.set(iso, formatted);
+    return formatted;
   }
 
   function formatSize(bytes) {

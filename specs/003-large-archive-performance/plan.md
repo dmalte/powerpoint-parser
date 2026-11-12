@@ -89,3 +89,11 @@ Update design/requirements/roadmap/README/changelog/handoff with implemented opt
 - PDF ingestion rejects zero-page/failed decodes. IndexDB exposes transactional replace_deck_and_slides (upsert deck, delete prior slide rows, insert replacements) and pipeline uses it only after the renderer has succeeded; existing deck metadata/slide rows survive processing failures.
 - Extend .viewer-build.json marker to include a deterministic hash of active SQLite deck signatures and slide counts. viewer_is_current compares that hash through a read-only SQLite connection. This detects a crash after committed DB changes but before regeneration without altering the DB schema.
 - Inject permission, malformed PDF, SQL failure, interruption, and disk-full faults in tests, then verify later refresh recovers. Keep per-deck image snapshotting/power-loss guarantees out of scope; these would require versioned asset generation and platform tests.
+
+
+## M007f — Profile, Optimize, Re-measure (2026-11-12)
+
+- Baseline a committed revision with the same 6,000/20,000-slide fixture, eight scripted searches and Chrome build. Examine per-stage browser metrics to isolate bottlenecks.
+- Prefer a narrow rendering optimization first: repeated date formatting and repeated DOM construction in the 240-card grid are likely contributors; change only after measurements and preserve all UI interactions.
+- Validate with DOM/action smoke checks and focused source-level tests; measure before/after on clean commits, plus a 50,000-slide synthetic stress run. Store reports in ignored .runtime/benchmarks and compare with scripts/benchmark_history.py.
+- Treat browser scheduling noise as measurement uncertainty; do not infer Windows release readiness or introduce server-side SQLite search absent evidence.
