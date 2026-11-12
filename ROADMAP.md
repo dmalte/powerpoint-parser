@@ -32,7 +32,7 @@ M007e now protects indexed data against disconnected scan roots, unreadable inpu
 
 M004a portable packaging preflight is implemented: source consistency, conditional COM dependency, user-scoped startup/config preservation, version alignment, build error propagation and optional PE header checks. This does not change M004's paused Windows installer acceptance status.
 
-M007f targets measured grid-rendering overhead, preserving the existing JSON search architecture and 240-card page bound. Pi synthetic 50,000-slide stress completed with ~106 MiB JSON, ~237 MB JS heap and ~2.1 s initial readiness; this does not validate real thumbnail or Windows behavior. Clean-revision before/after comparison remains part of the M007f acceptance record.
+M007f targets measured grid-rendering overhead, preserving the existing JSON search architecture and 240-card page bound. Pi synthetic 50,000-slide stress completed with ~106 MiB JSON, ~237–239 MB JS heap and ~1.8–2.1 s initial readiness; this does not validate real thumbnail or Windows behavior. Clean-revision Pi comparison (7cc0da7 → 03fc5f4) measured grid p95 improvements of ~19% at 6,000 slides and ~54% at 20,000, with filter-to-grid p95 improvements of ~19% and ~24% respectively; all are synthetic one-run measurements and should be repeated on Windows.
 
 ## Deployment Sequence
 

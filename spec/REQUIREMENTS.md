@@ -120,7 +120,7 @@ lists are implementation work and do not replace this inventory.
   - Depends on: REQ-VIEWER-001, REQ-DEPLOY-002
   - Validation: Local browser timing hooks (including download) and backend scan/build metrics have automated and headless Chromium coverage with a 6,000-slide synthetic archive. Representative Windows initial-interactive, filter/search, scroll, image and memory acceptance measurements and budgets remain outstanding.
   - Source: large-archive performance planning, 2026-08-18
-  - Portable verification: Synthetic, revision-tagged Chromium benchmarks at 6,000/20,000 slides and nonblocking first-run HTTP/scan progress checks are implemented (2026-11-12). M007c tests verify no-op publishing and concurrent readers; M007d compares two clean matching benchmarks; M007e now tests missing mounts, I/O/permission errors, corrupt PDFs, transactional deck rollback, interrupted export and disk-full recovery. Real Windows and image/COM acceptance remain pending.
+  - Portable verification: Synthetic, revision-tagged Chromium benchmarks at 6,000/20,000 slides and nonblocking first-run HTTP/scan progress checks are implemented (2026-11-12). M007c tests verify no-op publishing and concurrent readers; M007d compares two clean matching benchmarks; M007e now tests missing mounts, I/O/permission errors, corrupt PDFs, transactional deck rollback, interrupted export and disk-full recovery. M007f additionally reduces repeated date formatting and releases stale image observers; comparable clean-revision Pi benchmarks showed improved grid/filter latency at 6K/20K synthetic slides. Real Windows and image/COM acceptance remain pending.
 
 ## Backlog
 

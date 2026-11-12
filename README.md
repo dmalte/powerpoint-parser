@@ -225,6 +225,15 @@ The benchmark harness can run a 50,000-slide stress case:
 
     python scripts/benchmark_viewer.py --slides 50000 --iterations 8 --timeout-seconds 150
 
+A clean-revision Pi comparison (same Chromium build, 8 scripted searches, 1,000 characters per slide) measured:
+
+| Synthetic library | Initial readiness | Grid p95 | Filter-to-grid p95 |
+|---|---|---|---|
+| 6,000 slides | 963 → 849 ms (−12%) | 126.7 → 102.5 ms (−19%) | 136.8 → 110.9 ms (−19%) |
+| 20,000 slides | 1,425 → 1,225 ms (−14%) | 146.6 → 67.5 ms (−54%) | 209.5 → 158.9 ms (−24%) |
+
+Revision 7cc0da7 is the baseline and 03fc5f4 is the optimized version. Individual browser runs vary; repeat benchmarks on the target hardware before treating these percentages as stable.
+
 These are synthetic text/placeholder-image workloads, not realistic thumbnail decoding or PowerPoint COM processing. A single JSON export can become large (about 106 MiB for 50,000 synthetic slides with 1,000 text characters each), so real-library memory and image performance still require representative hardware validation.
 
 ## Development

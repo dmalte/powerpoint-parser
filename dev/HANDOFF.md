@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T14:01:52-08:00
+- Last Updated: 2026-11-12T14:03:46-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-M007f browser rendering optimization is implemented and under clean-revision performance comparison; M004a installer preflight is complete. Windows M004/M005 real packaged acceptance remains pending.
+M007f shared browser optimization and clean-revision Pi comparisons are complete. M004a installer preflight is complete; M004/M005 real Windows packaged acceptance remains pending.
 
 ## Completed
 
@@ -36,7 +36,8 @@ M007f browser rendering optimization is implemented and under clean-revision per
 - M007e .viewer-build marker v2 includes a digest of active SQLite deck signatures and slide counts so a scan that committed but crashed before export will force recovery on restart without a DB schema migration.
 - Added tests/test_recovery.py (7 tests): mount failure, walk/stat error, corrupt PDF retry, transaction rollback, crash after SQLite commit, and simulated ENOSPC publication.
 - M004a: added portable packaging source and optional PE header checks, build.ps1 fail-fast validation, local JSON reporting, and five preflight regression tests. 14 static checks passed; Windows artifacts absent (warning, not acceptance).
-- M007f: cached repeated locale-formatted dates and disconnected stale lazy-image observers before each grid redraw. Added focused regression coverage; benchmarked 50,000 synthetic slides (~106 MiB JSON, ~237 MB JS heap, ~2.1 s initial readiness on Pi).
+- M007f: cached repeated locale-formatted dates and disconnected stale lazy-image observers before each grid redraw. Added focused regression coverage; benchmarked 50,000 synthetic slides (~106 MiB JSON, ~237–239 MB JS heap, ~1.8–2.1 s initial readiness on Pi).
+- M007f clean-revision comparison 7cc0da7 → 03fc5f4: 6K grid p95 126.7 → 102.5 ms, filter-to-grid p95 136.8 → 110.9 ms, startup 963 → 849 ms; 20K grid p95 146.6 → 67.5 ms, filter-to-grid p95 209.5 → 158.9 ms, startup 1,425 → 1,225 ms. Both had zero warning metrics under example thresholds.
 
 
 ## Decisions
@@ -96,7 +97,7 @@ M007f browser rendering optimization is implemented and under clean-revision per
 
 ## Next Step
 
-Finish M007f clean-revision comparison and record results, then prepare Windows build and COM acceptance when a Windows machine is available. M004a source preflight passes on Pi.
+M007f portable optimization and clean-revision benchmarks are complete. Next: validate M004/M005 on Windows (installer build, PowerPoint COM, startup/tray, real-library performance) and repeat measurements on representative hardware.
 
 ## Validation
 
@@ -114,4 +115,7 @@ Finish M007f clean-revision comparison and record results, then prepare Windows 
 - Full regression suite after M007c: 74 passed (2026-11-12); JavaScript syntax checks and Git diff checks passed.
 - M007d focused tests: 6 passed; 7 saved Pi runs yielded 2 clean comparable cases (6K and 20K) with zero warning metrics using example thresholds.
 - M007e focused failure-injection tests: 7 passed. Full repository suite: 87 passed (2026-11-12).
+- M004a: 14 static source checks passed, Windows-generated PE artifacts not supplied; five preflight tests passed. Full suite after M004a: 92 passed.
+- M007f: clean-revision 6K/20K Pi benchmarks (7cc0da7 vs 03fc5f4) completed with zero warnings. 50K synthetic stress passed with 240-card limit and 106 MiB JSON; JavaScript heap about 239 MB.
+- Full portable suite after M007f: 93 passed (2026-11-12). JS syntax and Git whitespace checks passed.
 - Real Windows browser performance acceptance: not run on this host.
