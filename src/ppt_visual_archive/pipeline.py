@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from .config import AppConfig
@@ -23,6 +23,7 @@ def run_scan(
     config: AppConfig,
     force: bool = False,
     scan_roots: Iterable[str] | None = None,
+    progress_callback: Callable[[dict], None] | None = None,
 ) -> dict:
     """Full scan + process pipeline. Returns summary stats."""
     metrics = TimedRun("scan")
@@ -31,7 +32,7 @@ def run_scan(
         with metrics.step("total"):
             db = IndexDB(config.db_path)
             try:
-                return _run_scan_inner(config, db, force, scan_roots, metrics)
+                return _run_scan_inner(config, db, force, scan_roots, metrics, progress_callback)
             finally:
                 db.close()
     except Exception:
@@ -47,8 +48,17 @@ def _run_scan_inner(
     force: bool,
     scan_roots: Iterable[str] | None,
     metrics: TimedRun,
+    progress_callback: Callable[[dict], None] | None = None,
 ) -> dict:
+    def progress(phase: str, completed: int = 0, total: int | None = None, errors: int = 0) -> None:
+        if progress_callback is not None:
+            progress_callback({
+                "phase": phase, "completed": completed,
+                "total": total, "errors": errors,
+            })
+
     # 1. Scan filesystem
+    progress("discovering")
     active_roots = [str(Path(root).resolve()) for root in (scan_roots or config.scan_roots)]
     with metrics.step("filesystem_scan"):
         scan_results = scan_files(config, roots=active_roots)
@@ -56,6 +66,7 @@ def _run_scan_inner(
     metrics.count("scan_roots", len(active_roots))
 
     # 2. Detect changes
+    progress("detecting", completed=0, total=len(scan_results))
     with metrics.step("change_detection"):
         if force:
             # Treat everything as new
@@ -78,6 +89,7 @@ def _run_scan_inner(
 
     # 4. Process new and changed files
     to_process = changeset.new + changeset.changed
+    progress("processing", completed=0, total=len(to_process))
     if not to_process:
         metrics.count("processed_slides", 0)
         logger.info("No new or changed files to process")
@@ -132,6 +144,7 @@ def _run_scan_inner(
                         processed_index, total_to_process,
                         sr.file_name, result.error,
                     )
+                progress("processing", processed_index, total_to_process, error_count)
         finally:
             with metrics.step("pptx_renderer_stop"):
                 renderer.stop()
@@ -160,6 +173,7 @@ def _run_scan_inner(
                 processed_index, total_to_process,
                 sr.file_name, result.error,
             )
+        progress("processing", processed_index, total_to_process, error_count)
 
     metrics.count("processed_slides", processed_slides)
     metrics.count("processed_ok", success_count)

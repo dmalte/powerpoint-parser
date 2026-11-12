@@ -57,5 +57,12 @@ No persisted schema changes. Runtime-only properties prefixed with `_` are added
 - Structural and runtime tests verify the report's privacy boundary, stage timings, API response, and generated viewer asset. Browser smoke tests are useful but do not substitute for Windows acceptance numbers.
 
 ## Documentation Convergence
+## Automated Browser Benchmark and Nonblocking Agent (2026-11-12)
+
+- A Python driver prepares real generated viewer HTML/JS plus synthetic JSON from the existing fixture generator, then invokes a Node.js built-in-WebSocket Chrome DevTools Protocol harness against a loopback HTTP server. It exercises search, sorting/grouping, pagination, and modal interactions at 6,000 and 20,000 slides; records the in-app performance report, DOM bound and CDP heap/DOM metrics, alongside Git revision and browser version. No npm package or production dependency is required. Synthetic thumbnails are placeholders; real image/Office performance must be measured separately.
+- Agent startup creates the output directory, queues an initial refresh on its existing single-refresh worker, starts the server and scheduler immediately, and continues serving a previous archive while a refresh is running. If no index.html exists, the HTTP server shows a small loading page that polls /api/status and reloads after the first build. Errors remain observable without terminating the server.
+- Pipeline emits progress callback records for discovery, change detection, document processing and build; the existing runtime serializes them and exposes a path-free progress object in /api/status. Settings and viewer surfaces show the counts/phases. Injected test refresh functions retain their existing single-config call contract.
+- No PPTX COM change, macOS renderer, install/startup change, cloud telemetry, persisted schema migration, or server-side search is introduced. Validate async correctness, error recovery and API progress with deterministic tests, and benchmark on Pi as functional evidence only.
+
 
 Update design/requirements/roadmap/README/changelog/handoff with implemented optimizations and clearly distinguish portable validation from pending real-browser measurements.

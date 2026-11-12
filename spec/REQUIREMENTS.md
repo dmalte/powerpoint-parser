@@ -120,6 +120,7 @@ lists are implementation work and do not replace this inventory.
   - Depends on: REQ-VIEWER-001, REQ-DEPLOY-002
   - Validation: Local browser timing hooks (including download) and backend scan/build metrics have automated and headless Chromium coverage with a 6,000-slide synthetic archive. Representative Windows initial-interactive, filter/search, scroll, image and memory acceptance measurements and budgets remain outstanding.
   - Source: large-archive performance planning, 2026-08-18
+  - Portable verification: Synthetic, revision-tagged Chromium benchmarks at 6,000/20,000 slides and nonblocking first-run HTTP/scan progress checks are implemented (2026-11-12). Real Windows and actual image/COM acceptance remain pending.
 
 ## Backlog
 

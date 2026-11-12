@@ -14,5 +14,8 @@ ppt-viewer-output/
 .DS_Store
 Thumbs.db
 
+# Benchmark output is local test data; never add it to the source repository.
+.runtime/benchmarks/
+
 # Task/session workflow state
 .runtime/workflow/

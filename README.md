@@ -110,9 +110,11 @@ If `pptviewer` is still not found in PowerShell, either the virtualenv is not ac
 - `--port PORT` — Local viewer port (default 8080)
 - `--scan-interval SECONDS` — Optional one-run override for the persisted incremental refresh interval; `0` disables periodic refresh
 
+The agent starts serving HTTP immediately, while the initial scan and viewer build run on a background worker. A fresh installation first shows a **Preparing your slide archive** page with live phase/file-count updates, and opens the actual viewer after the initial build finishes. An already built archive remains browseable while periodic/manual scans continue. The topbar and Settings show progress; a failed scan leaves the server up with an error status. Scans remain serialized, so clicking Scan Now while a scan is running reports that it is busy.
+
 When the agent is running, open `http://127.0.0.1:8080/settings.html` (or click **Settings** in the viewer) to see agent status, trigger **Scan Now**, open logs, restart the agent, and edit scan folders, file types, and the persisted refresh interval without touching YAML. On Windows, the installed agent also exposes the same common actions from a notification-area icon.
 
-With no explicit `--config`, existing development locations are checked first, followed by the per-user installed config location. On Windows that default is `%LOCALAPPDATA%\PowerPointVisualArchive\config.yaml`; the default archive and logs live beside it under `archive\` and `logs\`.
+With no explicit `--config`, existing development locations are checked first, followed by the per-user installed config location. On Windows that default is `%LOCALAPPDATA%\PowerPointVisualArchive\config.yaml`; the default archive and logs live beside it under `archive` and `logs`.
 
 ## Configuration
 
@@ -168,6 +170,20 @@ The loopback server exposes the most recent 20 backend performance records throu
 **Privacy:** No automatic uploads, cloud endpoint, saved search queries, slide content, deck names, source paths, or individual user files are included in performance records. The downloaded report does include browser/version information and library-size counters. Review the file before sharing it outside your system.
 
 **Validation status:** 6,000-slide headless Chromium smoke testing has passed on Raspberry Pi; **company-class Windows Chrome/Edge acceptance measurements are still required**. The Pi measurements are not Windows performance targets or a Windows installer validation.
+
+### Automated synthetic browser benchmark (M007a)
+
+On a development machine with project dependencies, **Node.js 22+** and **Chromium/Chrome/Edge**, run:
+
+```bash
+python scripts/benchmark_viewer.py --slides 6000 20000 --iterations 5
+```
+
+This command generates deterministic **synthetic** archives using the actual viewer templates and JS. A headless browser measures initial readiness and scripted search/filter, sort, pagination and modal interactions, plus DOM/card counts and available JS heap. It writes JSON reports under `.runtime/benchmarks/` containing the Git revision, browser version, dataset size and in-page metrics (excluded from Git). Set `--browser /path/to/chrome` and `--output-dir DIRECTORY` when necessary; Node.js is a development/test dependency, not a packaged application requirement.
+
+The synthetic fixtures deliberately use a **shared placeholder JPEG**. The timings are suitable for tracking frontend regressions but **do not measure realistic thumbnail fetching/decoding, PowerPoint rendering, initial library ingestion, or Windows end-user acceptance**. Use the built-in Performance report on real content for those measurements.
+
+The first Pi run (6 search iterations, 1,000 characters per slide) measured approximately 953 ms initial viewer readiness and 131 ms p95 filter-to-grid at 6,000 slides; 1,377 ms and 195 ms respectively at 20,000 slides. Both retained at most 240 grid cards. These are environment-specific baselines, not release budgets.
 
 ## Development
 

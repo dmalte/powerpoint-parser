@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12
+- Last Updated: 2026-11-12T13:12:24-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
 
-Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,000 slides/pages. Browser and backend performance hooks are now integrated; M004/M005 packaged Windows acceptance remains pending.
+Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,000 slides/pages. M007a repeatable browser baselines and M007b non-blocking startup/progress are implemented. M004/M005 packaged Windows acceptance remains pending.
 
 ## Completed
 
@@ -22,6 +22,9 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - Added a **Performance** topbar panel with p50/p95/max, bounded samples, a clear button and an explicit downloadable path-free JSON report. Reports include recent backend runs if served by the local app.
 - Added aggregate backend scan/build timing stages, a per-user `performance.jsonl` log, and loopback-only `GET /api/performance`.
 - Headless Chromium on Raspberry Pi successfully loaded the synthetic 6,000-slide archive (240 cards), searched down to one result, opened a preview, and downloaded a report containing scan/build records with no JS errors.
+- M007a: Added `scripts/benchmark_viewer.py` and `scripts/measure_viewer.mjs` for revision-tagged headless Chromium/CDP workloads. Measured 6,000 and 20,000 synthetic slides with 1,000-character bodies and retained a 240-card DOM bound. Reports are generated under ignored `.runtime/benchmarks/`.
+- M007b: Queued first scan asynchronously, made localhost serving immediate, added a first-run loading page that polls progress, and made /api/status expose sanitized numeric phase/completed/total/errors while keeping the old viewer active during refresh. Settings and the viewer's top bar show progress; failures remain visible while server runs.
+- Added portable real-PDF progress/API/error/first-run tests and Chromium CDP benchmark integration tests.
 
 ## Decisions
 
@@ -32,6 +35,8 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - Do not claim real Edge/Chrome latency or memory acceptance before representative Windows hardware is benchmarked.
 - Performance records intentionally contain no search terms, paths, filenames, or slide content; browser records are in memory until explicitly downloaded and backend records stay in per-user logs.
 - Report latest 20 backend runs through loopback-only HTTP; preserve static file viewing without a backend metrics endpoint.
+- Keep benchmark fixtures deterministic but treat their shared JPEGs and Pi Chromium latency as synthetic frontend regression evidence, not PowerPoint/Windows performance acceptance.
+- Keep the initial processing worker asynchronous and serialized with all other refresh actions. An indexed archive stays accessible while updating; initial missing-index loads show a status page.
 
 ## Files Changed
 
@@ -49,6 +54,10 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - `tests/test_performance_instrumentation.py`
 - `web/static/js/performance.js`
 - `src/ppt_visual_archive/pipeline.py`, `src/ppt_visual_archive/builder.py` stage timings
+- `scripts/benchmark_viewer.py`, `scripts/measure_viewer.mjs`, `tests/test_browser_benchmark.py`
+- `src/ppt_visual_archive/agent.py`, `web/static/loading.html`, `web/static/js/agent-status.js`
+- `tests/test_background_startup.py`, `tests/test_agent_runtime.py`, `web/static/js/settings.js`
+- `web/templates/settings.html.j2`, `.gitignore`
 - `dev/HANDOFF.md`
 
 ## Open Issues
@@ -58,10 +67,12 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007 representative Edge/Chrome timing, scroll smoothness, and memory measurements on a company-class Windows laptop remain pending.
 - Frontend report measures browser-observable gaps, not a guaranteed sustained FPS. Firefox may not expose JS heap; handle null metrics explicitly.
 - The packaged Windows installer with the newly added performance files has not been built or smoke-tested.
+- Incremental static viewer rebuilds are still non-atomic and occur even when unchanged; M007c is a separate proposed follow-on.
+- Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
 
 ## Next Step
 
-Benchmark the 6,000-slide viewer in Edge and Chrome on representative Windows hardware, download its report, compare latency and memory with explicit release budgets, and optimize confirmed bottlenecks. Separately perform M004 installer/PPTX/logon and M005 tray smoke validation on Windows. Rebuild the Windows installer to include new performance assets.
+Use the new repeatable 6,000/20,000-slide benchmark on Windows/Chrome/Edge and on Mac for cross-platform comparisons; collect reports from real archives to size thumbnail and processing bottlenecks. Select M007c (skip unchanged rebuilds and atomic static publishing) separately if requested. Complete M004 installer/PPTX/logon and M005 tray smoke validation on Windows; rebuild the installer to include new assets.
 
 ## Validation
 
@@ -71,4 +82,7 @@ Benchmark the 6,000-slide viewer in Edge and Chrome on representative Windows ha
 - `.venv/bin/python -m pytest tests -q` → 61 passed (2026-11-12).
 - `.venv/bin/python -m pytest tests/test_performance_instrumentation.py -q` → 6 passed.
 - Synthetic 6,000-slide headless Chromium on Raspberry Pi: initial DOM grid 240 cards, search returned one matching slide, zero JS errors, and downloaded JSON included `scan` and `build` backend records. Example Pi smoke measurements: ~591 ms initial readiness, ~28 ms query filtering; NOT Windows benchmarks.
+- M007a benchmark: 6,000 slides, 953 ms initial readiness, 131 ms p95 filter-to-grid; 20,000 slides, 1,377 ms initial readiness, 195 ms p95 filter-to-grid (Pi headless Chromium, 1,000 synthetic text characters per slide, placeholders, 240-card bound).
+- M007b tests: first-run HTTP responds with live status before slow refresh finishes; completion loads actual viewer, errors stay visible, and a real PDF scan emits source-free progress records.
+- `.venv/bin/python -m pytest tests -q` → 66 passed (2026-11-12); Node JS syntax checks and `git diff --check` passed.
 - Real Windows browser performance acceptance: not run on this host.

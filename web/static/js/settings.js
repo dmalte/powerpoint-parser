@@ -55,6 +55,11 @@
     try {
       const status = await jsonFetch('/api/status');
       $('agent-status').textContent = status.status || 'unknown';
+      const phase = status.progress?.phase || status.status || 'unknown';
+      const count = Number.isFinite(status.progress?.completed) ? status.progress.completed : 0;
+      const total = Number.isFinite(status.progress?.total) ? '/' + status.progress.total : '';
+      $('scan-progress').textContent = (status.status === 'scanning' || status.status === 'starting')
+        ? 'Progress: ' + phase + ' (' + count + total + ' files)' : '';
       $('last-refresh').textContent = status.last_refresh ? `Last refresh: ${new Date(status.last_refresh).toLocaleString()}` : 'No completed refresh yet';
       $('last-error').textContent = status.last_error ? `Last error: ${status.last_error}` : '';
     } catch (error) {

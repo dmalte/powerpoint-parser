@@ -47,6 +47,7 @@ Runtime surfaces:
 - Loopback-only threaded HTTP server for static viewer delivery, browser-safe local open actions, agent status/settings, manual scan, logs, and shutdown/restart control
 - Static frontend for search, filters, heatmap, preview modal, starring slides, and agent settings/status
 - Windows per-user desktop agent that owns startup refresh, viewer generation, serialized scheduled/manual refresh, the local server, per-user logging, and a notification-area control surface while running in the signed-in user's interactive session
+- The agent now binds HTTP before the initial (potentially long) indexing completes. A static loading page is served if no index exists yet, with numeric phase and progress from /api/status; an existing index stays available during refresh. Initial, manual and scheduled refreshes share a single lock.
 
 ## Data Model
 
@@ -115,6 +116,8 @@ The local-first architecture remains unchanged: source files and generated archi
 - The top-bar Performance panel displays measurements. Only the user's explicit Download action saves a JSON report; no background transport or persistent browser telemetry is introduced.
 - `TimedRun` in `src/ppt_visual_archive/perf_metrics.py` aggregates timings for filesystem scans, change detection, PPTX/PDF rendering/extraction, SQLite upserts, and static viewer builds. Per-user `logs/performance.jsonl` stores bounded-size local JSONL records with only operation labels, numeric counts and stage durations.
 - `GET /api/performance` on the existing loopback-only server returns up to 20 recent backend records, allowing downloads to combine browser and backend evidence without exposing source paths or raw logs.
+- A cross-platform, dependency-light development harness (`scripts/benchmark_viewer.py` + `scripts/measure_viewer.mjs`, Node.js 22+ CDP) exercises the real viewer using deterministic synthetic datasets, scripted interactions, per-revision reports, and bounded DOM assertions at 6,000/20,000 slides. The shared JPEG placeholders intentionally do not represent real thumbnail performance.
+- Initial indexing now happens on a worker before/while the built-in HTTP server starts; / and /index.html serve a static first-run loading page until index.html exists. The agent exposes counts/phase, not paths, as `progress` in /api/status; Settings and viewer show progress while an update runs.
 - Real acceptance budgets for Windows Edge/Chrome remain pending. Headless Chromium running on Raspberry Pi is an instrumentation smoke test, not representative hardware validation.
 
 ## Performance Notes

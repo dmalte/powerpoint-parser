@@ -24,7 +24,7 @@ This file defines outcome-level milestones and delivery order. A milestone may s
 | M006 | Phase 3 — Enterprise distribution | IT can distribute signed builds silently with managed defaults, diagnostics/version visibility, and a company-suitable update path | M005 | planned | not selected |
 | M007 | Large-archive viewer and ingestion performance | Profile and keep viewer interactions responsive at 6,000+ slides/pages while measuring scan/processing time using locally exportable diagnostics and bounded rendering | M005 | active | specs/003-large-archive-performance |
 
-M007 is high priority for release readiness. Browser and scan/build timing hooks plus a user-exported feedback report are implemented and validated on Raspberry Pi with 6,000 synthetic slides. Windows performance acceptance remains open; M004/M005 package acceptance is still paused until representative Windows testing.
+M007 is high priority for release readiness. Browser and scan/build hooks, local reporting, a repeatable 6,000/20,000-slide benchmark harness, and background-startup progress were implemented and validated on Pi. Synthetic reference data: 6,000 slides ~953 ms interactive / 131 ms p95 filter-to-grid; 20,000 slides ~1,377 ms / 195 ms, with no more than 240 cards. These are **not** Windows acceptance figures; Windows performance acceptance remains open. M004/M005 package acceptance is still paused until representative Windows testing.
 
 ## Deployment Sequence
 

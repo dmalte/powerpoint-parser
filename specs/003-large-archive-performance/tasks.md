@@ -34,6 +34,15 @@
 - [x] T044 Add portable regression tests and live browser smoke validation (6,000 slides, headless Chromium on Pi).
 - [x] T045 Reconcile README, design, requirements, roadmap, changelog, and handoff, then inspect final diff.
 
+## M007a/M007b — Automated Baselines and Responsive Startup (2026-11-12)
+
+- [x] T050 Implement a dependency-light, repeatable 6,000/20,000-slide headless-browser benchmark that saves per-scenario metrics including revision/browser, with explicit synthetic fixture limitations.
+- [x] T051 Implement asynchronous initial refresh while the agent's HTTP server starts immediately; preserve serialized manual/scheduled refreshes and failure reporting.
+- [x] T052 Expose numeric, path-free scan/build progress and a first-run loading/status page; show progress in existing viewer and settings.
+- [x] T053 Add automated tests for startup ordering, pending/error/ready behavior, progress API, benchmark orchestration, and bounded DOM.
+- [x] T054 Run complete tests and representative Pi benchmark, reconcile durable documentation and final diff, and checkpoint changes locally without pushing.
+
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

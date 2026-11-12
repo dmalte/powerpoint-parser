@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preparing PowerPoint Visual Archive</title>
+<style>
+  body { margin:0; background:#eef1f6; color:#243047; font:16px/1.5 system-ui,sans-serif; }
+  main { max-width:610px; margin:12vh auto; padding:32px; background:#fff; border-radius:12px; box-shadow:0 2px 12px #0001; }
+  h1 { font-size:1.45rem; margin:0 0 14px; }
+  #progress { color:#485466; }
+  #error { color:#9a2525; }
+</style>
+</head>
+<body>
+<main role="status">
+  <h1>Preparing your slide archive</h1>
+  <p id="status">The local viewer is running. Initial indexing is continuing in the background.</p>
+  <p id="progress">Checking scan progress…</p>
+  <p id="error"></p>
+</main>
+<script>
+(() => {
+  'use strict';
+  let checking = false;
+  const statusEl = document.getElementById('status');
+  const progressEl = document.getElementById('progress');
+  const errorEl = document.getElementById('error');
+  async function refresh() {
+    if (checking || document.visibilityState === 'hidden') return;
+    checking = true;
+    try {
+      const response = await fetch('/api/status', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Unable to read agent status.');
+      const data = await response.json();
+      const progress = data.progress || {};
+      if (data.status === 'idle') {
+        statusEl.textContent = 'Archive is ready. Opening the viewer…';
+        location.replace('/');
+        return;
+      }
+      if (data.status === 'error') {
+        statusEl.textContent = 'The last scan or build failed.';
+        errorEl.textContent = 'Check the agent logs and restart the scan. The server is still running.';
+      } else {
+        statusEl.textContent = 'The local viewer is running while the archive is being prepared.';
+      }
+      const phase = progress.phase || data.status || 'starting';
+      const count = Number.isFinite(progress.completed) ? progress.completed : 0;
+      const total = Number.isFinite(progress.total) ? ' / ' + progress.total : '';
+      progressEl.textContent = 'Stage: ' + phase + ' — ' + count + total + ' files processed';
+    } catch (_) {
+      progressEl.textContent = 'Waiting for the local background agent…';
+    } finally {
+      checking = false;
+    }
+  }
+  refresh();
+  setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>

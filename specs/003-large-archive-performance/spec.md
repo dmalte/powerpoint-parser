@@ -22,6 +22,8 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - Portable structural/performance regression tests plus documented real-browser benchmark procedure.
 - Local, opt-in-to-export performance diagnostics: browser navigation/data load/parse/init/search/sort/grid/modal/thumbnail/scroll observations, plus scan, document processing, and static export timing.
 - A path- and content-free JSON report downloadable from the viewer; backend metrics available locally without cloud upload.
+- Deterministic browser performance benchmarking at 6,000 and 20,000 slides with scripted user interactions, bounded DOM checks, and locally saved revision-labelled reports (synthetic image/load limitations clearly marked).
+- Start the agent's localhost viewer before initial indexing finishes; serve a progress/ready page when no index exists, keep an existing viewer usable, and expose anonymized scan/build progress in the status API and UI.
 
 ### Out of Scope
 
@@ -42,6 +44,9 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 9. The viewer records bounded in-memory timing samples from real interactions and offers a local JSON download, identifying unavailable browser APIs rather than fabricating numbers.
 10. Scan/build work records aggregate stage durations/counts locally; no filenames, source paths, search terms, slide content, or archive data are included in diagnostics.
 11. The viewer can include the most recent local backend performance runs when served through its loopback server; file:// mode remains useful without the API.
+12. A headless-browser benchmark can load synthetic 6,000/20,000-slide archives, exercise filtering, sorting, pagination and modal opening, assert a bounded DOM, and save structured reports with Git revision and browser information. Measurements remain environment-specific and do not claim Windows acceptance.
+13. The per-user agent starts its HTTP viewer promptly while its first scan/build runs in a worker. When no archive exists, a startup page polls a path-free progress endpoint until the viewer is ready or the build fails.
+14. Progress reports phase and processed/total file counts (when known), never filenames or source paths; existing viewer and settings display progress during scheduled/manual refreshes. Concurrent refreshes remain serialized.
 
 ## Acceptance Criteria
 

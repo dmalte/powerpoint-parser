@@ -21,8 +21,10 @@ def refresh_archive(
     *,
     scan_fn: Callable[..., dict] | None = None,
     build_fn: Callable[[AppConfig], None] | None = None,
+    progress_callback: Callable[[dict], None] | None = None,
 ) -> dict:
     """Run one incremental scan followed by a viewer rebuild."""
+    use_default_scanner = scan_fn is None
     if scan_fn is None:
         from .pipeline import run_scan
 
@@ -32,7 +34,18 @@ def refresh_archive(
 
         build_fn = build_viewer
 
-    summary = scan_fn(config, force=False)
+    if progress_callback:
+        progress_callback({"phase": "scanning", "completed": 0, "total": None, "errors": 0})
+    if use_default_scanner:
+        summary = scan_fn(config, force=False, progress_callback=progress_callback)
+    else:
+        summary = scan_fn(config, force=False)
+    if progress_callback:
+        count = summary.get("new", 0) + summary.get("changed", 0)
+        progress_callback({
+            "phase": "building", "completed": count, "total": count,
+            "errors": summary.get("processed_err", 0),
+        })
     build_fn(config)
     return summary
 
@@ -51,7 +64,7 @@ class AgentRuntime:
         self.config = config
         self.config_path = Path(config_path).resolve() if config_path else None
         self.port = port
-        self.refresh_fn = refresh_fn or refresh_archive
+        self.refresh_fn = refresh_fn or (lambda conf: refresh_archive(conf, progress_callback=self._update_progress))
         self.stop_event = threading.Event()
         self._state_lock = threading.Lock()
         self._refresh_lock = threading.Lock()
@@ -61,6 +74,8 @@ class AgentRuntime:
         self._last_refresh: str | None = None
         self._last_error: str | None = None
         self._last_summary: dict | None = None
+        self._progress: dict = {"phase": "pending", "completed": 0, "total": None, "errors": 0}
+        self._refresh_thread: threading.Thread | None = None
         self.restart_requested = False
 
     @property
@@ -77,6 +92,7 @@ class AgentRuntime:
                 "last_refresh": self._last_refresh,
                 "last_error": self._last_error,
                 "last_summary": self._last_summary,
+                "progress": dict(self._progress),
                 "scan_interval_seconds": self.scan_interval_seconds,
                 "scan_roots": list(self.config.scan_roots),
                 "file_types": list(self.config.file_types),
@@ -129,55 +145,75 @@ class AgentRuntime:
             self._schedule_condition.notify_all()
         return self.settings_snapshot()
 
+    def _update_progress(self, update: dict) -> None:
+        """Publish only a known phase and numeric counters (never source file paths)."""
+        phase = update.get("phase")
+        if phase not in {"pending", "scanning", "discovering", "detecting", "processing", "building", "complete", "error"}:
+            return
+        completed = max(0, int(update.get("completed") or 0))
+        raw_total = update.get("total")
+        total = None if raw_total is None else max(0, int(raw_total))
+        errors = max(0, int(update.get("errors") or 0))
+        with self._state_lock:
+            self._progress = {
+                "phase": phase, "completed": completed, "total": total, "errors": errors,
+            }
+
+    def _begin_refresh(self) -> None:
+        with self._state_lock:
+            self._status = "scanning"
+            self._last_error = None
+            self._progress = {"phase": "scanning", "completed": 0, "total": None, "errors": 0}
+
+    def _execute_refresh_locked(self) -> dict:
+        try:
+            summary = self.refresh_fn(self.config)
+        except Exception as exc:
+            with self._state_lock:
+                self._status = "error"
+                self._last_error = str(exc)
+                self._progress = {**self._progress, "phase": "error"}
+            raise
+        else:
+            with self._state_lock:
+                self._status = "idle"
+                self._last_refresh = datetime.now(timezone.utc).isoformat()
+                self._last_summary = summary
+                self._progress = {**self._progress, "phase": "complete"}
+            return {"started": True, "summary": summary}
+
     def perform_refresh(self, *, blocking: bool = True) -> dict:
-        acquired = self._refresh_lock.acquire(blocking=blocking)
-        if not acquired:
+        """Synchronous refresh for scheduler and explicit non-UI callers."""
+        if not self._refresh_lock.acquire(blocking=blocking):
             return {"started": False, "reason": "busy"}
         try:
-            with self._state_lock:
-                self._status = "scanning"
-                self._last_error = None
-            try:
-                summary = self.refresh_fn(self.config)
-            except Exception as exc:
-                with self._state_lock:
-                    self._status = "error"
-                    self._last_error = str(exc)
-                raise
-            else:
-                with self._state_lock:
-                    self._status = "idle"
-                    self._last_refresh = datetime.now(timezone.utc).isoformat()
-                    self._last_summary = summary
-                return {"started": True, "summary": summary}
+            self._begin_refresh()
+            return self._execute_refresh_locked()
         finally:
             self._refresh_lock.release()
 
     def request_refresh(self) -> dict:
+        """Run a refresh on a worker, returning immediately to the HTTP server."""
         if not self._refresh_lock.acquire(blocking=False):
             return {"started": False, "reason": "busy"}
+        self._begin_refresh()
 
         def worker() -> None:
             try:
-                with self._state_lock:
-                    self._status = "scanning"
-                    self._last_error = None
-                try:
-                    summary = self.refresh_fn(self.config)
-                except Exception as exc:
-                    logger.exception("Manual archive refresh failed")
-                    with self._state_lock:
-                        self._status = "error"
-                        self._last_error = str(exc)
-                else:
-                    with self._state_lock:
-                        self._status = "idle"
-                        self._last_refresh = datetime.now(timezone.utc).isoformat()
-                        self._last_summary = summary
+                self._execute_refresh_locked()
+            except Exception:
+                logger.exception("Background archive refresh failed; viewer remains available")
             finally:
                 self._refresh_lock.release()
 
-        threading.Thread(target=worker, name="ppt-archive-manual-refresh", daemon=True).start()
+        self._refresh_thread = threading.Thread(
+            target=worker, name="ppt-archive-refresh-worker", daemon=True
+        )
+        try:
+            self._refresh_thread.start()
+        except Exception:
+            self._refresh_lock.release()
+            raise
         return {"started": True}
 
     def request_shutdown(self, *, restart: bool = False) -> None:
@@ -214,7 +250,7 @@ def run_agent(
     server_fn: Callable[..., None] | None = None,
     tray_fn: Callable[[AgentRuntime], None] | None = None,
 ) -> None:
-    """Refresh once, then serve while scheduled refresh and controls run."""
+    """Serve promptly while the first scan/build executes in a background worker."""
     if scan_interval_seconds is not None:
         config.processing.scan_interval_seconds = scan_interval_seconds
 
@@ -222,9 +258,10 @@ def run_agent(
     if stop_event is not None:
         runtime.stop_event = stop_event
 
-    logger.info("Agent startup refresh beginning")
-    runtime.perform_refresh()
-    logger.info("Agent startup refresh complete")
+    # The first scan can take hours for a large archive. Do not delay localhost serving.
+    Path(config.output_dir).mkdir(parents=True, exist_ok=True)
+    logger.info("Agent startup refresh queued in background")
+    runtime.request_refresh()
 
     scheduler = threading.Thread(
         target=_scheduled_refresh_loop,
@@ -254,6 +291,8 @@ def run_agent(
         with runtime._schedule_condition:
             runtime._schedule_condition.notify_all()
         scheduler.join(timeout=2.0)
+        if runtime._refresh_thread is not None:
+            runtime._refresh_thread.join(timeout=2.0)
 
     if runtime.restart_requested:
         _restart_current_process()

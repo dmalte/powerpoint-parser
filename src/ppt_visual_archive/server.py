@@ -48,6 +48,10 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         route = urlparse(self.path).path
+        if route in {"/", "/index.html"} and self.control is not None:
+            if not (Path(self.directory) / "index.html").is_file():
+                self._send_loading_page()
+                return
         if route == "/api/performance":
             from .perf_metrics import recent_runs
 
@@ -115,6 +119,18 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
 
         self.send_error(404, "Unknown API endpoint")
+
+    def _send_loading_page(self) -> None:
+        """Serve a first-run status view without depending on a built archive."""
+        from .builder import _web_dir
+
+        content = (_web_dir() / "static" / "loading.html").read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
 
     def _handle_open_action(self, route: str) -> None:
         try:

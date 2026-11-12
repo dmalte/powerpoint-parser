@@ -35,6 +35,8 @@ input[type="search"]:focus { border-color: #4a7cff; }
 .topbar-center { flex: 1; display: flex; justify-content: center; }
 #search-input { width: 100%; max-width: 480px; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
+.agent-progress { color: #334e6c; background: #eef3fd; border-radius: 7px; padding: 4px 8px; white-space: nowrap; font-size: .77rem; }
+.agent-progress[hidden] { display: none; }
 .stat-pill {
   background: #eef1f7; padding: 3px 10px; border-radius: 12px;
   font-size: .82rem; color: #445; white-space: nowrap;

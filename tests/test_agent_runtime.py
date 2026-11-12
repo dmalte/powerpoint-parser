@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from threading import Event
 
 from click.testing import CliRunner
 
@@ -79,16 +80,26 @@ def test_config_candidates_preserve_development_precedence(monkeypatch, tmp_path
     assert candidates == [Path("config.yaml"), Path("config") / "config.yaml", installed]
 
 
-def test_agent_refreshes_before_starting_server(tmp_path):
+def test_agent_starts_server_while_initial_refresh_is_running(tmp_path):
     config = AppConfig(output_dir=str(tmp_path / "archive"))
-    calls: list[str] = []
+    refresh_started = Event()
+    allow_refresh_finish = Event()
+    refresh_finished = Event()
+    observed: dict = {}
 
     def refresh_fn(_config):
-        calls.append("refresh")
+        refresh_started.set()
+        assert allow_refresh_finish.wait(3), "Viewer did not start while refresh blocked"
+        refresh_finished.set()
         return {}
 
-    def server_fn(_output_dir, _port, **_kwargs):
-        calls.append("serve")
+    def server_fn(_output_dir, _port, **kwargs):
+        runtime = kwargs["control"]
+        assert refresh_started.wait(2)
+        observed["output_dir_exists"] = Path(_output_dir).is_dir()
+        observed["status_while_serving"] = runtime.status_snapshot()["status"]
+        allow_refresh_finish.set()
+        assert refresh_finished.wait(2)
 
     run_agent(
         config,
@@ -97,7 +108,7 @@ def test_agent_refreshes_before_starting_server(tmp_path):
         server_fn=server_fn,
     )
 
-    assert calls == ["refresh", "serve"]
+    assert observed == {"output_dir_exists": True, "status_while_serving": "scanning"}
 
 
 def test_runtime_records_refresh_failure(tmp_path):
