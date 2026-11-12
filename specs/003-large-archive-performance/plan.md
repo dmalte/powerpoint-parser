@@ -76,3 +76,9 @@ Update design/requirements/roadmap/README/changelog/handoff with implemented opt
 - Swap static CSS/JS first, settings next, JSON next, and index.html last so a new installation never exposes the viewer entrypoint before the data is readable. The export endpoint opens a stable file descriptor and ignores coarse If-Modified-Since validators; both server and JavaScript use no-store semantics.
 - Content-level atomicity is per file. A full-page browser load racing a multi-file publication can still combine different complete generations; image exports are still modified by their processors. No claim of multi-file ACID semantics.
 - Acceptance covers first run, repeat no-op refresh, actual changes/deletion, changed title/assets, missing asset, exception before/after publish, live threaded HTTP reading of large exports, and regression against current CLI/agent tests.
+
+## M007d — Dashboard and Comparison Engine (2026-11-12)
+
+- Add an stdlib-only reporter over the existing .runtime/benchmarks JSON schema; preserve generated reports outside Git. Match environment including exact browser build and input shape to avoid false cross-device comparisons. A dirty or legacy unknown-worktree baseline must not become the automatic reference.
+- Emit offline, escaped HTML with sortable chronological results and per-size sparklines, plus a JSON comparison suitable for automation. Default policy reports warnings at configurable per-metric percentage thresholds; optional explicit fail-on-warning is intended only for stable CI environments.
+- Use deterministic synthetic reports in regression tests for mismatch, missing metric, insufficient sample count and a genuine warning; run it against the existing Pi reports as an integration check.

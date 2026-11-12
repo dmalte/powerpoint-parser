@@ -26,6 +26,8 @@ This file defines outcome-level milestones and delivery order. A milestone may s
 
 M007 is high priority for release readiness. Browser and scan/build hooks, local reporting, a repeatable 6,000/20,000-slide benchmark harness, and background-startup progress were implemented and validated on Pi. M007c now skips unchanged viewer builds when a complete marker matches source assets, and stages JSON/HTML/CSS/JS before atomic file swaps. A one-page PDF probe completed a first build in ~440 ms and repeated no-change refreshes in ~5–6 ms on Pi. Synthetic browser reference data: 6,000 slides ~953 ms interactive / 131 ms p95 filter-to-grid; 20,000 slides ~1,377 ms / 195 ms, with no more than 240 cards. These are **not** Windows acceptance figures; Windows performance acceptance remains open. M004/M005 package acceptance is still paused until representative Windows testing.
 
+M007d comparison tooling now produces an offline performance-history HTML dashboard and machine-readable warnings from compatible clean-revision runs. It deliberately excludes different browser builds/machines/input shapes and p95s based on fewer than five observations. Real hardware performance acceptance remains pending.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

@@ -1,6 +1,6 @@
 # Handoff
 
-- Last Updated: 2026-11-12T13:32:12-08:00
+- Last Updated: 2026-11-12T13:44:30-08:00
 - Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
@@ -29,6 +29,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 - M007c: Builder stages export JSON, HTML, CSS and JS away from live paths; os.replace swaps intact files, index page goes last for initial publication, and a last-written marker forces repair after an interrupted publish.
 - M007c: Built-in HTTP streams an open JSON file and uses no-store, avoiding stale same-second 304 responses. Browser fetch likewise bypasses the cache.
 - Added eight M007c regression tests for first publication order, unchanged/changed/deleted scans, stale/missing artifacts, staging/publish failure recovery, conditional HTTP caching and concurrent readers.
+- M007d added scripts/benchmark_history.py, a small example threshold file, and six regression tests; outputs are local offline HTML history and JSON comparisons. Clean compatible revisions are required for automatic warnings.
 
 
 ## Decisions
@@ -82,7 +83,7 @@ Complete M007 / REQ-PERF-001 real Windows performance acceptance for at least 6,
 
 ## Next Step
 
-Use the repeatable 6,000/20,000-slide benchmarks on Windows/Chrome/Edge and on Mac, and collect real archive/thumbnail timing reports. Complete M004 installer/PPTX/logon and M005 tray validation on Windows; rebuild the installer to incorporate the new M007c code. Only consider full multi-file/versioned snapshots or atomic image rendering if measured failures justify their additional complexity.
+Complete M007e reliability recovery, M004a portable installer preflight, then M007f evidence-led large-library optimization. Build comparable clean-revision reports as part of M007d. Windows M004/M005 smoke acceptance and real PPTX processing benchmarks remain pending.
 
 ## Validation
 
@@ -98,4 +99,5 @@ Use the repeatable 6,000/20,000-slide benchmarks on Windows/Chrome/Edge and on M
 - M007c: eight focused tests verify no-change skip, changed/deleted PDF, source/asset invalidation, staging/publish failures, HTTP concurrent readers, first-install ordering and stale validator prevention; all passed on Pi.
 - M007c one-page PDF example: initial refresh ~440 ms; unchanged scans ~5.5 ms, 5.2 ms, 5.1 ms, with log operations scan+build then scan only. Not a representative large-library or Windows benchmark.
 - Full regression suite after M007c: 74 passed (2026-11-12); JavaScript syntax checks and Git diff checks passed.
+- M007d focused tests: 6 passed; initial existing reports have no pair of compatible clean revisions, so new post-commit benchmark evidence is needed.
 - Real Windows browser performance acceptance: not run on this host.

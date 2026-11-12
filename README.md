@@ -195,6 +195,16 @@ The built-in HTTP server and browser always request `data/export.json` without c
 
 **Scope:** This is atomic **per file**, not an ACID transaction across multiple browser requests, SQLite operations, or PDF/PPTX image files. Browser sessions spanning the brief publication window can observe multiple complete generations. Real Windows packaging/PowerPoint and large-library hardware measurements are still pending.
 
+### Performance history and regression comparison (M007d)
+
+The offline regression reporter compares saved synthetic 6,000/20,000-slide benchmarks across **different clean Git revisions**:
+
+    python scripts/benchmark_history.py --thresholds config/performance_thresholds.example.json
+
+This creates ignored local files at .runtime/benchmarks/history.html and .runtime/benchmarks/comparisons.json. The HTML report shows latest compatible revisions, timing/memory changes, trend graphics and unmatched runs. Comparable runs must have the same operating system, architecture, full browser version, slide count, generated text length and search workload. A dirty or unknown working-tree report is shown in history but not used as an automatic baseline.
+
+The JSON thresholds file maps each metric to the maximum percentage increase that triggers a **warning**. Missing metrics and p95 measurements with fewer than five observations are inconclusive, not regressions. Default invocation returns success even with warnings. Use --fail-on-warning only for a controlled, repeatable CI environment; this returns exit code 2 when warnings exist. No telemetry is uploaded. This is a synthetic frontend regression tool, not a substitute for real-image or Windows acceptance tests.
+
 ## Development
 
 ```bash

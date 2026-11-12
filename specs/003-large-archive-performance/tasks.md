@@ -51,6 +51,13 @@
 - [x] T063 Validate first run, unchanged/changed/deleted refresh, missing/stale output, failure recovery and concurrent browser readers.
 - [x] T064 Run full tests, collect performance evidence, reconcile docs/handoff, inspect diff, and commit locally without pushing.
 
+## M007d — Performance Regression Tracking (2026-11-12)
+
+- [x] T070 Implement compatible-run matching and configurable regression warning evaluator.
+- [x] T071 Generate offline HTML trends and machine-readable JSON comparing committed revisions.
+- [x] T072 Test clean/dirty matching, thresholds, incomplete p95s, HTML escaping and CLI integration.
+- [ ] T073 Validate against Pi benchmark history, reconcile documentation, and checkpoint locally without pushing.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

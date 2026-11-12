@@ -78,3 +78,10 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - Scoped scans with additions, updates, or deletions still publish data changes, while no-change scans avoid unnecessary SQLite export/JSON serialization and static copying.
 - Do not claim transactional snapshots across several HTTP requests, or immutability of PPTX/PDF thumbnail images while the pipeline is processing them. Those guarantees are distinct follow-on architecture changes.
 - Keep original CLI build and rebuild behavior explicit. No database schema migration, cloud service, or platform-specific dependency.
+
+## M007d — Revision-Matched Regression Reports (2026-11-12)
+
+- Parse local synthetic benchmark JSON reports and generate an offline HTML dashboard plus machine-readable comparison report.
+- Compare only clean runs with identical library size/text length, workload iteration count, operating system/architecture, and exact browser version; identify mismatches explicitly instead of calling them regressions.
+- Compare the most recent compatible *different* Git revisions; allow warning thresholds to be configured without enabling hard failure by default. Missing API metrics and low-sample p95s remain inconclusive.
+- Provide charted history, per-metric percentage changes, revision provenance and warnings. No cloud upload, no source document data, and no production dependency.

@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Background-first agent startup with an HTTP-served first-run loading page, path-free progress fields in /api/status, and in-viewer/Settings scan progress indicators.
 - M007c archive publication marker, source/config fingerprint, missing-file recovery, and no-op scan rebuild avoidance.
 - M007c temporary-staged JSON/HTML/CSS/JS with per-file atomic replacement, failed-publish recovery, and concurrent-reader validation.
+- M007d offline synthetic benchmark comparison dashboard and JSON output with strict compatible-revision matching, configurable warning thresholds, and history trends.
 
 ### Changed
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
