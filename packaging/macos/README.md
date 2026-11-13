@@ -104,6 +104,10 @@ The archive app is a different code-signing identity from Microsoft PowerPoint. 
 
 Mac1's 3,952-file scan was paused after 9 files and four reported errors; the per-user LaunchAgent was booted out and its original plist held under user Application Support to prevent relaunch on next login. Do not restart the full library until a separate small fixture library succeeds without one prompt per presentation. An updated native app was built and passed package checks, but its isolated gui/501 background LaunchAgent failed both synthetic PPTX conversions with PowerPoint -9074, so this staging fix is not yet accepted. That test LaunchAgent was removed; the production agent and its startup plist remain held. A user Terminal smoke with the new staging is needed before another background-mode approach is selected.
 
+### M008f native retry result
+
+The next signed-in Terminal smoke passed the staged two-slide PowerPoint export. A fresh isolated user LaunchAgent subsequently processed both reference PPTX decks (8 slides) and four additional copied synthetic PPTXs (16 slides) with 0 processing errors; the local viewer indexed six decks / 24 slides. No PowerPoint temporary staging directories remained. The earlier -9074 failures were intermittent. The isolated test LaunchAgent was removed and the production auto-start remains disabled. **Ask the user if permission dialogs appeared during the successful test**; API success alone does not establish that the repeated permission prompts are gone. Do not restart the production library without confirmation.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

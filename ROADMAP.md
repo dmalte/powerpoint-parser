@@ -45,6 +45,8 @@ M008e addresses a confirmed Mac PDF limitation: hidden slides were excluded (5 o
 
 M008f addresses native macOS file-access prompts during production-size scanning. The Mac PowerPoint renderer now stages its ephemeral PPTX/PDF inside PowerPoint's own Documents container, instead of a unique external archive path per file. User consent may still be required once for the archive app to access the Office container. Pi regression suite passed (140 tests). Mac arm64 build passed 17/17 packaging checks, but a dedicated isolated user LaunchAgent failed both synthetic PPTX conversions with PowerPoint -9074 despite sandbox staging. The test agent was removed; production auto-start remains disabled. Terminal-versus-background automation acceptance and safe restart of the 3,952-file archive remain pending.
 
+M008f native retry evidence (2026-11-12): after one Terminal failure and one isolated gui/501 LaunchAgent failure with PowerPoint -9074, the next Terminal run passed (2/2) and a new isolated LaunchAgent passed two reference decks followed by four additional uniquely named synthetic PPTXs (6 decks, 24 slides, 0 errors). The per-user test agent was removed and production autostart remains held. The app cannot read macOS permission dialogs, so file-by-file prompt elimination is not yet accepted without user confirmation.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

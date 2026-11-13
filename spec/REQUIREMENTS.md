@@ -131,7 +131,7 @@ lists are implementation work and do not replace this inventory.
   - Feature: specs/004-macos-desktop-agent
   - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002, REQ-PLATFORM-001
   - Validation: Mac1 built arm64 app/CLI (17 artifact preflight passes), indexed a real PDF and ran the packaged HTTP viewer. Interactive Terminal PowerPoint exported 2/2 images, but a six-slide reference deck exported only five because its hidden slide was skipped. The M008e private-copy fix passed native Mac validation: 6/6 slides, 12 valid JPEG files, correct title/notes mapping, unchanged original PPTX checksum and hidden flag. Per-user LaunchAgent/login, Windows/Mac pixel fidelity and distribution signing remain outstanding.
-  - Sandbox-permission status: M008f Pi-tested staged Mac converter input/PDF under Microsoft PowerPoint's own container, to avoid repeated external-file authorization. Mac1 large-library run stopped at 9/3,952 files with four processing errors; native small-deck acceptance and safe re-enablement of login startup are pending.
+  - Sandbox-permission status: M008f Pi-tested Mac temporary PPTX/PDF staging inside Microsoft PowerPoint's container. Native Mac1 retry passed 6 synthetic decks / 24 slides / 0 errors in an isolated GUI LaunchAgent after prior intermittent -9074 failures. Repeated permission-dialog elimination is not yet independently confirmed by the user; production 3,952-file LaunchAgent remains safely disabled pending staged resumption.
   - Source: macOS desktop preparation request, 2026-11-12
 
 ## Backlog

@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T22:55:55-08:00
+- Last Updated: 2026-11-12T23:06:21-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint file-access dialogs during the 3,952-file scan; agent stopped after 9 processed, 4 errors. The login LaunchAgent was booted out and its plist put safely on hold so login will not restart prompt storm. M008f Pi implementation (a159312) stages temporary PPTX/PDF inside PowerPoint's sandbox; 140 portable tests pass. Mac1 rebuilt native app (17/17 preflight), but the isolated gui/501 user LaunchAgent failed to render both synthetic test PPTXs with PowerPoint error -9074. The isolated LaunchAgent was removed. Production agent remains stopped with its plist held, so the 3,952-file scan cannot restart at login. A user Terminal versus background-process comparison is required; no origin push.
+The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-LaunchAgent rendering failed (PowerPoint -9074), but retry succeeded after the user's signed-in Terminal retry passed. A fresh isolated user-LaunchAgent scan processed two reference PPTXs (8 slides) successfully, then incrementally scanned four additional copied synthetic decks (16 slides), zero errors. The generated archive contains six decks / 24 slides; all PowerPoint temporary staging directories were cleaned. We cannot remotely establish whether the user saw per-file permission prompts. The temporary LaunchAgent was stopped and removed after test; the original 3,952-file production LaunchAgent remains booted out with its plist safely held. Do not restart real-library scanning until the user confirms no repeated permission prompts. No remote push has been performed.
 
 ## Completed
 
@@ -71,6 +71,10 @@ Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint fi
 
 - M008f Mac1 native isolated test: clean checkout at a159312, arm64 app rebuilt, 17/17 artifact/source checks, ad hoc code signature verified. A dedicated user LaunchAgent ran the rebuilt app with an isolated config containing only two synthetic PPTX fixtures. Both failed with PowerPoint -9074 (0/2 successfully processed), even with Office-container temporary staging. This does not prove the repeated external-file prompts are fixed.
 - M008f safe cleanup: temporary acceptance LaunchAgent booted out and its plist removed; production user LaunchAgent remains stopped with startup plist held in Application Support. Production configuration and archive were not edited. No arbitrary source documents were staged for test.
+
+- M008f native retry: User reran 2-slide smoke in signed-in Mac Terminal with sandbox staging: pass 2/2, 4 JPEGs, 0.7 seconds and no Office error. A fresh isolated gui/501 LaunchAgent then passed two reference decks (8 slides, zero errors), and an incremental refresh processed four newly copied synthetic decks (4 OK, 0 errors), for six decks and 24 slides total. The two prior -9074 failures remain recorded: native automation can be intermittent.
+- Repeated macOS permission dialogs are not visible to the remote operator. No automatic claim of prompts being resolved; ask the user whether any appeared during six-deck batch.
+- After retry verification the temporary acceptance LaunchAgent was booted out and its plist removed; archived synthetic test evidence remains, and the production 3,952-file agent remains disabled with its original plist preserved.
 
 ## Decisions
 
@@ -161,13 +165,16 @@ Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint fi
 
 ## Next Step
 
-M008f native LaunchAgent test FAILED (0/2, PowerPoint -9074) despite Office-container staging; test LaunchAgent was stopped/removed. Keep production auto-start disabled and saved config/archive intact. Next run a two-slide Terminal smoke with new source in unlocked user session to isolate session/TCC effects. If Terminal passes but LaunchAgent fails, evaluate LaunchServices-launched GUI app or a user-session renderer helper, then re-test multiple synthetic documents with zero repeated prompts before resuming 3,952 files. No push was performed.
+M008f retry succeeded: new staging passed a signed-in Terminal 2-slide smoke and an isolated GUI LaunchAgent scan of six synthetic decks (24 slides), zero errors. Ask user whether any file-permission prompts appeared during the batch; success logs cannot verify on-screen dialogs. Keep production 3,952-file LaunchAgent auto-start held until this is confirmed, then plan controlled staged resumption with progress/error monitoring. No push was performed.
 
 - M008f Pi sandbox-staging tests: 15 focused tests passed; full repository suite: 140 passed. Native PowerPoint Office sandbox permission test: pending.
 - Mac1 pre-fix large scan: 3,952 discovered, 9 processed, 4 errors; LaunchAgent bootout verified, startup plist held safely. Existing archive/settings remain intact.
 
 - M008f native Mac1: clean fast-forward to a159312, PyInstaller rebuild completed, 17/17 static Mac artifact checks, ad hoc codesign verification exit 0.
 - M008f isolated Mac1 gui/501 LaunchAgent: two synthetic PPTX fixtures only, 0 processed successfully, 2 failed with PowerPoint -9074; zero slide images. Agent and temporary test plist removed; production auto-start remains held. No production library files were scanned as part of the native test.
+
+- M008f second native Mac1 Terminal run with new staging: PASS 2/2 slides, four JPEGs, 0.699 s, no Office code.
+- M008f isolated Mac1 GUI LaunchAgent retry: PASS 2 synthetic decks / 8 slides; incremental scan of 4 new copied synthetic PPTXs: 4 processed OK, 0 errors, 2 unchanged, viewer rebuilt. Archive: 6 decks, 24 slides. No leftover converter dirs. Test LaunchAgent removed; production startup still held. Whether GUI permission dialogs appeared during the successful batch is NOT verified.
 
 ## Validation
 
