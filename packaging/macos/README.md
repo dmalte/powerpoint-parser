@@ -102,7 +102,7 @@ PowerPoint for Mac runs sandboxed. During a large library scan, passing a unique
 
 The archive app is a different code-signing identity from Microsoft PowerPoint. On modern macOS, it may need one permission grant to enter PowerPoint's container. If denied, processing reports a workspace-access error and preserves previous images/SQLite rows. The user should grant access only if they recognize the PowerPoint Archive app. Do not edit sandbox bookmarks or broaden file permissions.
 
-Mac1's 3,952-file scan was paused after 9 files and four reported errors; the per-user LaunchAgent was booted out and its original plist held under user Application Support to prevent relaunch on next login. Do not restart the full library until a separate small fixture library succeeds without one prompt per presentation. A new app build and validated per-user launch are required.
+Mac1's 3,952-file scan was paused after 9 files and four reported errors; the per-user LaunchAgent was booted out and its original plist held under user Application Support to prevent relaunch on next login. Do not restart the full library until a separate small fixture library succeeds without one prompt per presentation. An updated native app was built and passed package checks, but its isolated gui/501 background LaunchAgent failed both synthetic PPTX conversions with PowerPoint -9074, so this staging fix is not yet accepted. That test LaunchAgent was removed; the production agent and its startup plist remain held. A user Terminal smoke with the new staging is needed before another background-mode approach is selected.
 
 ## Required native Mac acceptance
 

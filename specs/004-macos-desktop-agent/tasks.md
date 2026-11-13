@@ -60,5 +60,5 @@
 - [x] T110 Use Microsoft PowerPoint's own sandbox Documents folder for ephemeral Mac PowerPoint converter input/output, retaining separate LibreOffice behavior.
 - [x] T111 Test staging path, full cleanup, denied container permission, hidden-slide parity, original-file preservation, and Windows/LibreOffice nonregression.
 - [x] T112 Run full Pi tests, document permission model/limits and cleanly checkpoint the change.
-- [ ] T113 Fast-forward clean Mac1 checkout, run native user-session reference smoke and validate absence of repeated file prompts.
+- [ ] T113 Native Mac1: checkout/build completed; isolated GUI LaunchAgent fixture smoke FAILED 0/2 with PowerPoint -9074. Compare new staging from signed-in Terminal and validate no repeated prompts before acceptance.
 - [ ] T114 Restart the per-user LaunchAgent only after safe small-library acceptance; do not resume 3,952-file scan prematurely.

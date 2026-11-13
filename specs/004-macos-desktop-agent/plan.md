@@ -59,3 +59,11 @@
 - Make the Mac PowerPoint container selection an overridable method/test seam (not a user-configurable arbitrary path), so tests use local temporary directories and never write into a real app sandbox. The optional LibreOffice backend keeps its existing private profile/output behavior.
 - macOS 14+ may require one permission grant for a separately signed agent to access another app's container. Refuse or report access denial clearly; do not add Full Disk Access, scripts that forge sandbox bookmarks, or permission-bypassing workarounds.
 - Before production scan, validate two reference PPTX exports, the hidden-slide fixture, missing-permission errors, and cleanup. Keep the LaunchAgent booted out and disabled during validation to avoid thousands of dialogs.
+
+## M008f native isolation result (Mac1, 2026-11-12)
+
+- Fast-forwarded clean Mac1 to a159312 and rebuilt Apple Silicon .app/CLI (PyInstaller 6.22.3); native package preflight 17/17 and ad hoc strict codesign verification passed.
+- A dedicated, separate gui/501 LaunchAgent with an isolated working directory/config/archive scanned two copied synthetic PPTXs (simple and six-slide reference). No real-library files were scanned. The updated renderer used PowerPoint's container for temporary PPTX/PDF.
+- Both conversions failed with Microsoft PowerPoint -9074, zero slides indexed; /api/status reported 2 processing errors. Thus the new staging is NOT accepted as a fix for unattended native rendering and the presence/absence of repeated prompts could not be established.
+- The isolated test LaunchAgent was booted out and its test plist removed. User production LaunchAgent remains booted out with its original plist safely held under Application Support, preventing the 3,952-file prompt storm at login. User's archive/config/logs remain intact.
+- Next isolate native user-session versus background-process automation identity: run the existing two-slide smoke from signed-in Terminal with the updated staging to check whether it works without per-file prompts. If Terminal works and background launch still fails, qualify a LaunchServices-started application or a dedicated user-session automation helper; do not resume the large library until a test batch has zero errors and no repeated prompts.

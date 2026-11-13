@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T22:46:16-08:00
+- Last Updated: 2026-11-12T22:55:55-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint file-access dialogs during the 3,952-file scan; agent stopped after 9 processed, 4 errors. The login LaunchAgent was booted out and its plist put safely on hold so login will not restart prompt storm. M008f Pi implementation now stages temporary PPTX/PDF under PowerPoint's own sandbox container, with archive JPEGs still versioned separately. Portable full regression suite passes (140). Next: native small-fixture per-user agent test, only then re-enable the production library. Local commits are not pushed to origin.
+Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint file-access dialogs during the 3,952-file scan; agent stopped after 9 processed, 4 errors. The login LaunchAgent was booted out and its plist put safely on hold so login will not restart prompt storm. M008f Pi implementation (a159312) stages temporary PPTX/PDF inside PowerPoint's sandbox; 140 portable tests pass. Mac1 rebuilt native app (17/17 preflight), but the isolated gui/501 user LaunchAgent failed to render both synthetic test PPTXs with PowerPoint error -9074. The isolated LaunchAgent was removed. Production agent remains stopped with its plist held, so the 3,952-file scan cannot restart at login. A user Terminal versus background-process comparison is required; no origin push.
 
 ## Completed
 
@@ -68,6 +68,9 @@ Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint fi
 - M008f: When agent scanned 3,952 PPTX/PDF files, PowerPoint prompted individually for access to unique temporary paths under archive assets. Mac1 progress was 9/3,952 with 4 errors before stopping. Running app LaunchAgent was booted out; plist was moved from ~/Library/LaunchAgents to a held plist in ~/Library/Application Support/PowerPointVisualArchive; user config/archive preserved.
 - M008f: Windows COM remains unchanged. Mac PowerPoint renderer now stages its own per-document private PPTX/PDF inside ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/PowerPointVisualArchive, where Office has sandbox access. Image rasterization/final publishing remain under archive assets. LibreOffice stays on its own workspace. Existing original/hidden flags and notes remain unchanged.
 - M008f Pi: 15 focused renderer tests passed, including sandbox path, cleanup, denial and hidden-slide parity; full repo suite 140 passed. Native Mac acceptance is not yet done.
+
+- M008f Mac1 native isolated test: clean checkout at a159312, arm64 app rebuilt, 17/17 artifact/source checks, ad hoc code signature verified. A dedicated user LaunchAgent ran the rebuilt app with an isolated config containing only two synthetic PPTX fixtures. Both failed with PowerPoint -9074 (0/2 successfully processed), even with Office-container temporary staging. This does not prove the repeated external-file prompts are fixed.
+- M008f safe cleanup: temporary acceptance LaunchAgent booted out and its plist removed; production user LaunchAgent remains stopped with startup plist held in Application Support. Production configuration and archive were not edited. No arbitrary source documents were staged for test.
 
 ## Decisions
 
@@ -136,6 +139,8 @@ Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint fi
 
 - M008f files: src/ppt_visual_archive/mac_renderer.py, tests/test_macos_renderer.py, specs/004-macos-desktop-agent/{spec,plan,tasks}.md, README, ROADMAP, spec/DESIGN_SPEC, spec/REQUIREMENTS, CHANGELOG, dev/HANDOFF.
 
+- M008f native blocker: gui/501 background launch still yields PowerPoint error -9074 for both synthetic reference decks. Need direct signed-in Terminal smoke with new sandbox staging to distinguish file-location permission from background-process automation/TCC identity. Repeated-per-file prompt elimination is unverified; no large scan should resume.
+
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -156,10 +161,13 @@ Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint fi
 
 ## Next Step
 
-Sync the M008f sandbox-staging implementation from Pi to the clean Mac1 checkout, rebuild the native arm64 app, then run a **separate isolated user-session LaunchAgent fixture scan** (two PPTXs, including hidden slide) without touching the production settings. Observe whether a one-time container access consent is requested and whether any file-by-file prompts persist. Keep the production 3,952-file agent stopped; restore its held plist only after explicit small-batch acceptance and planned safe resume. Project is local-only; no push without user authorization.
+M008f native LaunchAgent test FAILED (0/2, PowerPoint -9074) despite Office-container staging; test LaunchAgent was stopped/removed. Keep production auto-start disabled and saved config/archive intact. Next run a two-slide Terminal smoke with new source in unlocked user session to isolate session/TCC effects. If Terminal passes but LaunchAgent fails, evaluate LaunchServices-launched GUI app or a user-session renderer helper, then re-test multiple synthetic documents with zero repeated prompts before resuming 3,952 files. No push was performed.
 
 - M008f Pi sandbox-staging tests: 15 focused tests passed; full repository suite: 140 passed. Native PowerPoint Office sandbox permission test: pending.
 - Mac1 pre-fix large scan: 3,952 discovered, 9 processed, 4 errors; LaunchAgent bootout verified, startup plist held safely. Existing archive/settings remain intact.
+
+- M008f native Mac1: clean fast-forward to a159312, PyInstaller rebuild completed, 17/17 static Mac artifact checks, ad hoc codesign verification exit 0.
+- M008f isolated Mac1 gui/501 LaunchAgent: two synthetic PPTX fixtures only, 0 processed successfully, 2 failed with PowerPoint -9074; zero slide images. Agent and temporary test plist removed; production auto-start remains held. No production library files were scanned as part of the native test.
 
 ## Validation
 
