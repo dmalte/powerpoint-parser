@@ -53,4 +53,4 @@
 - [x] T100 Preserve hidden slides by temporarily unhiding only the private PPTX rendering copy; keep original untouched.
 - [x] T101 Add regression tests for hidden slides, sequence mapping, notes and original document immutability.
 - [x] T102 Update docs/handoff, run full portable tests and checkpoint locally.
-- [ ] T103 Native Mac interactive six-slide PowerPoint smoke test and image/notes acceptance (pending).
+- [x] T103 Native Mac interactive six-slide PowerPoint smoke test and image/notes acceptance (2026-11-12: 6/6, all images valid, titles/notes and original checksum verified).

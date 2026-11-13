@@ -46,3 +46,9 @@
 - After copying the PPTX to the renderer's unique temporary directory, use the existing python-pptx dependency to clear OOXML hidden-slide show=0/show=false flags in that copy only. Save only if flags actually changed. Both PowerPoint/AppleScript and opt-in LibreOffice then render the full expected slide sequence; original metadata is extracted from the untouched source.
 - No SQLite change, configuration option or Windows COM behavior change. The temporary modified PPTX and PDF are deleted when the conversion context exits.
 - Validate Pi tests first, then retest using the signed-in Mac Terminal since system-daemon MCP AppleScript conversion is not yet reliable.
+
+## M008e native result (2026-11-12)
+
+- On Mac1 after fast-forwarding commit 0329508, the interactive user-session script rendered 6/6 slides in 15.27s with Office error null, including the hidden sixth slide. Six 320x180 JPEG thumbnails and six 1280x720 JPEG previews were verified with Pillow.
+- The original PPTX SHA-256 matched the reference manifest, the sixth slide remained hidden in the original, and all six titles and speaker notes matched. The archive still indexes metadata from the unmodified original.
+- Mac packaged LaunchAgent Automation/permissions, user logon, upgrade/uninstall and pixel-level comparison with Windows PowerPoint output remain open. System-daemon PowerPoint export is unreliable and not a supported renderer execution context.

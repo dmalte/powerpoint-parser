@@ -41,7 +41,7 @@ M008a–d source work is implemented and Pi-tested: immutable per-deck image gen
 
 M008 native Mac checkout and app build were validated on Mac1: 132 portable tests, 17/17 artifact checks, signed-by-PyInstaller ad hoc arm64 bundle, packaged CLI PDF indexing/HTML viewer, and app localhost startup/shutdown. Native PowerPoint 16.115 PDF automation returned -9074; direct AppleScript JPG output remains unverified. M008 stays active pending unlocked user-session automation/file access and visual comparison. Login-agent installation has not been performed.
 
-M008e addresses a confirmed Mac PDF limitation: hidden slides were excluded (5 of 6 pages). The renderer now temporarily unhides only the private PPTX copy before export; portable regression tests verify source preservation, full slide order and notes. Native Mac interactive acceptance for all six JPEG images remains open. A two-slide PowerPoint-for-Mac rendering test passed under the signed-in Terminal, but the system MCP daemon's GUI automation remains unreliable.
+M008e addresses a confirmed Mac PDF limitation: hidden slides were excluded (5 of 6 pages). The renderer now temporarily unhides only the private PPTX copy before export; portable regression tests verify source preservation, full slide order and notes. Native Mac interactive acceptance now passes for all six slides (12 validated JPEG files), including the hidden final slide; original PPTX checksum and slide notes remain intact. A two-slide PowerPoint-for-Mac rendering test passed under the signed-in Terminal, but the system MCP daemon's GUI automation remains unreliable.
 
 ## Deployment Sequence
 

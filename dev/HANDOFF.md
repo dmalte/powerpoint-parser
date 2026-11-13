@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T21:00:04-08:00
+- Last Updated: 2026-11-12T22:08:26-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-Mac1 native PowerPoint rendering passed in the logged-in user's Terminal (2/2 slides). A complex six-slide test produced 5/6 because PowerPoint PDF omits a hidden slide. M008e now unhides slides only in a temporary private rendering copy, passes Pi tests, and awaits a native Mac six-slide rerun. App/CLI bundle and PDF viewer smoke passed; permanent login agent remains uninstalled.
+Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-slide decks. M008e fixes omitted hidden slides using a temporary PPTX copy; 6/6 images and original metadata/notes/hidden flag were verified on Mac1. The packaged app/CLI and PDF viewer passed earlier. Per-user LaunchAgent/login and cross-platform pixel fidelity remain unverified; no permanent login agent installed.
 
 ## Completed
 
@@ -61,7 +61,9 @@ Mac1 native PowerPoint rendering passed in the logged-in user's Terminal (2/2 sl
 
 - M008e: Mac user-session two-slide PowerPoint 16.115 export passed in 28.1s and wrote four JPEGs; system MCP-daemon PowerPoint PDF export continued to time out/return -9074. A six-slide complex reference from Terminal wrote five previews and five thumbnails; the excluded sixth slide was intentionally hidden. Native smoke JSON correctly reported status=fail, expected=6, rendered=5.
 - M008e: Mac PDF-backed renderer now exposes hidden slides only in its own temporary copied PPTX before export using the existing python-pptx dependency. Original bytes/hidden flags, text and notes stay unchanged, and missing PDF pages still fail safely. New tests cover middle/end hidden slides and original index mappings.
-- M008e portable checks: 137 full repository tests passed on Pi (three new hidden-slide cases). Interactive Mac validation pending after code sync.
+- M008e portable checks: 137 full tests passed on both Pi and Mac1 (three new hidden-slide cases). Mac1 native interactive six-slide smoke now passed after code sync (6/6 in 15.3s).
+
+- M008e native acceptance (Mac1): 6/6 slides, 12 decoded JPEG assets, unchanged original PPTX SHA-256, hidden slide 6 preserved in original and all title/notes mappings verified. 15.3 seconds; no Office error.
 
 ## Decisions
 
@@ -136,20 +138,20 @@ Mac1 native PowerPoint rendering passed in the logged-in user's Terminal (2/2 sl
 - Windows/Mac startup, real PPTX rendering, image loading, and 20,000-slide device-specific measurements still require representative platform runs.
 - Generation-specific asset paths eliminate in-place overwrites; a process crash between directory rename and SQLite commit may leave an orphan version. Safe garbage collection and abrupt power-loss durability remain separate work.
 
-- M008: Mac user-session two-slide conversion is proven, but hidden-slide visual parity, all six images, per-user LaunchAgent Automation permission, real app installation/upgrade and font/layout fidelity remain pending.
+- M008: Mac user-session conversion is proven for both simple and complex decks including the hidden sixth slide. Per-user LaunchAgent Automation permission, real app installation/upgrade and Windows/Mac pixel/font-layout fidelity remain pending.
 - M008 installer upgrade, rollback and uninstall behavior are validated with Pi-based fault injection, but native launchctl/signing/notarization, actual Mac PowerPoint and system permissions are unverified.
 - M004/M005 Windows installer/COM/logon/tray and M007 real image/browser benchmarks remain pending.
 
-- PowerPoint-for-Mac export works from unlocked user Terminal (2/2), but daemon-context AppleScript still times out/-9074. The complex test exposed a separate hidden-slide omission (5/6); M008e has a Pi-tested temporary-copy correction awaiting Mac re-run.
+- PowerPoint-for-Mac export works from the unlocked user Terminal for 2/2 and 6/6 slides; M008e fixes hidden-slide omission. Daemon-context AppleScript continues to be unreliable, so PPTX rendering should run in the interactive user-session agent.
 - Native user-level LaunchAgent install/upgrade/login and actual PPTX visual fidelity are not yet accepted. Do not auto-install or sign/notarize until renderer is validated.
 
 ## Next Step
 
-Sync the M008e temporary-hidden-slide fix from Pi to the clean Mac1 checkout; run the six-slide native smoke from the signed-in user's Terminal and verify 6 previews plus 6 thumbnails and unchanged source flags. Compare reference images/notes; with explicit approval only, install/test the per-user LaunchAgent. Windows M004/M005 acceptance remains separate.
+Six-slide Mac1 native smoke and metadata/image verification are complete. Next, compare the Mac reference images with actual Windows PowerPoint output and, with explicit user authorization only, install/test the per-user LaunchAgent in the graphical session (Automation consent, login, upgrade/rollback/uninstall). Windows M004/M005 acceptance remains separate.
 
 - Mac1 user Terminal 2-slide native PowerPoint smoke: PASS, 2 JPEG thumbnails and 2 previews, 28.1s. MCP-daemon invocation: FAIL timeout at 25s (session-dependent).
 - Mac1 user Terminal six-slide visual smoke: JSON status FAIL (5/6 rendered; sixth is hidden) despite images for visible slides. This is reproducible and correctly detected.
-- M008e Pi: 137 repository tests pass; 12 focused Mac renderer tests pass, including 3 hidden-slide cases. Mac native rerun on updated checkout remains pending.
+- M008e Pi and Mac1: 137 repository tests pass; 12 focused Mac renderer tests pass, including 3 hidden-slide cases. Native Mac1 interactive complex deck smoke PASS 6/6 slides in 15.3 seconds, Office code none. 12 JPEG files decode at expected 320x180 and 1280x720 resolutions; original SHA-256 matches manifest and title/notes mappings match all six slides.
 
 ## Validation
 

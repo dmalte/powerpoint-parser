@@ -87,7 +87,7 @@ It uses a generated two-slide reference deck and writes a path-free local result
 
 ### macOS hidden-slide rendering parity (M008e)
 
-PowerPoint for Mac PDF export normally skips hidden slides. The archive must index the same complete slide sequence on Windows and macOS, including hidden slides; otherwise image-to-title/notes associations can shift. The Mac PDF-backed renderer now temporarily exposes hidden slides **only in its private working copy** of each PPTX before exporting the temporary PDF. The user's original PPTX, hidden-slide flags and notes remain intact. The working copy and PDF are removed afterward. Native Mac confirmation of this fix remains pending; the six-slide reference deck initially exported only five images.
+PowerPoint for Mac PDF export normally skips hidden slides. The archive must index the same complete slide sequence on Windows and macOS, including hidden slides; otherwise image-to-title/notes associations can shift. The Mac PDF-backed renderer now temporarily exposes hidden slides **only in its private working copy** of each PPTX before exporting the temporary PDF. The user's original PPTX, hidden-slide flags and notes remain intact. The working copy and PDF are removed afterward. Mac1 native acceptance now passes: the six-slide reference renders all 6 thumbnails and 6 previews, including the hidden final slide, in 15.3 seconds. All JPEGs and slide metadata were verified, and the original PPTX checksum remained unchanged. Windows/Mac pixel-level fidelity and login-agent acceptance are separate.
 
 ## Quick Start
 
