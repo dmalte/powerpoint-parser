@@ -275,3 +275,70 @@ def test_mac_automation_error_does_not_expose_source_path_in_status(monkeypatch,
         )
     assert str(source) not in str(failure.value)
     assert source.is_file()
+
+
+@pytest.mark.parametrize("hidden_index, flag", [(1, "0"), (3, "false")])
+def test_hidden_slides_only_exposed_in_private_pptx_copy(monkeypatch, tmp_path, hidden_index, flag):
+    source = pptx_file(tmp_path / "source deck.pptx", slides=3)
+    original = Presentation(source)
+    original.slides[hidden_index - 1]._element.set("show", flag)
+    original.save(source)
+    original_bytes = source.read_bytes()
+    monkeypatch.setattr(mac_renderer.shutil, "which", lambda cmd: "/usr/bin/osascript")
+
+    def simulate_powerpoint(argv, **_kwargs):
+        work_copy = Path(argv[3])
+        assert work_copy != source.resolve()
+        converted = Presentation(work_copy)
+        assert len(converted.slides) == 3
+        assert all(slide._element.get("show") != "0" and
+                   slide._element.get("show") != "false" for slide in converted.slides)
+        assert converted.slides[hidden_index - 1].shapes.title.text == f"Original title {hidden_index}"
+        pdf_file(Path(argv[4]), pages=3)
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(mac_renderer.subprocess, "run", simulate_powerpoint)
+    renderer = MacPowerPointRenderer(RenderConfig())
+    result = renderer.export_slides(str(source), str(tmp_path / "output"))
+    assert [item["slide_number"] for item in result] == [1, 2, 3]
+    assert source.read_bytes() == original_bytes
+    assert Presentation(source).slides[hidden_index - 1]._element.get("show") == flag
+    assert not list(tmp_path.rglob("presentation.pdf"))
+    assert not list(tmp_path.rglob(".pptviewer-mac-*"))
+
+
+def test_hidden_slide_keeps_original_index_order_and_speaker_notes(monkeypatch, tmp_path):
+    source_dir = tmp_path / "presentations"
+    source_dir.mkdir()
+    source = pptx_file(source_dir / "with hidden.pptx", slides=3)
+    prs = Presentation(source)
+    prs.slides[1]._element.set("show", "0")
+    prs.slides[1].notes_slide.notes_text_frame.text = "Hidden slide original speaker note"
+    prs.save(source)
+    original_bytes = source.read_bytes()
+
+    cfg = default_config(str(tmp_path / "viewer"), [str(source_dir)])
+    cfg.file_types = ["pptx"]
+    monkeypatch.setattr(mac_renderer.shutil, "which", lambda _: "/usr/bin/osascript")
+
+    def simulate_pdf_conversion(argv, **_kwargs):
+        opened = Presentation(argv[3])
+        assert all(slide._element.get("show") != "0" for slide in opened.slides)
+        pdf_file(Path(argv[4]), pages=3)
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(mac_renderer.subprocess, "run", simulate_pdf_conversion)
+    monkeypatch.setattr(pipeline, "create_pptx_renderer", lambda rc: MacPowerPointRenderer(rc))
+    summary = pipeline.run_scan(cfg)
+    assert summary["processed_ok"] == 1
+    db = IndexDB(cfg.db_path)
+    try:
+        slides = db.get_all_slides()
+        assert [s.slide_number for s in slides] == [1, 2, 3]
+        assert [s.title for s in slides] == [f"Original title {n}" for n in (1, 2, 3)]
+        assert slides[1].notes_text == "Hidden slide original speaker note"
+        assert all((Path(cfg.output_dir) / slide.thumb_path).is_file() for slide in slides)
+    finally:
+        db.close()
+    assert source.read_bytes() == original_bytes
+    assert Presentation(source).slides[1]._element.get("show") == "0"

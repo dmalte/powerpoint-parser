@@ -85,6 +85,10 @@ The opt-in native repro command is:
 
 It uses a generated two-slide reference deck and writes a path-free local result to .runtime/mac-native/pptx-smoke/result.json. It may show macOS Automation or Grant File Access prompts. The next native step is to inspect the unlocked PowerPoint GUI, confirm manual PDF export for the reference deck, and approve any required file-access dialog. Once resolved, rerun the native renderer and image comparison before enabling automatic login installation.
 
+### macOS hidden-slide rendering parity (M008e)
+
+PowerPoint for Mac PDF export normally skips hidden slides. The archive must index the same complete slide sequence on Windows and macOS, including hidden slides; otherwise image-to-title/notes associations can shift. The Mac PDF-backed renderer now temporarily exposes hidden slides **only in its private working copy** of each PPTX before exporting the temporary PDF. The user's original PPTX, hidden-slide flags and notes remain intact. The working copy and PDF are removed afterward. Native Mac confirmation of this fix remains pending; the six-slide reference deck initially exported only five images.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

@@ -39,6 +39,29 @@ end run
 """.strip()
 
 
+def _show_all_slides_in_render_copy(private_pptx: Path) -> int:
+    """Expose hidden slides only in the temporary render copy.
+
+    PowerPoint for Mac omits hidden slides when exporting PDF. The Windows COM
+    renderer indexes all PPTX slides, including hidden slides, so omitting them
+    shifts image-to-metadata associations. Never modify the user's original.
+    """
+    from pptx import Presentation
+
+    presentation = Presentation(str(private_pptx))
+    changed = 0
+    for slide in presentation.slides:
+        # OOXML p:sld/@show defaults to true; 0/false means hidden.
+        if (slide._element.get("show") or "").strip().lower() in {"0", "false"}:
+            del slide._element.attrib["show"]
+            changed += 1
+
+    if changed:
+        presentation.save(str(private_pptx))
+        logger.info("Temporarily exposed %d hidden slide(s) for PDF rendering", changed)
+    return changed
+
+
 class _MacPdfBackedRenderer:
     """Adapter conforming to start/stop/export_slides used by the shared pipeline."""
 
@@ -76,6 +99,7 @@ class _MacPdfBackedRenderer:
             # never close or save an existing user presentation.
             local_source = workdir / source.name
             shutil.copy2(source, local_source)
+            _show_all_slides_in_render_copy(local_source)
             pdf_path = workdir / "presentation.pdf"
             self._convert(local_source, pdf_path, workdir)
             if not pdf_path.is_file() or pdf_path.stat().st_size == 0:

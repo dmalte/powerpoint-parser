@@ -48,3 +48,9 @@
 - [x] T092 Add reproducible, path-free native PowerPoint smoke report; reproduce export error -9074 and document direct JPG dictionary availability.
 - [ ] T093 Resolve native PowerPoint export environment/permissions and verify actual PPTX slides and image comparison against reference decks.
 - [ ] T094 With approval, install per-user LaunchAgent and validate login, upgrade, rollback, uninstall, and user-facing access.
+
+## M008e — Hidden slide parity
+- [x] T100 Preserve hidden slides by temporarily unhiding only the private PPTX rendering copy; keep original untouched.
+- [x] T101 Add regression tests for hidden slides, sequence mapping, notes and original document immutability.
+- [x] T102 Update docs/handoff, run full portable tests and checkpoint locally.
+- [ ] T103 Native Mac interactive six-slide PowerPoint smoke test and image/notes acceptance (pending).

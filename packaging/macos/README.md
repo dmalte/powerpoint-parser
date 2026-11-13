@@ -90,6 +90,12 @@ To reproduce the current native failure while signed in and unlocked:
 
 Report: .runtime/mac-native/pptx-smoke/result.json. A -9074 response is an unresolved native PowerPoint automation/environment failure, not a successful rendering result. Inspect pending Automation/File Access prompts and test manual File > Export > PDF in the PowerPoint GUI. Do not silently switch to LibreOffice.
 
+## Hidden-slide completeness (M008e)
+
+A native six-slide reference presentation exported **five** PDF pages because PowerPoint omitted its intentionally hidden final slide. The previous smoke test reported a failure even though its shell command exited successfully. The PDF-backed renderer now uses python-pptx to clear hidden-slide flags **only in the temporary PPTX copy** before AppleScript/LibreOffice conversion, maintaining slide numbering and avoiding changes to the user's PPTX. Pi regressions cover hidden slides in the middle and end, notes, and original-byte preservation. Native Mac interactive six-image acceptance still needs to be rerun after synchronizing the new source.
+
+The two-slide native PowerPoint test succeeded through the logged-in Terminal (~28 seconds), whereas the system MCP-daemon execution timed out or returned -9074. Rendering must run in the signed-in graphical session; the permanent user LaunchAgent remains uninstalled.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

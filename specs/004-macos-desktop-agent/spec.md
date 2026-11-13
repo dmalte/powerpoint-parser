@@ -60,3 +60,10 @@ Prepare a macOS per-user version of PowerPoint Visual Archive. Preserve the same
 - [ ] Render real PPTX via PowerPoint: AppleScript PDF export error -9074, including alternative destination path tests.
 - [ ] Determine native direct AppleScript save-as-JPG behavior in a fully interactive unlocked session. The installed scripting dictionary declares the format but the first export attempt timed out.
 - [ ] Test per-user LaunchAgent install/upgrade/login, TCC permission prompts and actual slide-image fidelity. No persistent auto-start changes yet.
+
+## M008e — Include hidden slides in macOS PowerPoint rendering (2026-11-12)
+
+- PowerPoint Mac PDF export omits hidden slides by default. The native six-slide acceptance deck returned five images and the smoke tool correctly reported failure despite the terminal's successful command execution.
+- To maintain Windows COM parity and the full original-PPTX SQLite/search index, make hidden slides visible **only within the Mac renderer's private temporary PPTX copy**, before PDF conversion, preserving ordering, images, notes and original hidden flags in the source file.
+- Never mutate the user's original PPTX or persist an altered deck. If rendered PDF still has fewer pages, fail instead of silently shifting slide-to-metadata associations.
+- Regression tests must cover hidden slides in the middle and end, unchanged non-hidden copies, original-file immutability and full-page indexing. Native PowerPoint for Mac acceptance remains pending until it exports six JPEG thumbnails/previews and the report passes.

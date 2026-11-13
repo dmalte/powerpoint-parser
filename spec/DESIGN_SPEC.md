@@ -146,6 +146,12 @@ The local-first architecture remains unchanged: source files and generated archi
 - A nonexecuting path-free diagnostic CLI checks configuration and platform readiness and leaves AppleScript Automation permission, signing and fidelity explicitly unverified.
 - Reference PPTX fixtures are generated with shape, picture, chart, table, Unicode font, notes and hidden-slide cases; an offline image comparator produces MAE/difference/size metrics and self-contained HTML previews without uploading files.
 
+## macOS hidden-slide rendering parity (M008e)
+
+- The Mac PowerPoint-to-PDF bridge excludes hidden slides by default, potentially shifting all later image-to-metadata associations. The shared Mac PDF-backed renderer adjusts hidden p:sld/@show flags only on the unique temporary PPTX working copy. Non-hidden copies are never rewritten.
+- The original .pptx is never modified, and metadata/notes continue to come from it. The temporary copy and PDF are discarded after image generation. Windows COM code and the SQLite/JSON schema remain unchanged.
+- Reject page-count discrepancies even after temporary hidden-slide exposure. Native complex-deck visual/fidelity acceptance remains pending until six expected slides render correctly in the user graphical session.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

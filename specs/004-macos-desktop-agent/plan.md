@@ -40,3 +40,9 @@
 - A bundled-CLI PDF-only test produced its index/thumbnail/HTML. Packaged .app started a localhost server and accepted a shutdown in a sandboxed HOME. Startup was approximately 35 seconds in the first run and should be timed again.
 - Mac PowerPoint 16.115 accepts AppleScript version queries and document opening, but save as PDF yields -9074. HFS target conversion, delayed activate, and PowerPoint-container staging did not resolve it. Direct JPG save is declared in PowerPoint.sdef but the trial timed out.
 - Re-run the new opt-in smoke_macos_powerpoint.py command from an unlocked user session, inspect required Automation/File Access dialogs and a manual File > Export > PDF test, then revise renderer only after identifying the native cause. Keep M008 and native installer acceptance open.
+
+## M008e implementation
+
+- After copying the PPTX to the renderer's unique temporary directory, use the existing python-pptx dependency to clear OOXML hidden-slide show=0/show=false flags in that copy only. Save only if flags actually changed. Both PowerPoint/AppleScript and opt-in LibreOffice then render the full expected slide sequence; original metadata is extracted from the untouched source.
+- No SQLite change, configuration option or Windows COM behavior change. The temporary modified PPTX and PDF are deleted when the conversion context exits.
+- Validate Pi tests first, then retest using the signed-in Mac Terminal since system-daemon MCP AppleScript conversion is not yet reliable.
