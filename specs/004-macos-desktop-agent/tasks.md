@@ -60,8 +60,8 @@
 - [x] T110 Use Microsoft PowerPoint's own sandbox Documents folder for ephemeral Mac PowerPoint converter input/output, retaining separate LibreOffice behavior.
 - [x] T111 Test staging path, full cleanup, denied container permission, hidden-slide parity, original-file preservation, and Windows/LibreOffice nonregression.
 - [x] T112 Run full Pi tests, document permission model/limits and cleanly checkpoint the change.
-- [ ] T113 Native Mac1: initial background trial FAILED 0/2 (-9074); retry PASSED 2/2 synthetic decks, then 4/4 new copied decks incrementally (6 decks / 24 slides, zero errors). Need user confirmation that no on-screen per-file permission prompts appeared.
-- [ ] T114 Restart the per-user LaunchAgent only after safe small-library acceptance; do not resume 3,952-file scan prematurely.
+- [x] T113 Native Mac1 sandbox staging retry passed 6 synthetic decks / 24 slides / 0 errors; user confirmed no repeated on-screen permission prompts.
+- [x] T114 Native Mac1 LaunchAgent restarted after small-library consent acceptance; production later paused safely with the new M008g controls and preserved archive.
 
 ## M008g — Pause/resume and saved partial archive
 
@@ -70,4 +70,4 @@
 - [x] T122 Add loopback control endpoints and Pause/Resume buttons to viewer and Settings, with accurate status/feedback.
 - [x] T123 Add deterministic concurrency, persistence, HTTP, partial viewer/deletion safety and resume regression tests.
 - [x] T124 Validate full portable suite and update consolidated docs/handoff; commit local checkpoint (Pi: 146 tests; JS syntax and diff checks pass).
-- [ ] T125 Rebuild/install on Mac1 without overwriting archive; verify live pause, browse and resume with bounded workload.
+- [x] T125 Mac1 installed upgraded arm64 app with preserved config/SQLite, published 2,959 decks/15,809 slides and verified browser control buttons; isolated native PDF agent passed Resume/Pause/restart with four decks and zero errors.

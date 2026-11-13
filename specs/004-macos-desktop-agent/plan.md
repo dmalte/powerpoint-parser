@@ -83,3 +83,11 @@
 - Add POST /api/pause and POST /api/resume to loopback server and dynamic controls on viewer top bar and Settings. UI should disable ambiguous actions while a transition is in progress and continue to display the paused partial archive.
 - Test with synthetic PDFs/slow mocked conversion for stop-after-current, preserved old decks/deletion safety, incremental resume, fresh HTTP status and partially published JSON/images, queued/scheduler interleavings, persistence across restart and build failure resilience.
 - Native Mac rollout: stop old installed agent without deleting archive/config, publish existing SQLite as a first checkpoint if needed, update per-user config paused before installing the new app. Rebuild/sign Mac bundle, install with staged rollback, verify paused startup, viewer HTTP, Resume/Pause controls and a bounded synthetic batch. Do not run the complete 3,937-file scan as an unattended acceptance test.
+
+## M008g native Mac1 acceptance (2026-11-12)
+
+- Mac1 fast-forwarded to f3bc16e, full 146/146 Mac tests passed, and PyInstaller rebuilt native arm64 app/CLI. Native packaging preflight 17/17; strict ad hoc codesign verification succeeded.
+- Existing user LaunchAgent was booted out; user configuration and SQLite were backed up. processing.scan_paused=true was atomically persisted. No original presentations were erased.
+- Published complete HTML/JSON snapshot from committed SQLite: 2,959 decks and 15,809 slides, matching the database. Upgraded app using data-preserving installer. At localhost:8080 the user agent runs while paused, and viewer/settings/status, Pause/Resume buttons and slide JPEGs are available. Full production scan did not restart.
+- Separate gui/501 PDF-only synthetic test user LaunchAgent on port 8081: starts paused, POST /api/scan refused HTTP 409, POST /api/resume accepted HTTP 202 and processed four PDFs with zero errors, POST /api/pause saved true and published viewer, and launchctl kickstart retained paused preference and all four indexed decks. Test LaunchAgent removed. The production agent remained paused throughout.
+- The full source library remains incompletely indexed until explicit user Resume. Cross-platform pixel fidelity and signed/notarized distribution remain independent release gates.

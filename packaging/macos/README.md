@@ -114,7 +114,7 @@ The agent exposes **Pause Scan & Save** / **Resume Scan** controls on both http:
 
 The user's paused choice is durably saved as processing.scan_paused: true in per-user YAML and persists across login/restarts. Scheduled scans stay inactive until an explicit Resume action; resume is incremental, rediscovers sources and skips already indexed unchanged documents. Partial scans defer deletion processing until a later complete pass. Loopback endpoints: POST /api/pause, POST /api/resume, GET /api/status (includes scan_paused and snapshot_pending).
 
-A native Mac app rebuild and upgrade are required for newly added controls. Do not replace or delete the user's existing SQLite archive/configuration; the staged installer preserves both. With a large archive, deploy in the paused state and verify partial viewer publication before the user explicitly resumes.
+Mac1 now runs the upgraded arm64 app with the new controls. Its existing YAML and SQLite were backed up and preserved, with 2,959 decks / 15,809 slides published; production remains paused. A separate user agent validated Resume, Pause and restart. Other Mac installations still need the native rebuild/upgrade. Do not replace or delete the user's existing SQLite archive/configuration; the staged installer preserves both. With a large archive, deploy in the paused state and verify partial viewer publication before the user explicitly resumes.
 
 ## Required native Mac acceptance
 

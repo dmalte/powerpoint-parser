@@ -85,3 +85,9 @@ Prepare a macOS per-user version of PowerPoint Visual Archive. Preserve the same
 - A partial scan must **not** purge or mark unvisited decks as deleted; apply deletion detection only after a full uninterrupted scan completes. Never delete the old viewer on a failed partial build.
 - Existing viewer remains accessible while a scan is running or paused; publishing new snapshot must be atomic per file and keep image generations immutable. Capture progress and errors without leaking paths in APIs.
 - Controls must not imply an immediate interrupt of PowerPoint: stop after the current conversion; clearly show Pausing / Saving snapshot / Paused / Resuming. Separate the scan pause from app shutdown.
+
+## M008g acceptance result (Mac1, 2026-11-12)
+
+- Passed 146 complete tests on Pi and Mac1. Native app and packaged CLI rebuilt/verified and upgraded using data-preserving per-user installer.
+- Native partial archive published 2,959 decks and 15,809 slides; all counts match SQLite and JPEG URLs serve content. Both viewer templates have Pause/Resume controls; status reports paused persistently.
+- Separate native GUI LaunchAgent with 4 PDF fixtures proved Resume, Pause & Save and restart persistence, with zero processing errors; removed isolated test agent afterward. Production remains paused pending user decision.

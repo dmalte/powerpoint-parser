@@ -52,7 +52,7 @@ Source-only setup and preflight (can run on Pi):
     python scripts/preflight_macos_package.py
     python -m pytest tests/test_macos_renderer.py tests/test_macos_packaging.py -q
 
-Real Mac build and optional user-session LaunchAgent installation are described in packaging/macos/README.md. The native build/install, AppleScript automation syntax, Automation consent, PowerPoint PDF fidelity, user-login startup, and macOS Gatekeeper/signing are **not yet validated**.
+Mac1 native arm64 app/CLI build, per-user LaunchAgent install/upgrade, and PowerPoint rendering including hidden slides have been tested. M008g pause/resume and partial publication have native Mac acceptance; cross-platform image fidelity, broader user-account testing and Developer ID notarization remain pending. See packaging/macos/README.md.
 
 ### Pause, resume and browse a partial archive (M008g)
 

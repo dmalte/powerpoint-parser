@@ -47,6 +47,8 @@ M008f addresses native macOS file-access prompts during production-size scanning
 
 M008f native retry evidence (2026-11-12): after one Terminal failure and one isolated gui/501 LaunchAgent failure with PowerPoint -9074, the next Terminal run passed (2/2) and a new isolated LaunchAgent passed two reference decks followed by four additional uniquely named synthetic PPTXs (6 decks, 24 slides, 0 errors). The per-user test agent was removed and production autostart remains held. The app cannot read macOS permission dialogs, so file-by-file prompt elimination is not yet accepted without user confirmation.
 
+M008g native Mac1 acceptance completed: upgraded per-user app with config and SQLite preserved, published the real partial index (2,959 decks / 15,809 slides), and confirmed paused startup and viewer controls. Separate GUI user agent verified 4-file Resume/Pause and restart persistence; production remains paused until user action. Conventional notarized distribution and pixel-level visual parity remain separate work.
+
 M008g implements pause/resume during long scans and a browsable partial checkpoint. Cooperative per-file stopping preserves committed SQLite/image generations, defers deletions until a complete pass, and publishes HTML/JSON from the current index. User pause survives restart/login and disables scheduled scans; Resume reruns incremental signature detection and skips previously processed unchanged decks. Buttons are in both viewer and Settings, with loopback control APIs and numeric status. Portable Pi tests passed; Mac1 package deployment and real partial-library acceptance are still required.
 
 ## Deployment Sequence

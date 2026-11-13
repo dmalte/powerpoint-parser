@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T23:42:14-08:00
+- Last Updated: 2026-11-12T23:51:29-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-M008g pause/resume control implementation is Pi-tested. The running Mac1 per-user agent is scanning roughly 3,937 PPTX/PDF files; SQLite contains committed decks not yet visible in the site because publication normally occurs only at the end. New Pause Scan & Save / Resume Scan buttons on viewer+Settings, cooperative between-file cancellation, deferred deletions, partial HTML/JSON snapshot, persistent paused state across login, and incremental resume have been implemented. Next: commit, synchronize Mac1 source, stop old installed process without deleting DB, install new native bundle in paused state, publish saved DB, verify browser UI/status, and leave user in control of resumption. No remote push permitted.
+M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1. Pi and Mac1 both passed 146 tests. The installed arm64 app/CLI were rebuilt/verified and upgraded through the data-preserving user installer. Mac1's YAML config and SQLite index were backed up, pause was saved durably, and an HTML/JSON snapshot of 2,959 decks / 15,809 slides was published, with verified HTTP viewer/settings/JSON and images. The per-user LaunchAgent runs with scan_paused=true, so startup/restarts do not resume indexing. A separate isolated native PDF-only agent passed Resume/Pause, four successful imports and persisted pause after kickstart, and was removed. The user can resume the incomplete 3,937-file library from the viewer/Settings at any time. No remote push performed.
 
 ## Completed
 
@@ -80,6 +80,10 @@ M008g pause/resume control implementation is Pi-tested. The running Mac1 per-use
 - M008g safety: moved deleted-deck removal to after complete scan; a partial/interrupted run never purges unvisited entries. Existing immutable image generations and old viewer survive failed conversion/publish. API and UI report pausing/paused/building/error.
 - M008g Pi: new pause/resume tests cover in-flight cancellation with HTTP partial browse, restart persistence, finish-race snapshot scheduling, deletion safety and config persistence failures. Full suite must be rerun after latest race test.
 
+- M008g Mac1 acceptance: stopped old user scan without deleting SQLite; backed up config/database; persisted scan_paused:true atomically; built partial HTML/JSON from existing 2,959 decks/15,809 slides; upgraded native app with existing installer, 17/17 package preflight and ad hoc codesign verified. Loopback app runs paused, and main viewer/Settings expose Pause & Save and Resume.
+- M008g isolated Mac1 test agent on port 8081: initially paused, Scan Now returned HTTP 409; Resume HTTP 202 processed 4/4 PDF fixtures with zero errors; Pause HTTP 202 published/retained current state, and launchctl kickstart preserved paused status/index. Isolated test LaunchAgent removed, production stayed paused. Full Pi+Mac regression suites passed 146/146.
+- M008g scanner stop is cooperative after current file; partial DB is preserved and published, deletions are deferred until a completed pass. Resume does incremental change detection rather than a persisted file cursor; it skips unchanged committed documents. User-paused status persists after login.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -151,6 +155,7 @@ M008g pause/resume control implementation is Pi-tested. The running Mac1 per-use
 - M008f native blocker: gui/501 background launch still yields PowerPoint error -9074 for both synthetic reference decks. Need direct signed-in Terminal smoke with new sandbox staging to distinguish file-location permission from background-process automation/TCC identity. Repeated-per-file prompt elimination is unverified; no large scan should resume.
 
 - M008g native Mac rollout pending: rebuild/staged-upgrade app, pause currently running 3,937-file scan, publish current SQLite rows safely, verify viewer output and persisted pause across restart; production should stay paused until the user explicitly clicks Resume.
+- M008g implementation and Mac1 acceptance complete; no code blocker. The full production source library is deliberately not fully indexed, and only resumes on explicit user click. Separate M008 visual fidelity, signing/notarization and full-library error triage remain open.
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -171,10 +176,10 @@ M008g pause/resume control implementation is Pi-tested. The running Mac1 per-use
 
 ## Next Step
 
-Run complete Pi suite and static JS checks, record M008g local commit. Fast-forward clean Mac1 checkout from Pi, back up current configuration and archive metadata, boot out only the installed user LaunchAgent, save processing.scan_paused: true, publish existing SQLite database to HTML/JSON, rebuild/sign Mac1 app and upgrade using data-preserving installer. Verify paused status, browser buttons and assets, and Resume on a separate bounded synthetic library. Leave the 3,937-file production scan paused until user action. Do not push.
+M008g complete. Create native-acceptance Git checkpoint and fast-forward the clean Mac1 checkout. Leave the installed app running but paused, with partial archive available at http://127.0.0.1:8080/ and user controls on /settings.html. When the user clicks Resume Scan, the agent will continue incremental processing; Pause Scan & Save finalizes current file and publishes an updated viewer. Future separate work: full native image fidelity/distribution and failure diagnostics. Do not push origin without project authorization.
 
-- M008g portable tests: pause during conversion with HTTP snapshot, resume after restart skipping committed unchanged, no deletion on partial, idle snapshot publication, completion-race snapshot queueing, pause/save failure, UI controls. Full suite must be rerun after final code/docs.
-- M008g full Pi repository suite: 146 tests passed. Node syntax checks for both changed JS files, Git diff --check, and macOS source preflight (15 pass, one expected no-native-artifact warning) passed. Six focused pause/resume tests cover workflow and race conditions.
+- M008g Mac1: 146/146 tests passed with 6 non-failing dependency warnings, native package preflight 17/17, strict codesign verification exit 0, installed app matches build. Published real SQLite/HTML/JSON 2,959 decks / 15,809 slides; viewer/status/settings and sample images HTTP 200, scan_paused true and no production auto scan.
+- Isolated Mac1 native control acceptance: 4-PDF test agent initially paused, manual scan 409, resume 202 processed 4/4 files with zero errors, pause 202 published/saved state, kickstart restarted still paused with 4 decks. Test LaunchAgent removed; production remains paused.
 
 ## Validation
 

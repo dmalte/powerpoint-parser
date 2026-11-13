@@ -29,6 +29,7 @@ All notable changes to this project will be documented in this file.
 - M008e Mac PDF-backed rendering temporarily exposes hidden slides in a private PPTX working copy, preserving original hidden flags and slide-to-notes mappings. Native Mac1 six-slide acceptance passed (6/6, 12 validated JPEGs, 15.3s, original unchanged); login agent and cross-platform image fidelity remain pending.
 - M008f Mac PowerPoint renderer stages temporary PPTX/PDF in PowerPoint's own sandbox Documents directory to avoid per-presentation external-file prompts. A separate archive-side image workspace and tests preserve cleanup, hidden slides and existing Windows/LibreOffice semantics; native Mac permission validation pending.
 - M008g user-controlled Pause Scan & Save / Resume Scan actions in viewer and Settings. Cooperative per-file pause checkpoints committed SQLite rows as a browsable partial HTML/JSON archive, defers deletions until a full scan, and persists pause across login/restart. Resume skips unchanged indexed decks; state/YAML persistence and HTTP controls have regression tests.
+- Native Mac1 M008g acceptance: upgraded installed arm64 app preserving user data, published 2,959 decks / 15,809 slides in browsable HTML/JSON, and validated 4-file Resume/Pause/restart with a separate PDF-only user agent. Production stays paused until user action.
 
 ### Changed
 
