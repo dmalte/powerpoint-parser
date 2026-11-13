@@ -39,6 +39,8 @@ M008 macOS work is now prepared on the Pi: renderer selection, AppleScript Power
 
 M008a–d source work is implemented and Pi-tested: immutable per-deck image generations with SQLite rollback safety, data-preserving staged macOS upgrades/uninstall, path-free readiness diagnostics, and original PowerPoint reference decks with offline per-slide image comparison. User-session permissions, macOS bundle/launchctl and true PowerPoint visual fidelity remain native acceptance gates. Older image versions are retained deliberately until a safe cleanup policy is defined.
 
+M008 native Mac checkout and app build were validated on Mac1: 132 portable tests, 17/17 artifact checks, signed-by-PyInstaller ad hoc arm64 bundle, packaged CLI PDF indexing/HTML viewer, and app localhost startup/shutdown. Native PowerPoint 16.115 PDF automation returned -9074; direct AppleScript JPG output remains unverified. M008 stays active pending unlocked user-session automation/file access and visual comparison. Login-agent installation has not been performed.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T15:21:02-08:00
+- Last Updated: 2026-11-12T16:08:07-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-M008a–d Pi work is implemented: immutable slide image generations, safe macOS installer lifecycle, readiness diagnostics and reference/visual comparison suite. Native Mac PowerPoint, app/login and Automation acceptance remain pending; M004/M005 Windows acceptance is separate.
+M008a–d code is checked out and validated on Mac1. Native app/CLI bundle and PDF viewer smoke pass, but PowerPoint-for-Mac 16.115 PDF export fails with -9074, blocking PPTX image fidelity acceptance. No permanent Mac login installation. M004/M005 Windows acceptance is separate.
 
 ## Completed
 
@@ -50,6 +50,14 @@ M008a–d Pi work is implemented: immutable slide image generations, safe macOS 
 - M008c: scripts/diagnose_macos.py reports local renderer/dependency/config/folder/storage/LaunchAgent readiness with no private paths or telemetry, leaving native Automation/TCC and code signing unverified.
 - M008d: scripts/build_macos_fixtures.py creates two PPTX decks (8 slides) covering vector shapes, pictures, tables, charts, Unicode, notes and hidden slides; scripts/compare_slide_images.py compares native render outputs by slide/image dimensions, MAE and visual HTML previews. Pi tests use generated images.
 - Added 24 new portable tests for M008a–d: image versions 7, installer lifecycle 7, diagnostics 4, reference/comparison 6. Full repository suite: 132 passing tests. macOS source preflight: 15 pass, one expected native artifact warning.
+
+- Native Mac1 qualification: clean checkout fast-forwarded from Pi commit a31f08b, isolated Python 3.12 environment, all 132 existing tests green.
+- Native PyInstaller arm64 app/CLI built successfully, 17/17 artifact/source checks green, codesign --verify --deep --strict passed with ad hoc signing (TeamIdentifier absent).
+- Packaged CLI completed real PDF scan, generated JPEG and HTML; packaged .app served /api/status and viewer and accepted /api/shutdown while HOME pointed at an isolated test directory.
+- PowerPoint for Mac 16.115 returned -9074 for automated PDF save after trying normal, HFS, delayed activation and Office sandbox staging. AppleScript version query worked. Direct JPG mode appears in PowerPoint.sdef but initial trial timed out. No PPTX images accepted.
+- Added path-free opt-in scripts/smoke_macos_powerpoint.py to reproduce error and verify later success. No user LaunchAgent/app installed.
+
+- Full Mac1 regression suite after adding the native smoke harness: 134 passed (six non-failing dependency warnings).
 
 ## Decisions
 
@@ -106,6 +114,8 @@ M008a–d Pi work is implemented: immutable slide image generations, safe macOS 
 - M008a–d code: src/ppt_visual_archive/asset_generations.py, models.py, pipeline.py, packaging/macos/install_agent.py, scripts/preflight_macos_package.py, scripts/diagnose_macos.py, scripts/build_macos_fixtures.py, scripts/compare_slide_images.py.
 - M008a–d tests: tests/test_image_generations.py, tests/test_macos_installer_lifecycle.py, tests/test_macos_diagnostics.py, tests/test_macos_reference.py; additional changes in specs/004-macos-desktop-agent, packaging/macos/README.md and consolidated docs.
 
+- scripts/smoke_macos_powerpoint.py and tests/test_macos_native_smoke.py added on Mac1; .gitignore now excludes generated PyInstaller build/ and dist/.
+
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -121,9 +131,12 @@ M008a–d Pi work is implemented: immutable slide image generations, safe macOS 
 - M008 installer upgrade, rollback and uninstall behavior are validated with Pi-based fault injection, but native launchctl/signing/notarization, actual Mac PowerPoint and system permissions are unverified.
 - M004/M005 Windows installer/COM/logon/tray and M007 real image/browser benchmarks remain pending.
 
+- PowerPoint Mac native rendering blocker: script save-to-PDF returns -9074; direct JPG scripting attempt timed out. Need an unlocked interactive PowerPoint GUI, permission/dialog inspection and manual Export PDF comparison before blaming renderer syntax.
+- Native user-level LaunchAgent install/upgrade/login and actual PPTX visual fidelity are not yet accepted. Do not auto-install or sign/notarize until renderer is validated.
+
 ## Next Step
 
-M008 next: execute a real Mac PowerPoint AppleScript/PDF export and compare native slide images against reference decks; build and install the signed-in user .app, test Automation consent, LaunchAgent login, upgrade/rollback/uninstall, and measure real library performance. Then address findings. Do not mark M008 accepted until these tests pass. Windows M004/M005 acceptance remains pending.
+On Mac1, inspect PowerPoint permission prompts and confirm the reference deck exports manually as PDF, then rerun scripts/smoke_macos_powerpoint.py. Once PPTX rendering works, compare the generated images and proceed to explicitly approved per-user LaunchAgent/upgrade tests. Build and packaged PDF viewer already pass. Windows M004/M005 acceptance remains separate.
 
 ## Validation
 
@@ -150,6 +163,9 @@ M008 next: execute a real Mac PowerPoint AppleScript/PDF export and compare nati
 - M008a–d portable tests: 24 new checks passed (7 image generations, 7 installer lifecycle, 4 readiness diagnostics, 6 reference/image comparison).
 - M008a–d full tests: 132 passed (2026-11-12); packaging source preflight 15 passed, one warning (Mac app binary not built on Pi).
 - Reference PPTX fixture run: 2 decks, 8 slides; hidden-slide flag and notes validated with python-pptx. Image comparator verified with generated JPEGs.
+- Native Mac1: Python 3.12; 132/132 portable tests; PyInstaller arm64 app/CLI built; 17/17 source/binary checks; ad hoc codesign verified.
+- Native bundled CLI real PDF scan/build and isolated packaged agent HTTP startup/shutdown passed. Native macOS readiness: 10 pass, 2 warnings (not installed), 3 unverified.
+- PowerPoint 16.115 AppleScript PDF export failed -9074 on multiple path/activation trials. Direct JPG mode enumerated but output not verified; TCC/fidelity pending.
 - M008 native PowerPoint/AppleScript, bundle, TCC and LoginAgent: NOT RUN.
 
 - Real Windows browser performance acceptance: not run on this host.

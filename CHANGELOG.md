@@ -29,6 +29,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Mac1 native acceptance preparation: Apple Silicon PyInstaller app and CLI build passed, bundled PDF ingestion/viewer passed, and strict ad hoc code-signature verification passed. Added opt-in PowerPoint-native smoke command and documented unresolved -9074 PDF export failure; no LaunchAgent installed.
+
+
 - M004a cross-platform Windows packaging source/artifact preflight with local JSON diagnostics, release-version checks and fail-fast native build script validation. Windows installer smoke remains unverified.
 - Local viewer serving now uses a loopback-only `ThreadingHTTPServer` so static assets and control requests can be handled concurrently.
 - Agent no longer blocks the HTTP server on first indexing; initial scans use the same serialized worker as manual refreshes.

@@ -40,3 +40,11 @@
 ## Convergence
 - [x] T080 Run full tests, update architecture/requirements/roadmap/handoff, review diff and checkpoint locally.
 - [ ] T081 Actual Mac native PowerPoint, install, permissions, fidelity and performance acceptance still pending.
+
+## Mac1 native qualification (2026-11-12)
+
+- [x] T090 Fast-forward clean Mac1 checkout from Pi development repo and install isolated development dependencies; run 132 portable tests.
+- [x] T091 Build native arm64 app/CLI, verify 17 binary/source checks and ad hoc code signature; scan/build one real PDF with packaged CLI and verify app localhost startup/shutdown.
+- [x] T092 Add reproducible, path-free native PowerPoint smoke report; reproduce export error -9074 and document direct JPG dictionary availability.
+- [ ] T093 Resolve native PowerPoint export environment/permissions and verify actual PPTX slides and image comparison against reference decks.
+- [ ] T094 With approval, install per-user LaunchAgent and validate login, upgrade, rollback, uninstall, and user-facing access.

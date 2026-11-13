@@ -51,3 +51,12 @@ Prepare a macOS per-user version of PowerPoint Visual Archive. Preserve the same
 - Generate deterministic test decks with text, picture, shape, table, chart, speaker notes, Unicode/font and a hidden slide, together with an expected metadata manifest.
 - Compare two rendered image directories per-slide using pixel difference metrics and offline HTML/JSON report; identify missing/extra slides, size mismatch and threshold failure.
 - Synthetic fixture generation and comparison validated on Pi; real renderer fidelity acceptance still depends on Mac/Windows outputs.
+
+## Native Mac1 qualification snapshot (2026-11-12)
+
+- [x] Checkout current Pi implementation on Mac1 and run 132/132 portable tests.
+- [x] Build native arm64 app/CLI with PyInstaller, pass 17/17 static and binary checks, verify ad hoc code signature.
+- [x] Packaged CLI indexes a PDF and generates JPEG and HTML viewer; isolated packaged agent serves loopback and shuts down.
+- [ ] Render real PPTX via PowerPoint: AppleScript PDF export error -9074, including alternative destination path tests.
+- [ ] Determine native direct AppleScript save-as-JPG behavior in a fully interactive unlocked session. The installed scripting dictionary declares the format but the first export attempt timed out.
+- [ ] Test per-user LaunchAgent install/upgrade/login, TCC permission prompts and actual slide-image fidelity. No persistent auto-start changes yet.

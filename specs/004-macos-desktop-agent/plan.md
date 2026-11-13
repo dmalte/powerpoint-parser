@@ -32,3 +32,11 @@
 - Add scripts/diagnose_macos.py using shared configuration for path-free local readiness reporting without triggering Automation or uploading data.
 - Add scripts/build_macos_fixtures.py (python-pptx/Pillow) and scripts/compare_slide_images.py (Pillow) with local-only HTML/JSON outputs, deterministic test fixtures and reference tests.
 - No new production dependencies, no Windows renderer API change, no schema migration. End-to-end native Mac automation/signature/permissions still pending.
+
+## Mac1 native execution findings (2026-11-12)
+
+- Fetch directly from the Pi development worktree and fast-forward the clean Mac branch; do not push origin/main.
+- An isolated macOS Python 3.12 .venv supports all portable tests. PyInstaller produces arm64 CLI and app bundles with the shared frontend resources; local ad hoc codesign verify passes.
+- A bundled-CLI PDF-only test produced its index/thumbnail/HTML. Packaged .app started a localhost server and accepted a shutdown in a sandboxed HOME. Startup was approximately 35 seconds in the first run and should be timed again.
+- Mac PowerPoint 16.115 accepts AppleScript version queries and document opening, but save as PDF yields -9074. HFS target conversion, delayed activate, and PowerPoint-container staging did not resolve it. Direct JPG save is declared in PowerPoint.sdef but the trial timed out.
+- Re-run the new opt-in smoke_macos_powerpoint.py command from an unlocked user session, inspect required Automation/File Access dialogs and a manual File > Export > PDF test, then revise renderer only after identifying the native cause. Keep M008 and native installer acceptance open.

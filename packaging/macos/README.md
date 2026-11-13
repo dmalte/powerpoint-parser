@@ -74,6 +74,22 @@ Reference fixture generation and visual comparison (after actual Mac and Windows
 
 Current PDF/PPTX image generations are immutable: old image paths are retained for still-open viewer sessions. This can grow disk usage until explicit safe garbage collection is implemented. The original-text and temporary-PDF behavior is unchanged.
 
+## Current native Mac1 evidence (2026-11-12)
+
+- Mac checkout: /Users/malte/workspace/dev/powerpoint-parser at a31f08b before the native-testing checkpoint; clean checkout prior to local build.
+- Project environment: isolated .venv, Python 3.12; full 132-test portable suite passed.
+- PyInstaller build: completed on Apple Silicon (arm64). Native preflight passed 17/17 checks, both CLI and application bundle exist.
+- Bundled CLI: --help, PDF scan and HTML viewer build passed. Native application started its localhost server, served status/viewer, and accepted shutdown while HOME pointed to an isolated test directory.
+- Codesign: strict verification passed with ad hoc signature; no Developer ID team or notarization, not ready for distribution.
+- PowerPoint 16.115: AppleScript get version works; PPTX-to-PDF save returns -9074 after trying normal, HFS-style, activated/delayed and Office-container paths. The installed dictionary enumerates save as JPG, but a trial did not return images before timeout.
+- No permanent ~/Applications installation or LaunchAgent registration was performed. User data and installed PowerPoint were not modified.
+
+To reproduce the current native failure while signed in and unlocked:
+
+    .venv/bin/python scripts/smoke_macos_powerpoint.py --backend powerpoint --timeout 25
+
+Report: .runtime/mac-native/pptx-smoke/result.json. A -9074 response is an unresolved native PowerPoint automation/environment failure, not a successful rendering result. Inspect pending Automation/File Access prompts and test manual File > Export > PDF in the PowerPoint GUI. Do not silently switch to LibreOffice.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

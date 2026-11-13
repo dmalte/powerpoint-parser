@@ -73,6 +73,18 @@ To compare resulting preview images from a specific deck's Windows and Mac versi
 
 This writes local comparison.json and self-contained comparison.html, including per-slide image statistics, missing-slide checks, and visual differences. Actual render images from PowerPoint for Mac and Windows are required to verify visual fidelity; generated fixtures alone do not prove it.
 
+### Native Mac acceptance findings (November 12, 2026)
+
+The Mac1 checkout was fast-forwarded from the Pi to a31f08b and validated locally with Python 3.12. The full portable suite passed (132 tests); native PyInstaller produced an arm64 PowerPointArchiveAgent.app and a bundled pptviewer CLI. Native package preflight passed all 17 artifact/source checks; codesign verification passed with an ad hoc signature (not Developer ID signed or notarized). The packaged CLI indexed a PDF, generated a JPEG thumbnail, and built the HTML viewer. The app launched and served localhost status and viewer endpoints in an isolated HOME, then shut down without installation.
+
+PowerPoint for Mac 16.115 responds to AppleScript, but PDF slide export currently fails with PowerPoint error -9074. The failure persisted with HFS output paths, activation/open delays, and an Office-container staging directory. PowerPoint's installed scripting dictionary defines a save-as-JPG mode; the initial direct-JPEG attempt timed out without rendered images. Neither approach is accepted as production PPTX rendering yet.
+
+The opt-in native repro command is:
+
+    .venv/bin/python scripts/smoke_macos_powerpoint.py --backend powerpoint --timeout 25
+
+It uses a generated two-slide reference deck and writes a path-free local result to .runtime/mac-native/pptx-smoke/result.json. It may show macOS Automation or Grant File Access prompts. The next native step is to inspect the unlocked PowerPoint GUI, confirm manual PDF export for the reference deck, and approve any required file-access dialog. Once resolved, rerun the native renderer and image comparison before enabling automatic login installation.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

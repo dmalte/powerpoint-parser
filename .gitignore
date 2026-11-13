@@ -22,3 +22,7 @@ Thumbs.db
 
 # Local generated diagnostic and preflight reports
 .runtime/
+
+# Native PyInstaller build output, local to each host
+build/
+dist/

@@ -130,7 +130,7 @@ lists are implementation work and do not replace this inventory.
   - Priority: high
   - Feature: specs/004-macos-desktop-agent
   - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002, REQ-PLATFORM-001
-  - Validation: 132 passing Pi tests including immutable image generations, data-preserving installer upgrade/rollback/uninstall, path-free readiness diagnostics and original reference PPTX/image comparisons; static macOS package preflight passes 15 checks (one expected native-bundle warning). Real PowerPoint, permissions, Mac build and login still require macOS acceptance.
+  - Validation: 132 portable tests passed on Pi; 134 now pass on Mac1 including native smoke harness coverage; Mac1 built native arm64 PyInstaller app and CLI (17 artifact preflight passes), indexed real PDF into the viewer and started/stopped the packaged server. PowerPoint 16.115 responds to AppleScript but PDF export fails with error -9074; direct JPEG export, native user-session permissions, layout fidelity, LaunchAgent login and notarization remain unaccepted.
   - Source: macOS desktop preparation request, 2026-11-12
 
 ## Backlog
