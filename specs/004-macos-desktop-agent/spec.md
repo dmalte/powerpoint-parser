@@ -75,3 +75,13 @@ Prepare a macOS per-user version of PowerPoint Visual Archive. Preserve the same
 - Never bypass macOS consent, modify PowerPoint's secure bookmarks, change the user's original PPTXs, or persist source content; Python agent may itself need a first-time macOS user consent to access the PowerPoint container.
 - Retain the existing archive-side atomic versioned JPEG publication and the per-file private-work-copy cleanup. The explicit LibreOffice backend should remain independent of the PowerPoint sandbox.
 - Test using one generated two-slide PPTX first, then six-slide reference and a small batch without repeated per-file prompts. Do not restart the 3,952-file scan until the user-session behavior is verified.
+
+## M008g — Pause/resume and browsable partial archive (2026-11-12)
+
+- Offer user-facing **Pause Scan** and **Resume Scan** buttons in both the archive viewer and Settings page, with status/progress and clear feedback.
+- Pause cooperatively after the current file, commit already completed files (existing per-deck SQLite transaction), and **publish an intact partial HTML/JSON viewer** from those records without requiring the remaining input files to finish.
+- Persist the paused state in per-user configuration so restart/login and automatic scheduler cannot restart a 3,900+ file job until an explicit Resume action.
+- Resume by rescanning signatures incrementally: already committed unchanged files are skipped; remaining new/changed files are processed. A document currently mid-conversion when stopped may need retry, which is acceptable and must not corrupt prior data.
+- A partial scan must **not** purge or mark unvisited decks as deleted; apply deletion detection only after a full uninterrupted scan completes. Never delete the old viewer on a failed partial build.
+- Existing viewer remains accessible while a scan is running or paused; publishing new snapshot must be atomic per file and keep image generations immutable. Capture progress and errors without leaking paths in APIs.
+- Controls must not imply an immediate interrupt of PowerPoint: stop after the current conversion; clearly show Pausing / Saving snapshot / Paused / Resuming. Separate the scan pause from app shutdown.

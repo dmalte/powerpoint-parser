@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import stat
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -32,6 +34,7 @@ class ProcessingConfig:
     incremental: bool = True
     purge_deleted: bool = True
     scan_interval_seconds: int = 1800
+    scan_paused: bool = False  # persistent user stop; survives app/login restart
 
 
 @dataclass
@@ -134,8 +137,21 @@ def save_config(config: AppConfig, path: str | Path, overwrite: bool = False) ->
             "incremental": config.processing.incremental,
             "purge_deleted": config.processing.purge_deleted,
             "scan_interval_seconds": config.processing.scan_interval_seconds,
+            "scan_paused": config.processing.scan_paused,
         },
     }
-    with open(target, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False, allow_unicode=True)
+    # A pause request must survive a crash/restart without leaving truncated
+    # YAML. Stage in the same directory and atomically replace the old file.
+    fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}-", dir=target.parent)
+    staged = Path(temp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            if target.exists():
+                os.chmod(staged, stat.S_IMODE(target.stat().st_mode))
+            yaml.safe_dump(data, stream, sort_keys=False, allow_unicode=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(staged, target)
+    finally:
+        staged.unlink(missing_ok=True)
     return target

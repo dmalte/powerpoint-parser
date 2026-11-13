@@ -159,6 +159,14 @@ The local-first architecture remains unchanged: source files and generated archi
 - The archive agent itself may need a first-time macOS permission to access the Microsoft PowerPoint container; refusal fails safely. Do not grant blanket Full Disk Access or alter Office secure bookmarks. Confirm on a small user-session fixture before the production-size scan.
 - Previous Mac1 user LaunchAgent was stopped and its startup plist held for restoration after acceptance, so the prompt-heavy ~3,952-file scan does not resume at login. This is a controlled testing state, not a production deployment.
 
+## Pause/resume and durable partial publication (M008g)
+
+- The pipeline accepts a cooperative predicate checked between PPTX/PDF files, after filesystem discovery and change detection. Each completed deck/images generation is transactionally persisted in SQLite. Pause avoids starting the next conversion; deletion updates are applied only when the entire pass has completed.
+- AgentRuntime manages one pause Event and serialized refresh lock. Pause persists processing.scan_paused: true with an atomic write before acknowledging; a queued snapshot worker follows the current scan to guarantee a paused checkpoint is published even if Pause races with scan completion. Partial JSON/HTML builds follow existing staged-file publication and immutable image-generation contracts.
+- A paused agent continues serving localhost and does not automatically scan on login/scheduled refresh. Resume clears the saved pause flag then starts incremental rescanning; change detection skips already committed documents, reprocesses any interrupted document, and reconciles deletions only after the whole scan. The scanner does not persist an exact per-file cursor.
+- Loopback-only endpoints POST /api/pause and POST /api/resume and GET /api/status expose scan_paused and snapshot_pending. Viewer top bar and Settings provide toggling buttons and progress/error state; standalone/offline static viewers hide these controls.
+- Configuration is atomically replaced on its existing filesystem so a crash cannot truncate the saved pause state. No SQLite schema migration, new dependency or Windows PowerPoint COM change is required.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

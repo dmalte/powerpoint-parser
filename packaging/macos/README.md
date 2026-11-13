@@ -108,6 +108,14 @@ Mac1's 3,952-file scan was paused after 9 files and four reported errors; the pe
 
 The next signed-in Terminal smoke passed the staged two-slide PowerPoint export. A fresh isolated user LaunchAgent subsequently processed both reference PPTX decks (8 slides) and four additional copied synthetic PPTXs (16 slides) with 0 processing errors; the local viewer indexed six decks / 24 slides. No PowerPoint temporary staging directories remained. The earlier -9074 failures were intermittent. The isolated test LaunchAgent was removed and the production auto-start remains disabled. **Ask the user if permission dialogs appeared during the successful test**; API success alone does not establish that the repeated permission prompts are gone. Do not restart the production library without confirmation.
 
+## Pause/resume and saved partial archives (M008g)
+
+The agent exposes **Pause Scan & Save** / **Resume Scan** controls on both http://127.0.0.1:8080/ and /settings.html. Pausing is cooperative after the current file and publishes the committed SQLite state as a browsable HTML/JSON archive; it doesn't kill PowerPoint or delete unvisited entries. Existing images and the old viewer remain available if publishing fails.
+
+The user's paused choice is durably saved as processing.scan_paused: true in per-user YAML and persists across login/restarts. Scheduled scans stay inactive until an explicit Resume action; resume is incremental, rediscovers sources and skips already indexed unchanged documents. Partial scans defer deletion processing until a later complete pass. Loopback endpoints: POST /api/pause, POST /api/resume, GET /api/status (includes scan_paused and snapshot_pending).
+
+A native Mac app rebuild and upgrade are required for newly added controls. Do not replace or delete the user's existing SQLite archive/configuration; the staged installer preserves both. With a large archive, deploy in the paused state and verify partial viewer publication before the user explicitly resumes.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

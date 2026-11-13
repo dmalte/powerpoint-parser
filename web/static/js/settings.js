@@ -55,10 +55,23 @@
     try {
       const status = await jsonFetch('/api/status');
       $('agent-status').textContent = status.status || 'unknown';
+      const paused = !!status.scan_paused;
+      const transitioning = status.status === 'pausing' || !!status.snapshot_pending;
+      const scanning = status.status === 'scanning' || status.status === 'starting';
+      $('pause-scan').hidden = paused;
+      $('pause-scan').disabled = transitioning;
+      $('resume-scan').hidden = !paused;
+      $('resume-scan').disabled = transitioning;
+      $('scan-now').disabled = paused || scanning;
+      $('pause-note').textContent = transitioning
+        ? 'Finishing the current document and publishing an HTML/JSON snapshot…'
+        : paused
+          ? 'Scanning is paused, including after restart. The saved archive remains browsable; Resume Scan skips unchanged files.'
+          : 'Pause finishes the current document, publishes the partial archive, and prevents automatic scanning until you resume.';
       const phase = status.progress?.phase || status.status || 'unknown';
       const count = Number.isFinite(status.progress?.completed) ? status.progress.completed : 0;
       const total = Number.isFinite(status.progress?.total) ? '/' + status.progress.total : '';
-      $('scan-progress').textContent = (status.status === 'scanning' || status.status === 'starting')
+      $('scan-progress').textContent = (scanning || transitioning)
         ? 'Progress: ' + phase + ' (' + count + total + ' files)' : '';
       $('last-refresh').textContent = status.last_refresh ? `Last refresh: ${new Date(status.last_refresh).toLocaleString()}` : 'No completed refresh yet';
       $('last-error').textContent = status.last_error ? `Last error: ${status.last_error}` : '';
@@ -89,10 +102,34 @@
   $('scan-now').addEventListener('click', async () => {
     try {
       const result = await jsonFetch('/api/scan', {method: 'POST', body: '{}'});
-      showMessage(result.started ? 'Scan started.' : 'A scan is already running.', result.started ? 'ok' : 'error');
+      showMessage(result.started ? 'Scan started.' : 'Scan is busy or paused.', result.started ? 'ok' : 'error');
       await refreshStatus();
     } catch (error) {
       showMessage(error.message, 'error');
+    }
+  });
+
+  $('pause-scan').addEventListener('click', async () => {
+    $('pause-scan').disabled = true;
+    try {
+      await jsonFetch('/api/pause', {method: 'POST', body: '{}'});
+      showMessage('Pause requested. Finishing the current file and saving the browsable archive…', 'ok');
+    } catch (error) {
+      showMessage(error.message, 'error');
+    } finally {
+      await refreshStatus();
+    }
+  });
+
+  $('resume-scan').addEventListener('click', async () => {
+    $('resume-scan').disabled = true;
+    try {
+      const result = await jsonFetch('/api/resume', {method: 'POST', body: '{}'});
+      showMessage(result.started ? 'Incremental scan resumed.' : 'Resume is still busy; retry when paused.', result.started ? 'ok' : 'error');
+    } catch (error) {
+      showMessage(error.message, 'error');
+    } finally {
+      await refreshStatus();
     }
   });
 

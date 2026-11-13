@@ -18,6 +18,8 @@
   </div>
   <div class="topbar-right">
     <span id="agent-progress" class="agent-progress" aria-live="polite" hidden></span>
+    <button class="btn" id="agent-pause" type="button" hidden>Pause Scan &amp; Save</button>
+    <button class="btn btn-primary" id="agent-resume" type="button" hidden>Resume Scan</button>
     <button class="btn" id="perf-toggle" type="button" aria-controls="perf-panel" aria-expanded="false">Performance</button>
     <a class="btn" href="settings.html" title="Agent settings and status">Settings</a>
     <span class="stat-pill" id="stat-decks" title="Total presentations">{{ stats.deck_count }} decks</span>

@@ -90,6 +90,30 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(202 if result.get("started") else 409, result)
             return
 
+        if route == "/api/pause":
+            if not self._require_control():
+                return
+            try:
+                result = self.control.request_pause()
+            except Exception as exc:
+                logger.warning("Scan pause rejected: %s", exc)
+                self._send_json(400, {"ok": False, "error": "Could not persist paused state"})
+                return
+            self._send_json(202, {"ok": True, **result})
+            return
+
+        if route == "/api/resume":
+            if not self._require_control():
+                return
+            try:
+                result = self.control.request_resume()
+            except Exception as exc:
+                logger.warning("Scan resume rejected: %s", exc)
+                self._send_json(400, {"ok": False, "error": "Could not persist resumed state"})
+                return
+            self._send_json(202 if result.get("started") else 409, result)
+            return
+
         if route == "/api/settings":
             if not self._require_control():
                 return

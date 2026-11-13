@@ -25,15 +25,16 @@ def run_scan(
     force: bool = False,
     scan_roots: Iterable[str] | None = None,
     progress_callback: Callable[[dict], None] | None = None,
+    should_pause: Callable[[], bool] | None = None,
 ) -> dict:
-    """Full scan + process pipeline. Returns summary stats."""
+    """Scan and incrementally commit decks; pause safely between documents."""
     metrics = TimedRun("scan")
     status = "ok"
     try:
         with metrics.step("total"):
             db = IndexDB(config.db_path)
             try:
-                return _run_scan_inner(config, db, force, scan_roots, metrics, progress_callback)
+                return _run_scan_inner(config, db, force, scan_roots, metrics, progress_callback, should_pause)
             finally:
                 db.close()
     except Exception:
@@ -50,6 +51,7 @@ def _run_scan_inner(
     scan_roots: Iterable[str] | None,
     metrics: TimedRun,
     progress_callback: Callable[[dict], None] | None = None,
+    should_pause: Callable[[], bool] | None = None,
 ) -> dict:
     def progress(phase: str, completed: int = 0, total: int | None = None, errors: int = 0) -> None:
         if progress_callback is not None:
@@ -77,28 +79,15 @@ def _run_scan_inner(
     for name in ("new", "changed", "unchanged", "deleted"):
         metrics.count(name, len(getattr(changeset, name)))
 
-    # 3. Handle deletions
-    with metrics.step("deletion_updates"):
-        for deck_id in changeset.deleted:
-            if config.processing.purge_deleted:
-                # Keep assets: a previously opened browser can still reference
-                # the old JSON generation until its tab reloads. Explicit
-                # garbage collection after a retention policy is separate work.
-                db.purge_deck(deck_id)
-                logger.info("Purged deleted deck from index (assets retained): %s", deck_id)
-            else:
-                db.mark_deleted(deck_id)
-                logger.info("Marked deck as deleted: %s", deck_id)
-
-    # 4. Process new and changed files
+    # 3. Process new and changed files. Deletions are deliberately deferred
+    # until an uninterrupted full pass: a partial run cannot infer that any
+    # unvisited deck is missing, even if the initial discovery was complete.
     to_process = changeset.new + changeset.changed
     progress("processing", completed=0, total=len(to_process))
     if not to_process:
-        metrics.count("processed_slides", 0)
         logger.info("No new or changed files to process")
-        return _build_summary(changeset, 0, 0)
-
-    logger.info("Processing %d files...", len(to_process))
+    else:
+        logger.info("Processing %d files...", len(to_process))
 
     # Keep existing rows intact until successful replacement processing.
     # The new deck and its replacement slide set commit in one transaction.
@@ -116,12 +105,14 @@ def _run_scan_inner(
     metrics.count("pdf_files_to_process", len(pdf_files))
 
     # ── Process PPTX files with COM renderer ──
-    if pptx_files:
+    if pptx_files and not (should_pause and should_pause()):
         renderer = create_pptx_renderer(config.render)
         try:
             with metrics.step("pptx_renderer_start"):
                 renderer.start()
             for sr in pptx_files:
+                if should_pause and should_pause():
+                    break
                 processed_index += 1
                 logger.info(_format_processing_message(processed_index, total_to_process, sr))
                 with metrics.step("pptx_render_extract"):
@@ -150,6 +141,8 @@ def _run_scan_inner(
 
     # ── Process PDF files ──
     for sr in pdf_files:
+        if should_pause and should_pause():
+            break
         processed_index += 1
         logger.info(_format_processing_message(processed_index, total_to_process, sr))
         with metrics.step("pdf_render_extract"):
@@ -173,10 +166,37 @@ def _run_scan_inner(
             )
         progress("processing", processed_index, total_to_process, error_count)
 
+    paused = bool(should_pause and should_pause())
+    if not paused:
+        # No incomplete scan can remove a previously indexed deck. Detection
+        # scopes are validated before this point by the filesystem scanner.
+        with metrics.step("deletion_updates"):
+            for deck_id in changeset.deleted:
+                if config.processing.purge_deleted:
+                    # Preserve historical assets referenced by open browsers.
+                    db.purge_deck(deck_id)
+                    logger.info("Purged deleted deck from index (assets retained): %s", deck_id)
+                else:
+                    db.mark_deleted(deck_id)
+                    logger.info("Marked deck as deleted: %s", deck_id)
+    else:
+        progress("pausing", processed_index, total_to_process, error_count)
+        logger.info(
+            "Paused after %d/%d files; committed results retained, deletions deferred",
+            processed_index, total_to_process,
+        )
+
     metrics.count("processed_slides", processed_slides)
     metrics.count("processed_ok", success_count)
     metrics.count("processed_err", error_count)
-    return _build_summary(changeset, success_count, error_count)
+    summary = _build_summary(changeset, success_count, error_count)
+    if paused:
+        # Discovered/deferred deletions are NOT applied or reported as done.
+        summary.update(
+            paused=True, deleted=0, completed=processed_index,
+            remaining=total_to_process - processed_index,
+        )
+    return summary
 
 
 def _commit_with_generation(db: IndexDB, result: ProcessingResult) -> None:

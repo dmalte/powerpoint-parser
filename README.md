@@ -54,6 +54,16 @@ Source-only setup and preflight (can run on Pi):
 
 Real Mac build and optional user-session LaunchAgent installation are described in packaging/macos/README.md. The native build/install, AppleScript automation syntax, Automation consent, PowerPoint PDF fidelity, user-login startup, and macOS Gatekeeper/signing are **not yet validated**.
 
+### Pause, resume and browse a partial archive (M008g)
+
+In the installed viewer (http://127.0.0.1:8080/) use **Pause Scan & Save** or **Resume Scan** in the top bar. The same controls appear on /settings.html, alongside Scan Now and the configuration of indexed folders/file types/automatic refresh interval.
+
+Pause is cooperative: finish the current PDF or PowerPoint conversion, stop before the next file, and publish a complete HTML/JSON snapshot of all successfully committed decks. The index (SQLite) and old image generations remain intact. An interrupted or failed document is retried on resume, not silently treated as indexed. **No deletion inference is applied from a partial scan.** The viewer remains accessible while paused.
+
+The paused flag is persisted in the per-user config.yaml (processing.scan_paused), so login/restart and the 30-minute scheduler do not resume scanning by themselves. Resume explicitly clears this flag and starts another incremental scan, skipping unchanged files already committed in SQLite. It rediscovers input files (rather than storing an exact per-file cursor), and may need to retry the one in progress at pause time.
+
+HTTP controls, available only on the local agent's loopback server: POST /api/pause, POST /api/resume, GET /api/status. The pause response means the request was accepted, **not** that the snapshot is immediately finished; /api/status transitions through pausing to paused (or error on failure). The static HTML/JSON is published safely without a database reset. To rebuild the viewer without scanning, the existing CLI pptviewer build remains available while the agent is stopped; do not run two index writers simultaneously.
+
 ### Additional Pi-side Mac readiness: M008a–M008d
 
 The shared PPTX/PDF renderer now publishes versioned slide-image generations. A complete new set is staged and validated first, then published as a directory and referenced by SQLite only after a successful replacement transaction. Existing browser tabs can keep reading old images, including during subsequent updates or deletions. **Old generations are intentionally retained**; an explicit garbage-collection/retention policy is future work and archives can grow until that is implemented.

@@ -62,3 +62,12 @@
 - [x] T112 Run full Pi tests, document permission model/limits and cleanly checkpoint the change.
 - [ ] T113 Native Mac1: initial background trial FAILED 0/2 (-9074); retry PASSED 2/2 synthetic decks, then 4/4 new copied decks incrementally (6 decks / 24 slides, zero errors). Need user confirmation that no on-screen per-file permission prompts appeared.
 - [ ] T114 Restart the per-user LaunchAgent only after safe small-library acceptance; do not resume 3,952-file scan prematurely.
+
+## M008g — Pause/resume and saved partial archive
+
+- [x] T120 Add cooperative cancellation to shared pipeline; protect indexed images and defer deletion updates until a complete scan.
+- [x] T121 Persist paused status across app restart and scheduler; publish partial SQLite snapshot to viewer on pause.
+- [x] T122 Add loopback control endpoints and Pause/Resume buttons to viewer and Settings, with accurate status/feedback.
+- [x] T123 Add deterministic concurrency, persistence, HTTP, partial viewer/deletion safety and resume regression tests.
+- [x] T124 Validate full portable suite and update consolidated docs/handoff; commit local checkpoint (Pi: 146 tests; JS syntax and diff checks pass).
+- [ ] T125 Rebuild/install on Mac1 without overwriting archive; verify live pause, browse and resume with bounded workload.

@@ -22,8 +22,9 @@ def refresh_archive(
     scan_fn: Callable[..., dict] | None = None,
     build_fn: Callable[[AppConfig], None] | None = None,
     progress_callback: Callable[[dict], None] | None = None,
+    should_pause: Callable[[], bool] | None = None,
 ) -> dict:
-    """Run one incremental scan followed by a viewer rebuild."""
+    """Run one incremental scan; publish partial committed results if paused."""
     use_default_scanner = scan_fn is None
     if scan_fn is None:
         from .pipeline import run_scan
@@ -39,14 +40,19 @@ def refresh_archive(
     if progress_callback:
         progress_callback({"phase": "scanning", "completed": 0, "total": None, "errors": 0})
     if use_default_scanner:
-        summary = scan_fn(config, force=False, progress_callback=progress_callback)
+        summary = scan_fn(
+            config, force=False, progress_callback=progress_callback,
+            should_pause=should_pause,
+        )
     else:
         summary = scan_fn(config, force=False)
     # Avoid a full SQLite export, JSON serialization, template render and
     # static-file copy on unchanged scans. A missing/stale/incomplete viewer
     # always forces publication, including after an interrupted prior build.
     has_changes = any(summary.get(key, 0) for key in ("new", "changed", "deleted"))
-    should_build = has_changes or not viewer_is_current(config)
+    # A user-requested pause is a checkpoint: serialize the current SQLite
+    # inventory to the browsable HTML/JSON viewer even though work remains.
+    should_build = has_changes or bool(summary.get("paused")) or not viewer_is_current(config)
     if should_build:
         if progress_callback:
             count = summary.get("new", 0) + summary.get("changed", 0)
@@ -75,23 +81,40 @@ class AgentRuntime:
         self.config = config
         self.config_path = Path(config_path).resolve() if config_path else None
         self.port = port
-        self.refresh_fn = refresh_fn or (lambda conf: refresh_archive(conf, progress_callback=self._update_progress))
+        self._pause_event = threading.Event()
+        if self.config.processing.scan_paused:
+            self._pause_event.set()
+        self.refresh_fn = refresh_fn or (
+            lambda conf: refresh_archive(
+                conf, progress_callback=self._update_progress,
+                should_pause=self._pause_event.is_set,
+            )
+        )
         self.stop_event = threading.Event()
         self._state_lock = threading.Lock()
         self._refresh_lock = threading.Lock()
         self._schedule_condition = threading.Condition()
         self._shutdown_callback: Callable[[], None] | None = None
-        self._status = "starting"
+        self._status = "paused" if self._pause_event.is_set() else "starting"
         self._last_refresh: str | None = None
         self._last_error: str | None = None
         self._last_summary: dict | None = None
-        self._progress: dict = {"phase": "pending", "completed": 0, "total": None, "errors": 0}
+        self._progress: dict = {
+            "phase": "paused" if self._pause_event.is_set() else "pending",
+            "completed": 0, "total": None, "errors": 0,
+        }
         self._refresh_thread: threading.Thread | None = None
+        self._snapshot_thread: threading.Thread | None = None
+        self._snapshot_pending = threading.Event()
         self.restart_requested = False
 
     @property
     def scan_interval_seconds(self) -> int:
         return max(0, int(self.config.processing.scan_interval_seconds))
+
+    @property
+    def scan_paused(self) -> bool:
+        return self._pause_event.is_set()
 
     def bind_shutdown(self, callback: Callable[[], None]) -> None:
         self._shutdown_callback = callback
@@ -100,6 +123,8 @@ class AgentRuntime:
         with self._state_lock:
             return {
                 "status": self._status,
+                "scan_paused": self.scan_paused,
+                "snapshot_pending": self._snapshot_pending.is_set(),
                 "last_refresh": self._last_refresh,
                 "last_error": self._last_error,
                 "last_summary": self._last_summary,
@@ -115,6 +140,7 @@ class AgentRuntime:
             "scan_roots": list(self.config.scan_roots),
             "file_types": list(self.config.file_types),
             "scan_interval_seconds": self.scan_interval_seconds,
+            "scan_paused": self.scan_paused,
         }
 
     def update_settings(self, payload: dict) -> dict:
@@ -148,10 +174,13 @@ class AgentRuntime:
         if interval < 0:
             raise ValueError("scan_interval_seconds must be a non-negative integer")
 
-        self.config.scan_roots = normalized_roots
-        self.config.file_types = normalized_types
-        self.config.processing.scan_interval_seconds = interval
-        save_config(self.config, self.config_path, overwrite=True)
+        with self._state_lock:
+            self.config.scan_roots = normalized_roots
+            self.config.file_types = normalized_types
+            self.config.processing.scan_interval_seconds = interval
+            # A Settings update must not un-pause a previous user request.
+            self.config.processing.scan_paused = self.scan_paused
+            save_config(self.config, self.config_path, overwrite=True)
         with self._schedule_condition:
             self._schedule_condition.notify_all()
         return self.settings_snapshot()
@@ -159,13 +188,18 @@ class AgentRuntime:
     def _update_progress(self, update: dict) -> None:
         """Publish only a known phase and numeric counters (never source file paths)."""
         phase = update.get("phase")
-        if phase not in {"pending", "scanning", "discovering", "detecting", "processing", "building", "complete", "error"}:
+        if phase not in {
+            "pending", "scanning", "discovering", "detecting", "processing",
+            "building", "complete", "error", "pausing", "paused",
+        }:
             return
         completed = max(0, int(update.get("completed") or 0))
         raw_total = update.get("total")
         total = None if raw_total is None else max(0, int(raw_total))
         errors = max(0, int(update.get("errors") or 0))
         with self._state_lock:
+            if self.scan_paused and phase in {"scanning", "discovering", "detecting", "processing"}:
+                phase = "pausing"
             self._progress = {
                 "phase": phase, "completed": completed, "total": total, "errors": errors,
             }
@@ -187,26 +221,27 @@ class AgentRuntime:
             raise
         else:
             with self._state_lock:
-                self._status = "idle"
+                paused = self.scan_paused
+                self._status = "paused" if paused else "idle"
                 self._last_refresh = datetime.now(timezone.utc).isoformat()
                 self._last_summary = summary
-                self._progress = {**self._progress, "phase": "complete"}
+                self._progress = {
+                    **self._progress, "phase": "paused" if paused else "complete",
+                }
             return {"started": True, "summary": summary}
 
-    def perform_refresh(self, *, blocking: bool = True) -> dict:
-        """Synchronous refresh for scheduler and explicit non-UI callers."""
-        if not self._refresh_lock.acquire(blocking=blocking):
-            return {"started": False, "reason": "busy"}
+    def _save_pause_state(self, paused: bool) -> None:
+        if self.config_path is None:
+            raise RuntimeError("Cannot save scan pause state without a user configuration path")
+        self.config.processing.scan_paused = paused
         try:
-            self._begin_refresh()
-            return self._execute_refresh_locked()
-        finally:
-            self._refresh_lock.release()
+            save_config(self.config, self.config_path, overwrite=True)
+        except Exception:
+            self.config.processing.scan_paused = not paused
+            raise
 
-    def request_refresh(self) -> dict:
-        """Run a refresh on a worker, returning immediately to the HTTP server."""
-        if not self._refresh_lock.acquire(blocking=False):
-            return {"started": False, "reason": "busy"}
+    def _start_refresh_worker_locked(self) -> dict:
+        """Start one scan worker after caller acquires _refresh_lock."""
         self._begin_refresh()
 
         def worker() -> None:
@@ -226,6 +261,118 @@ class AgentRuntime:
             self._refresh_lock.release()
             raise
         return {"started": True}
+
+    def perform_refresh(self, *, blocking: bool = True) -> dict:
+        """Synchronous refresh for scheduler and explicit non-UI callers."""
+        if self.scan_paused:
+            return {"started": False, "reason": "paused"}
+        if not self._refresh_lock.acquire(blocking=blocking):
+            return {"started": False, "reason": "busy"}
+        try:
+            if self.scan_paused:
+                return {"started": False, "reason": "paused"}
+            self._begin_refresh()
+            return self._execute_refresh_locked()
+        finally:
+            self._refresh_lock.release()
+
+    def request_refresh(self) -> dict:
+        """Run incremental refresh on a worker, unless explicitly paused."""
+        if self.scan_paused:
+            return {"started": False, "reason": "paused"}
+        if not self._refresh_lock.acquire(blocking=False):
+            return {"started": False, "reason": "busy"}
+        if self.scan_paused:
+            self._refresh_lock.release()
+            return {"started": False, "reason": "paused"}
+        return self._start_refresh_worker_locked()
+
+    def _publish_snapshot_locked(self) -> None:
+        """Publish the already committed DB without scanning any source files."""
+        try:
+            from .builder import build_viewer, viewer_is_current
+            if not viewer_is_current(self.config):
+                build_viewer(self.config)
+            with self._state_lock:
+                self._status = "paused" if self.scan_paused else "idle"
+                self._progress = {**self._progress, "phase": "paused" if self.scan_paused else "complete"}
+                self._last_error = None
+        except Exception as exc:
+            with self._state_lock:
+                self._status = "error"
+                self._last_error = str(exc)
+                self._progress = {**self._progress, "phase": "error"}
+            logger.exception("Failed to publish paused archive snapshot; existing viewer retained")
+        finally:
+            self._refresh_lock.release()
+
+    def _request_snapshot(self) -> bool:
+        # Always queue a checkpoint. A refresh may finish between the moment
+        # Pause sets its Event and the time we try to acquire _refresh_lock.
+        # Without a queued worker that race can leave the UI stuck "pausing".
+        if self._snapshot_pending.is_set():
+            return False
+        self._snapshot_pending.set()
+
+        def publish_after_current_file() -> None:
+            try:
+                self._refresh_lock.acquire()
+                with self._state_lock:
+                    if self.scan_paused:
+                        self._status = "pausing"
+                        self._progress = {**self._progress, "phase": "building"}
+                self._publish_snapshot_locked()
+            finally:
+                self._snapshot_pending.clear()
+
+        worker = threading.Thread(
+            target=publish_after_current_file,
+            name="ppt-archive-snapshot-worker", daemon=True,
+        )
+        try:
+            worker.start()
+            self._snapshot_thread = worker
+        except Exception:
+            self._snapshot_pending.clear()
+            raise
+        return True
+
+    def request_pause(self) -> dict:
+        """Persist pause immediately; current file finishes before checkpoint."""
+        with self._state_lock:
+            if self.scan_paused:
+                return {"paused": True, "reason": "already_paused"}
+            self._save_pause_state(True)
+            self._pause_event.set()
+            self._status = "pausing"
+            self._progress = {**self._progress, "phase": "pausing"}
+        with self._schedule_condition:
+            self._schedule_condition.notify_all()
+        snapshot_started = self._request_snapshot()
+        return {"paused": True, "publishing": snapshot_started}
+
+    def request_resume(self) -> dict:
+        """Start an incremental scan after successfully clearing persisted pause."""
+        if not self.scan_paused:
+            return {"started": False, "reason": "not_paused"}
+        if self._snapshot_pending.is_set():
+            return {"started": False, "reason": "busy"}
+        if not self._refresh_lock.acquire(blocking=False):
+            return {"started": False, "reason": "busy"}
+        try:
+            with self._state_lock:
+                if not self.scan_paused:
+                    self._refresh_lock.release()
+                    return {"started": False, "reason": "not_paused"}
+                self._save_pause_state(False)
+                self._pause_event.clear()
+            with self._schedule_condition:
+                self._schedule_condition.notify_all()
+            return self._start_refresh_worker_locked()
+        except Exception:
+            if self._refresh_lock.locked():
+                self._refresh_lock.release()
+            raise
 
     def request_shutdown(self, *, restart: bool = False) -> None:
         self.restart_requested = restart
@@ -274,7 +421,11 @@ def run_agent(
     # The first scan can take hours for a large archive. Do not delay localhost serving.
     Path(config.output_dir).mkdir(parents=True, exist_ok=True)
     logger.info("Agent startup refresh queued in background")
-    runtime.request_refresh()
+    if runtime.scan_paused:
+        logger.info("Startup scan paused by persisted user preference; publishing saved index")
+        runtime._request_snapshot()
+    else:
+        runtime.request_refresh()
 
     scheduler = threading.Thread(
         target=_scheduled_refresh_loop,
@@ -306,6 +457,8 @@ def run_agent(
         scheduler.join(timeout=2.0)
         if runtime._refresh_thread is not None:
             runtime._refresh_thread.join(timeout=2.0)
+        if runtime._snapshot_thread is not None:
+            runtime._snapshot_thread.join(timeout=2.0)
 
     if runtime.restart_requested:
         _restart_current_process()
@@ -315,7 +468,7 @@ def _scheduled_refresh_loop(runtime: AgentRuntime) -> None:
     while not runtime.stop_event.is_set():
         with runtime._schedule_condition:
             interval = runtime.scan_interval_seconds
-            if interval <= 0:
+            if runtime.scan_paused or interval <= 0:
                 runtime._schedule_condition.wait(timeout=1.0)
                 continue
             notified = runtime._schedule_condition.wait(timeout=interval)

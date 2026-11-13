@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T23:06:21-08:00
+- Last Updated: 2026-11-12T23:42:14-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-LaunchAgent rendering failed (PowerPoint -9074), but retry succeeded after the user's signed-in Terminal retry passed. A fresh isolated user-LaunchAgent scan processed two reference PPTXs (8 slides) successfully, then incrementally scanned four additional copied synthetic decks (16 slides), zero errors. The generated archive contains six decks / 24 slides; all PowerPoint temporary staging directories were cleaned. We cannot remotely establish whether the user saw per-file permission prompts. The temporary LaunchAgent was stopped and removed after test; the original 3,952-file production LaunchAgent remains booted out with its plist safely held. Do not restart real-library scanning until the user confirms no repeated permission prompts. No remote push has been performed.
+M008g pause/resume control implementation is Pi-tested. The running Mac1 per-user agent is scanning roughly 3,937 PPTX/PDF files; SQLite contains committed decks not yet visible in the site because publication normally occurs only at the end. New Pause Scan & Save / Resume Scan buttons on viewer+Settings, cooperative between-file cancellation, deferred deletions, partial HTML/JSON snapshot, persistent paused state across login, and incremental resume have been implemented. Next: commit, synchronize Mac1 source, stop old installed process without deleting DB, install new native bundle in paused state, publish saved DB, verify browser UI/status, and leave user in control of resumption. No remote push permitted.
 
 ## Completed
 
@@ -76,6 +76,10 @@ The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-L
 - Repeated macOS permission dialogs are not visible to the remote operator. No automatic claim of prompts being resolved; ask the user whether any appeared during six-deck batch.
 - After retry verification the temporary acceptance LaunchAgent was booted out and its plist removed; archived synthetic test evidence remains, and the production 3,952-file agent remains disabled with its original plist preserved.
 
+- M008g: User requested browser buttons to stop/resume scanning and make current committed SQLite rows browsable. Pause cooperatively after current PPTX/PDF, persists processing.scan_paused: true, and queues serialized snapshot publication. Resume rediscovers files and skips unchanged already indexed decks; no per-file cursor.
+- M008g safety: moved deleted-deck removal to after complete scan; a partial/interrupted run never purges unvisited entries. Existing immutable image generations and old viewer survive failed conversion/publish. API and UI report pausing/paused/building/error.
+- M008g Pi: new pause/resume tests cover in-flight cancellation with HTTP partial browse, restart persistence, finish-race snapshot scheduling, deletion safety and config persistence failures. Full suite must be rerun after latest race test.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -103,6 +107,7 @@ The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-L
 - macOS 14+ may request initial user permission for our ad-hoc-signed app to access PowerPoint's container. This cannot and should not be bypassed. Repeated per-file Office prompts should stop once the Office-native staging path is in use, but must be verified on a small native fixture first.
 - Do not restart the large library's LaunchAgent until the bundled renderer is rebuilt, permission handling confirmed, and a bounded user-session smoke test passes.
 
+- M008g: src/ppt_visual_archive/{pipeline,agent,config,server}.py, web/templates/{index,settings}.html.j2, web/static/{js/agent-status.js,js/settings.js,css/style.css,loading.html}, tests/test_pause_resume.py and feature/README/design/requirements docs.
 ## Files Changed
 
 - `ROADMAP.md`
@@ -145,6 +150,7 @@ The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-L
 
 - M008f native blocker: gui/501 background launch still yields PowerPoint error -9074 for both synthetic reference decks. Need direct signed-in Terminal smoke with new sandbox staging to distinguish file-location permission from background-process automation/TCC identity. Repeated-per-file prompt elimination is unverified; no large scan should resume.
 
+- M008g native Mac rollout pending: rebuild/staged-upgrade app, pause currently running 3,937-file scan, publish current SQLite rows safely, verify viewer output and persisted pause across restart; production should stay paused until the user explicitly clicks Resume.
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -165,16 +171,10 @@ The Mac PowerPoint sandbox-staging change is at a159312. Initial isolated user-L
 
 ## Next Step
 
-M008f retry succeeded: new staging passed a signed-in Terminal 2-slide smoke and an isolated GUI LaunchAgent scan of six synthetic decks (24 slides), zero errors. Ask user whether any file-permission prompts appeared during the batch; success logs cannot verify on-screen dialogs. Keep production 3,952-file LaunchAgent auto-start held until this is confirmed, then plan controlled staged resumption with progress/error monitoring. No push was performed.
+Run complete Pi suite and static JS checks, record M008g local commit. Fast-forward clean Mac1 checkout from Pi, back up current configuration and archive metadata, boot out only the installed user LaunchAgent, save processing.scan_paused: true, publish existing SQLite database to HTML/JSON, rebuild/sign Mac1 app and upgrade using data-preserving installer. Verify paused status, browser buttons and assets, and Resume on a separate bounded synthetic library. Leave the 3,937-file production scan paused until user action. Do not push.
 
-- M008f Pi sandbox-staging tests: 15 focused tests passed; full repository suite: 140 passed. Native PowerPoint Office sandbox permission test: pending.
-- Mac1 pre-fix large scan: 3,952 discovered, 9 processed, 4 errors; LaunchAgent bootout verified, startup plist held safely. Existing archive/settings remain intact.
-
-- M008f native Mac1: clean fast-forward to a159312, PyInstaller rebuild completed, 17/17 static Mac artifact checks, ad hoc codesign verification exit 0.
-- M008f isolated Mac1 gui/501 LaunchAgent: two synthetic PPTX fixtures only, 0 processed successfully, 2 failed with PowerPoint -9074; zero slide images. Agent and temporary test plist removed; production auto-start remains held. No production library files were scanned as part of the native test.
-
-- M008f second native Mac1 Terminal run with new staging: PASS 2/2 slides, four JPEGs, 0.699 s, no Office code.
-- M008f isolated Mac1 GUI LaunchAgent retry: PASS 2 synthetic decks / 8 slides; incremental scan of 4 new copied synthetic PPTXs: 4 processed OK, 0 errors, 2 unchanged, viewer rebuilt. Archive: 6 decks, 24 slides. No leftover converter dirs. Test LaunchAgent removed; production startup still held. Whether GUI permission dialogs appeared during the successful batch is NOT verified.
+- M008g portable tests: pause during conversion with HTTP snapshot, resume after restart skipping committed unchanged, no deletion on partial, idle snapshot publication, completion-race snapshot queueing, pause/save failure, UI controls. Full suite must be rerun after final code/docs.
+- M008g full Pi repository suite: 146 tests passed. Node syntax checks for both changed JS files, Git diff --check, and macOS source preflight (15 pass, one expected no-native-artifact warning) passed. Six focused pause/resume tests cover workflow and race conditions.
 
 ## Validation
 

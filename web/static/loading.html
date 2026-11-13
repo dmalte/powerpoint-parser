@@ -34,7 +34,7 @@
       if (!response.ok) throw new Error('Unable to read agent status.');
       const data = await response.json();
       const progress = data.progress || {};
-      if (data.status === 'idle') {
+      if (data.status === 'idle' || data.status === 'paused') {
         statusEl.textContent = 'Archive is ready. Opening the viewer…';
         location.replace('/');
         return;

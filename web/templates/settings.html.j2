@@ -24,8 +24,11 @@
       <span id="scan-progress" aria-live="polite"></span>
     </div>
     <div id="last-error" class="status-error"></div>
+    <p class="settings-note" id="pause-note">Pause finishes the current document, saves a browsable partial index, and prevents automatic scanning until you resume.</p>
     <div class="settings-actions" style="margin-top:14px">
       <button class="btn btn-primary" id="scan-now">Scan Now</button>
+      <button class="btn" id="pause-scan" type="button">Pause Scan &amp; Save</button>
+      <button class="btn btn-primary" id="resume-scan" type="button" hidden>Resume Scan</button>
       <button class="btn" id="open-logs">Open Logs</button>
       <button class="btn" id="restart-agent">Restart Agent</button>
     </div>
