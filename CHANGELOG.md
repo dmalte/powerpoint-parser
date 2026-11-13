@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - M008c local, path-free Mac dependency/config/permission readiness reports, without triggering PowerPoint automation.
 - M008d original PowerPoint reference decks (images, tables, charts, notes, Unicode, hidden slides) and offline per-slide image/size comparison in HTML and JSON.
 - M008e Mac PDF-backed rendering temporarily exposes hidden slides in a private PPTX working copy, preserving original hidden flags and slide-to-notes mappings. Native Mac1 six-slide acceptance passed (6/6, 12 validated JPEGs, 15.3s, original unchanged); login agent and cross-platform image fidelity remain pending.
+- M008f Mac PowerPoint renderer stages temporary PPTX/PDF in PowerPoint's own sandbox Documents directory to avoid per-presentation external-file prompts. A separate archive-side image workspace and tests preserve cleanup, hidden slides and existing Windows/LibreOffice semantics; native Mac permission validation pending.
 
 ### Changed
 

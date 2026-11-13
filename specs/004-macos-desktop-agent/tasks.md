@@ -54,3 +54,11 @@
 - [x] T101 Add regression tests for hidden slides, sequence mapping, notes and original document immutability.
 - [x] T102 Update docs/handoff, run full portable tests and checkpoint locally.
 - [x] T103 Native Mac interactive six-slide PowerPoint smoke test and image/notes acceptance (2026-11-12: 6/6, all images valid, titles/notes and original checksum verified).
+
+## M008f — Avoid per-presentation sandbox prompts
+
+- [x] T110 Use Microsoft PowerPoint's own sandbox Documents folder for ephemeral Mac PowerPoint converter input/output, retaining separate LibreOffice behavior.
+- [x] T111 Test staging path, full cleanup, denied container permission, hidden-slide parity, original-file preservation, and Windows/LibreOffice nonregression.
+- [x] T112 Run full Pi tests, document permission model/limits and cleanly checkpoint the change.
+- [ ] T113 Fast-forward clean Mac1 checkout, run native user-session reference smoke and validate absence of repeated file prompts.
+- [ ] T114 Restart the per-user LaunchAgent only after safe small-library acceptance; do not resume 3,952-file scan prematurely.

@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -79,6 +80,10 @@ class _MacPdfBackedRenderer:
     def _convert(self, source: Path, pdf_path: Path, workdir: Path) -> None:
         raise NotImplementedError
 
+    def _conversion_root(self, destination: Path) -> Path:
+        """LibreOffice/default staging remains beside the archive output."""
+        return destination.parent
+
     def export_slides(self, pptx_path: str, output_dir: str) -> list[dict]:
         """Convert PPTX to ephemeral PDF, render, then publish JPEG/PNG images.
 
@@ -92,20 +97,34 @@ class _MacPdfBackedRenderer:
             raise FileNotFoundError(source)
         dest = Path(output_dir).resolve()
         dest.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".pptviewer-mac-", dir=dest.parent) as tmp_name:
-            workdir = Path(tmp_name)
-            # PowerPoint may already have the original open with unsaved edits.
-            # Open only a private copy, so closing our automation document can
-            # never close or save an existing user presentation.
-            local_source = workdir / source.name
-            shutil.copy2(source, local_source)
-            _show_all_slides_in_render_copy(local_source)
-            pdf_path = workdir / "presentation.pdf"
-            self._convert(local_source, pdf_path, workdir)
-            if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
-                raise RuntimeError("PowerPoint conversion produced no PDF")
-            raster_dir = workdir / "images"
-            data = extract_and_render_pdf(str(pdf_path), str(raster_dir), self.config)
+        # Rendered JPEG assets stay on the archive's volume. PowerPoint, unlike
+        # LibreOffice, must be given input/output files *inside its own sandbox*
+        # to avoid file-access prompts for each newly generated external path.
+        root = self._conversion_root(dest)
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise RuntimeError(
+                "Cannot access the PowerPoint conversion workspace. The Mac may "
+                "need one permission grant for PowerPoint Archive to access "
+                "Microsoft PowerPoint's app data."
+            ) from exc
+
+        with tempfile.TemporaryDirectory(prefix=".pptviewer-images-", dir=dest.parent) as raster_temp:
+            raster_dir = Path(raster_temp) / "images"
+            with tempfile.TemporaryDirectory(prefix=".pptviewer-convert-", dir=root) as tmp_name:
+                workdir = Path(tmp_name)
+                # The source is never modified. Show any hidden slides in the
+                # private copy to retain the full original slide/notes ordering.
+                local_source = workdir / source.name
+                shutil.copy2(source, local_source)
+                _show_all_slides_in_render_copy(local_source)
+                pdf_path = workdir / "presentation.pdf"
+                self._convert(local_source, pdf_path, workdir)
+                if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
+                    raise RuntimeError("PowerPoint conversion produced no PDF")
+                data = extract_and_render_pdf(str(pdf_path), str(raster_dir), self.config)
+
             pages = data.get("slides") or []
             if data.get("slide_count", 0) <= 0 or len(pages) != data["slide_count"]:
                 raise RuntimeError("Converted PowerPoint PDF has missing or unreadable pages")
@@ -132,7 +151,25 @@ class _MacPdfBackedRenderer:
 
 
 class MacPowerPointRenderer(_MacPdfBackedRenderer):
-    """PowerPoint for Mac + AppleScript save-as-PDF bridge (macOS acceptance pending)."""
+    """PowerPoint for Mac + AppleScript, staging inside PowerPoint's sandbox."""
+
+    def __init__(
+        self, config: RenderConfig, *, conversion_root: Path | None = None
+    ) -> None:
+        super().__init__(config)
+        # A deliberately injectable test seam, not an end-user staging path
+        # setting. Production always uses PowerPoint's own sandbox Documents.
+        self._conversion_root_override = conversion_root
+
+    def _conversion_root(self, destination: Path) -> Path:
+        if self._conversion_root_override is not None:
+            return Path(self._conversion_root_override)
+        if sys.platform != "darwin":
+            raise RuntimeError("PowerPoint sandbox staging requires macOS")
+        return (
+            Path.home() / "Library" / "Containers" / "com.microsoft.Powerpoint"
+            / "Data" / "Documents" / "PowerPointVisualArchive"
+        )
 
     def start(self) -> None:
         self._executable = shutil.which("osascript")

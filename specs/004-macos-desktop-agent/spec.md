@@ -67,3 +67,11 @@ Prepare a macOS per-user version of PowerPoint Visual Archive. Preserve the same
 - To maintain Windows COM parity and the full original-PPTX SQLite/search index, make hidden slides visible **only within the Mac renderer's private temporary PPTX copy**, before PDF conversion, preserving ordering, images, notes and original hidden flags in the source file.
 - Never mutate the user's original PPTX or persist an altered deck. If rendered PDF still has fewer pages, fail instead of silently shifting slide-to-metadata associations.
 - Regression tests must cover hidden slides in the middle and end, unchanged non-hidden copies, original-file immutability and full-page indexing. Mac1 native PowerPoint for Mac 16.115 now passes the six-slide smoke (6/6, 12 valid JPEG files). Original PPTX checksum, hidden sixth-slide flag, six titles/notes and expected JPEG dimensions were verified. Cross-platform pixel-fidelity comparison and LaunchAgent acceptance remain separate.
+
+## M008f — Sandbox-aware batch rendering (2026-11-12)
+
+- Native Mac1 installed agent's large scan repeatedly triggers PowerPoint file-access requests. The configured library contains 3,952 files; scanning stopped after 9 processed / 4 reported errors, with the user LaunchAgent booted out and its plist set aside safely so another login does not restart the prompt storm.
+- PowerPoint for Mac is sandboxed. The current Mac renderer creates one unique external temporary PPTX/PDF pair per presentation, requiring distinct file access. Stage temporary conversion inputs and outputs under the signed-in user's own Microsoft PowerPoint container Documents directory, so PowerPoint accesses its own sandbox rather than requesting each external file.
+- Never bypass macOS consent, modify PowerPoint's secure bookmarks, change the user's original PPTXs, or persist source content; Python agent may itself need a first-time macOS user consent to access the PowerPoint container.
+- Retain the existing archive-side atomic versioned JPEG publication and the per-file private-work-copy cleanup. The explicit LibreOffice backend should remain independent of the PowerPoint sandbox.
+- Test using one generated two-slide PPTX first, then six-slide reference and a small batch without repeated per-file prompts. Do not restart the 3,952-file scan until the user-session behavior is verified.

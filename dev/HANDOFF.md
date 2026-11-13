@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-12T22:08:26-08:00
+- Last Updated: 2026-11-12T22:46:16-08:00
 - Active Feature: `specs/004-macos-desktop-agent`
 
 ## Current Objective
 
-Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-slide decks. M008e fixes omitted hidden slides using a temporary PPTX copy; 6/6 images and original metadata/notes/hidden flag were verified on Mac1. The packaged app/CLI and PDF viewer passed earlier. Per-user LaunchAgent/login and cross-platform pixel fidelity remain unverified; no permanent login agent installed.
+Mac1 production-size user LaunchAgent triggered repeated Microsoft PowerPoint file-access dialogs during the 3,952-file scan; agent stopped after 9 processed, 4 errors. The login LaunchAgent was booted out and its plist put safely on hold so login will not restart prompt storm. M008f Pi implementation now stages temporary PPTX/PDF under PowerPoint's own sandbox container, with archive JPEGs still versioned separately. Portable full regression suite passes (140). Next: native small-fixture per-user agent test, only then re-enable the production library. Local commits are not pushed to origin.
 
 ## Completed
 
@@ -65,6 +65,10 @@ Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-sli
 
 - M008e native acceptance (Mac1): 6/6 slides, 12 decoded JPEG assets, unchanged original PPTX SHA-256, hidden slide 6 preserved in original and all title/notes mappings verified. 15.3 seconds; no Office error.
 
+- M008f: When agent scanned 3,952 PPTX/PDF files, PowerPoint prompted individually for access to unique temporary paths under archive assets. Mac1 progress was 9/3,952 with 4 errors before stopping. Running app LaunchAgent was booted out; plist was moved from ~/Library/LaunchAgents to a held plist in ~/Library/Application Support/PowerPointVisualArchive; user config/archive preserved.
+- M008f: Windows COM remains unchanged. Mac PowerPoint renderer now stages its own per-document private PPTX/PDF inside ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/PowerPointVisualArchive, where Office has sandbox access. Image rasterization/final publishing remain under archive assets. LibreOffice stays on its own workspace. Existing original/hidden flags and notes remain unchanged.
+- M008f Pi: 15 focused renderer tests passed, including sandbox path, cleanup, denial and hidden-slide parity; full repo suite 140 passed. Native Mac acceptance is not yet done.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -88,6 +92,9 @@ Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-sli
 
 - On macOS PowerPoint PDF export can skip hidden slides; render the **temporary copy** with those flags cleared, not the user's actual PPTX. Windows COM remains untouched. Do not accept incomplete slide/image sets even if shell output says success.
 - The native smoke CLI can exit nonzero with clear status=fail despite producing partial images, and the helper's last printed line does not indicate overall success.
+
+- macOS 14+ may request initial user permission for our ad-hoc-signed app to access PowerPoint's container. This cannot and should not be bypassed. Repeated per-file Office prompts should stop once the Office-native staging path is in use, but must be verified on a small native fixture first.
+- Do not restart the large library's LaunchAgent until the bundled renderer is rebuilt, permission handling confirmed, and a bounded user-session smoke test passes.
 
 ## Files Changed
 
@@ -127,6 +134,8 @@ Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-sli
 
 - M008e: src/ppt_visual_archive/mac_renderer.py, tests/test_macos_renderer.py, specs/004-macos-desktop-agent/* plus README, roadmap, design, requirements, changelog and handoff.
 
+- M008f files: src/ppt_visual_archive/mac_renderer.py, tests/test_macos_renderer.py, specs/004-macos-desktop-agent/{spec,plan,tasks}.md, README, ROADMAP, spec/DESIGN_SPEC, spec/REQUIREMENTS, CHANGELOG, dev/HANDOFF.
+
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -147,11 +156,10 @@ Mac1 native PowerPoint rendering now passes for both 2-slide and complex six-sli
 
 ## Next Step
 
-Six-slide Mac1 native smoke and metadata/image verification are complete. Next, compare the Mac reference images with actual Windows PowerPoint output and, with explicit user authorization only, install/test the per-user LaunchAgent in the graphical session (Automation consent, login, upgrade/rollback/uninstall). Windows M004/M005 acceptance remains separate.
+Sync the M008f sandbox-staging implementation from Pi to the clean Mac1 checkout, rebuild the native arm64 app, then run a **separate isolated user-session LaunchAgent fixture scan** (two PPTXs, including hidden slide) without touching the production settings. Observe whether a one-time container access consent is requested and whether any file-by-file prompts persist. Keep the production 3,952-file agent stopped; restore its held plist only after explicit small-batch acceptance and planned safe resume. Project is local-only; no push without user authorization.
 
-- Mac1 user Terminal 2-slide native PowerPoint smoke: PASS, 2 JPEG thumbnails and 2 previews, 28.1s. MCP-daemon invocation: FAIL timeout at 25s (session-dependent).
-- Mac1 user Terminal six-slide visual smoke: JSON status FAIL (5/6 rendered; sixth is hidden) despite images for visible slides. This is reproducible and correctly detected.
-- M008e Pi and Mac1: 137 repository tests pass; 12 focused Mac renderer tests pass, including 3 hidden-slide cases. Native Mac1 interactive complex deck smoke PASS 6/6 slides in 15.3 seconds, Office code none. 12 JPEG files decode at expected 320x180 and 1280x720 resolutions; original SHA-256 matches manifest and title/notes mappings match all six slides.
+- M008f Pi sandbox-staging tests: 15 focused tests passed; full repository suite: 140 passed. Native PowerPoint Office sandbox permission test: pending.
+- Mac1 pre-fix large scan: 3,952 discovered, 9 processed, 4 errors; LaunchAgent bootout verified, startup plist held safely. Existing archive/settings remain intact.
 
 ## Validation
 

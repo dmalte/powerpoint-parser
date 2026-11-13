@@ -96,6 +96,14 @@ A native six-slide reference presentation exported **five** PDF pages because Po
 
 The two-slide native PowerPoint test succeeded through the logged-in Terminal (~28 seconds), whereas the system MCP-daemon execution timed out or returned -9074. Rendering must run in the signed-in graphical session; the permanent user LaunchAgent remains uninstalled.
 
+## PowerPoint sandbox prompts and safe restart (M008f)
+
+PowerPoint for Mac runs sandboxed. During a large library scan, passing a unique temporary PPTX and PDF located under the archive's asset directory can trigger a file-access grant for *every deck*. The renderer now uses a per-conversion temporary subdirectory inside the **Microsoft PowerPoint container's Documents folder** for those two intermediate files, with automatic cleanup. Only generated JPEG thumbnails/previews remain in the local archive; originals and speaker notes are never modified.
+
+The archive app is a different code-signing identity from Microsoft PowerPoint. On modern macOS, it may need one permission grant to enter PowerPoint's container. If denied, processing reports a workspace-access error and preserves previous images/SQLite rows. The user should grant access only if they recognize the PowerPoint Archive app. Do not edit sandbox bookmarks or broaden file permissions.
+
+Mac1's 3,952-file scan was paused after 9 files and four reported errors; the per-user LaunchAgent was booted out and its original plist held under user Application Support to prevent relaunch on next login. Do not restart the full library until a separate small fixture library succeeds without one prompt per presentation. A new app build and validated per-user launch are required.
+
 ## Required native Mac acceptance
 
 - Verify the exact AppleScript syntax using the installed Microsoft PowerPoint version and an actual multi-slide PPTX.

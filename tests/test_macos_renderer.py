@@ -24,6 +24,18 @@ from ppt_visual_archive.renderer import PowerPointRenderer
 from ppt_visual_archive.renderer_factory import create_pptx_renderer
 
 
+_NATIVE_CONVERSION_ROOT = MacPowerPointRenderer._conversion_root
+
+
+@pytest.fixture(autouse=True)
+def isolated_mac_sandbox_for_tests(tmp_path, monkeypatch):
+    """Never write to the real PowerPoint app container during unit tests."""
+    monkeypatch.setattr(
+        MacPowerPointRenderer, "_conversion_root",
+        lambda _self, _destination: tmp_path / "fake-powerpoint-container",
+    )
+
+
 def pptx_file(path: Path, slides: int = 2) -> Path:
     p = Presentation()
     for i in range(slides):
@@ -90,7 +102,8 @@ def test_mac_powerpoint_exports_images_and_deletes_temporary_pdf(monkeypatch, tm
         assert slide["width"] == 160
         assert (output / slide["thumb_path"]).is_file()
         assert (output / slide["preview_path"]).is_file()
-    assert not list(output.parent.glob(".pptviewer-mac-*"))
+    assert not list(output.parent.glob(".pptviewer-images-*"))
+    assert not list(tmp_path.rglob(".pptviewer-convert-*"))
     assert not list(tmp_path.rglob("presentation.pdf"))
     assert source.is_file()  # original PPTX never modified
 
@@ -145,7 +158,8 @@ def test_mac_missing_pdf_and_timeout_preserve_existing_images(monkeypatch, tmp_p
     with pytest.raises(RuntimeError, match="timed out"):
         MacPowerPointRenderer(RenderConfig(pptx_conversion_timeout_seconds=1)).export_slides(str(source), str(output))
     assert original.read_bytes() == b"PREVIOUS IMAGE"
-    assert not list(tmp_path.glob(".pptviewer-mac-*"))
+    assert not list(tmp_path.rglob(".pptviewer-images-*"))
+    assert not list(tmp_path.rglob(".pptviewer-convert-*"))
 
 
 def test_mac_mismatched_page_count_rejected_before_sql_insert(monkeypatch, tmp_path):
@@ -304,7 +318,7 @@ def test_hidden_slides_only_exposed_in_private_pptx_copy(monkeypatch, tmp_path, 
     assert source.read_bytes() == original_bytes
     assert Presentation(source).slides[hidden_index - 1]._element.get("show") == flag
     assert not list(tmp_path.rglob("presentation.pdf"))
-    assert not list(tmp_path.rglob(".pptviewer-mac-*"))
+    assert not list(tmp_path.rglob(".pptviewer-convert-*"))
 
 
 def test_hidden_slide_keeps_original_index_order_and_speaker_notes(monkeypatch, tmp_path):
@@ -342,3 +356,64 @@ def test_hidden_slide_keeps_original_index_order_and_speaker_notes(monkeypatch, 
         db.close()
     assert source.read_bytes() == original_bytes
     assert Presentation(source).slides[1]._element.get("show") == "0"
+
+def test_mac_default_workspace_is_powerpoints_own_app_container(monkeypatch, tmp_path):
+    with monkeypatch.context() as patch:
+        patch.setattr(mac_renderer.sys, "platform", "darwin")
+        patch.setattr(mac_renderer.Path, "home", classmethod(lambda cls: tmp_path))
+        renderer = MacPowerPointRenderer(RenderConfig())
+        root = _NATIVE_CONVERSION_ROOT(renderer, tmp_path / "output")
+    assert root == (
+        tmp_path / "Library/Containers/com.microsoft.Powerpoint"
+        / "Data/Documents/PowerPointVisualArchive"
+    )
+
+
+def test_mac_converter_uses_own_sandbox_not_archive_paths(monkeypatch, tmp_path):
+    source = pptx_file(tmp_path / "some deck.pptx", slides=2)
+    destination = tmp_path / "viewer/assets/decks/mydeck"
+    sandbox = tmp_path / "fake-powerpoint-container"
+    monkeypatch.setattr(mac_renderer.shutil, "which", lambda cmd: "/usr/bin/osascript")
+    seen = []
+
+    def fake_convert(args, **kwargs):
+        pptx = Path(args[3])
+        pdf = Path(args[4])
+        assert pptx.parent == pdf.parent
+        assert pptx.parent.parent == sandbox
+        assert pptx != source
+        assert pptx.read_bytes() == source.read_bytes()
+        assert not str(pptx).startswith(str(destination))
+        pdf_file(pdf, pages=2)
+        seen.append((str(pptx), str(pdf)))
+        return subprocess.CompletedProcess(args, 0)
+
+    monkeypatch.setattr(mac_renderer.subprocess, "run", fake_convert)
+    slides = MacPowerPointRenderer(RenderConfig()).export_slides(str(source), str(destination))
+    assert len(slides) == 2
+    assert len(seen) == 1
+    assert not list(sandbox.glob(".pptviewer-convert-*"))
+    assert len(list(destination.glob("*.jpg"))) == 4
+    assert source.is_file()
+
+
+def test_mac_denied_powerpoint_container_preserves_source_and_existing_images(
+    monkeypatch, tmp_path
+):
+    source = pptx_file(tmp_path / "source.pptx", slides=1)
+    data_before = source.read_bytes()
+    images = tmp_path / "archive/assets/decks/mydeck"
+    images.mkdir(parents=True)
+    (images / "thumb_001.jpg").write_bytes(b"old image")
+    inaccessible = tmp_path / "file-instead-of-directory"
+    inaccessible.write_bytes(b"not a directory")
+    monkeypatch.setattr(
+        MacPowerPointRenderer, "_conversion_root",
+        lambda _self, _destination: inaccessible,
+    )
+    monkeypatch.setattr(mac_renderer.shutil, "which", lambda _: "/usr/bin/osascript")
+    with pytest.raises(RuntimeError, match="PowerPoint conversion workspace"):
+        MacPowerPointRenderer(RenderConfig()).export_slides(str(source), str(images))
+    assert source.read_bytes() == data_before
+    assert (images / "thumb_001.jpg").read_bytes() == b"old image"
+    assert not list(images.parent.glob(".pptviewer-images-*"))

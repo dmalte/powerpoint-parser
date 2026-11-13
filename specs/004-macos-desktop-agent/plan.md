@@ -52,3 +52,10 @@
 - On Mac1 after fast-forwarding commit 0329508, the interactive user-session script rendered 6/6 slides in 15.27s with Office error null, including the hidden sixth slide. Six 320x180 JPEG thumbnails and six 1280x720 JPEG previews were verified with Pillow.
 - The original PPTX SHA-256 matched the reference manifest, the sixth slide remained hidden in the original, and all six titles and speaker notes matched. The archive still indexes metadata from the unmodified original.
 - Mac packaged LaunchAgent Automation/permissions, user logon, upgrade/uninstall and pixel-level comparison with Windows PowerPoint output remain open. System-daemon PowerPoint export is unreliable and not a supported renderer execution context.
+
+## M008f — Microsoft PowerPoint sandbox staging (2026-11-12)
+
+- MacPowerPointRenderer should stage only the temporary input PPTX and destination PDF within ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/PowerPointVisualArchive. Preserve a unique temporary working subdirectory for each conversion and remove all temporary bytes when the conversion completes. Keep the image rasterizer's staging/output and final index under the archive root; no private originals are moved or modified.
+- Make the Mac PowerPoint container selection an overridable method/test seam (not a user-configurable arbitrary path), so tests use local temporary directories and never write into a real app sandbox. The optional LibreOffice backend keeps its existing private profile/output behavior.
+- macOS 14+ may require one permission grant for a separately signed agent to access another app's container. Refuse or report access denial clearly; do not add Full Disk Access, scripts that forge sandbox bookmarks, or permission-bypassing workarounds.
+- Before production scan, validate two reference PPTX exports, the hidden-slide fixture, missing-permission errors, and cleanup. Keep the LaunchAgent booted out and disabled during validation to avoid thousands of dialogs.

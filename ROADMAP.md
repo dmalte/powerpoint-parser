@@ -43,6 +43,8 @@ M008 native Mac checkout and app build were validated on Mac1: 132 portable test
 
 M008e addresses a confirmed Mac PDF limitation: hidden slides were excluded (5 of 6 pages). The renderer now temporarily unhides only the private PPTX copy before export; portable regression tests verify source preservation, full slide order and notes. Native Mac interactive acceptance now passes for all six slides (12 validated JPEG files), including the hidden final slide; original PPTX checksum and slide notes remain intact. A two-slide PowerPoint-for-Mac rendering test passed under the signed-in Terminal, but the system MCP daemon's GUI automation remains unreliable.
 
+M008f addresses native macOS file-access prompts during production-size scanning. The Mac PowerPoint renderer now stages its ephemeral PPTX/PDF inside PowerPoint's own Documents container, instead of a unique external archive path per file. User consent may still be required once for the archive app to access the Office container. Pi regression suite passed (140 tests); Mac native small-library acceptance and safe restart of the 3,952-file archive are pending. The production user LaunchAgent was booted out and autostart was disabled pending validation.
+
 ## Deployment Sequence
 
 The accepted rollout is intentionally staged:

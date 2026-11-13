@@ -89,6 +89,14 @@ It uses a generated two-slide reference deck and writes a path-free local result
 
 PowerPoint for Mac PDF export normally skips hidden slides. The archive must index the same complete slide sequence on Windows and macOS, including hidden slides; otherwise image-to-title/notes associations can shift. The Mac PDF-backed renderer now temporarily exposes hidden slides **only in its private working copy** of each PPTX before exporting the temporary PDF. The user's original PPTX, hidden-slide flags and notes remain intact. The working copy and PDF are removed afterward. Mac1 native acceptance now passes: the six-slide reference renders all 6 thumbnails and 6 previews, including the hidden final slide, in 15.3 seconds. All JPEGs and slide metadata were verified, and the original PPTX checksum remained unchanged. Windows/Mac pixel-level fidelity and login-agent acceptance are separate.
 
+### macOS PowerPoint sandbox staging (M008f)
+
+PowerPoint for Mac may request a new file grant for each temporary presentation outside its app sandbox. To avoid thousands of prompts during a large scan, the Mac PowerPoint renderer now stages **only transient PPTX copies and PDF intermediates** in PowerPoint's own Documents container (under the current user's Library/Containers/com.microsoft.Powerpoint/Data/Documents/PowerPointVisualArchive). The Python rasterizer writes final JPEGs into the existing archive, and the original PPTX/notes/hidden-slide settings remain untouched.
+
+macOS may request a **one-time** permission grant for the separately packaged PowerPoint Archive app to access PowerPoint's container, especially on macOS 14+ or after ad-hoc re-signing. Do not bypass the prompt or grant Full Disk Access solely for this feature. The renderer cleans its temporary files; existing saved archives and settings are not changed.
+
+Mac1's live archive had 3,952 discovered files and showed repeated file-access prompts, so the user LaunchAgent was stopped and its startup plist put on hold (not deleted). The new staging behavior has portable tests and requires an isolated native **small-deck** user-session smoke test before the large library may safely resume. Mac1's prior 6/6 hidden-slide smoke, run through Terminal, remains valid for the older staging strategy.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

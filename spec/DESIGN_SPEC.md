@@ -152,6 +152,13 @@ The local-first architecture remains unchanged: source files and generated archi
 - The original .pptx is never modified, and metadata/notes continue to come from it. The temporary copy and PDF are discarded after image generation. Windows COM code and the SQLite/JSON schema remain unchanged.
 - Reject page-count discrepancies even after temporary hidden-slide exposure. Native complex-deck visual/fidelity acceptance remains pending until six expected slides render correctly in the user graphical session.
 
+## Mac PowerPoint sandbox-aware transient staging (M008f)
+
+- The existing per-deck archive versioning uses temporary image assets adjacent to the viewer output. The Mac PowerPoint automation subprocess instead receives a private temporary PPTX **and** temporary PDF *inside PowerPoint's app container* at the current user's Library/Containers/com.microsoft.Powerpoint/Data/Documents/PowerPointVisualArchive. Its native sandbox can access them without per-file external grants.
+- Image rasterization and atomic slide-image publication remain on the archive filesystem; temporary source/PDF are cleaned when each conversion finishes. Hidden slides are exposed in the private copy only, preserving original PPTX bytes and metadata mapping. LibreOffice's explicit optional backend stays on its own isolated workspace outside the PowerPoint container.
+- The archive agent itself may need a first-time macOS permission to access the Microsoft PowerPoint container; refusal fails safely. Do not grant blanket Full Disk Access or alter Office secure bookmarks. Confirm on a small user-session fixture before the production-size scan.
+- Previous Mac1 user LaunchAgent was stopped and its startup plist held for restoration after acceptance, so the prompt-heavy ~3,952-file scan does not resume at login. This is a controlled testing state, not a production deployment.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.
