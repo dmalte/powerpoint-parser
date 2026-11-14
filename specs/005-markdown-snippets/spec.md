@@ -3,7 +3,7 @@
 - Feature: specs/005-markdown-snippets
 - Milestone: M009
 - Requirements: REQ-MD-001
-- Status: active
+- Status: done (portable and Mac1 native acceptance passed)
 
 ## Goal
 Index user-selected .md files into the same local visual archive as PPTX/PDF. Treat headings (and long heading-free content chunks) as individually searchable, rendered snippets. Each snippet has a lightweight JPEG thumbnail, safe offline HTML preview, text and a way to open original Markdown.

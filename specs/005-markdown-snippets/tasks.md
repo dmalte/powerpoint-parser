@@ -5,7 +5,7 @@
 - [x] T012 Enable .md in persisted configuration, Settings and viewer filters; show rendered HTML preview safely.
 - [x] T013 Test security, mixed scanning, incremental updates, rollback and viewer rendering.
 - [x] T014 Update consolidated docs and handoff; run full tests and commit locally (Pi: 161 tests; static Windows and Mac preflights pass).
-- [ ] T015 Fast-forward Mac1 checkout, rebuild/upgrade preserving archive and config, validate small Markdown fixtures, do not auto-enable production Markdown type.
+- [x] T015 Mac1 fast-forwarded/verified, full 161-test suite passed, arm64 app rebuilt (17/17 preflight), packaged CLI and isolated Markdown/PDF scan passed; installed upgrade preserved existing config and database, and .md remains opt-in.
 
 ## Future M010 — Obsidian Vault Navigation
 

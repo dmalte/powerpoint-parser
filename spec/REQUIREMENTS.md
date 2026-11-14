@@ -138,9 +138,9 @@ lists are implementation work and do not replace this inventory.
 
 ## Markdown archive extension
 
-- [ ] **REQ-MD-001** — Index .md files as heading-level visual snippets with safe offline HTML previews, searchable text, lightweight thumbnails, and original-file opening alongside PPTX/PDF.
-  - Status: active, M009
-  - Portable verification: 12 Markdown parsing/rendering/index/UI tests and 3 vanished-source safety tests pass; full repository suite 161 tests on Pi. Mac1 native app acceptance pending.
+- [x] **REQ-MD-001** — Index .md files as heading-level visual snippets with safe offline HTML previews, searchable text, lightweight thumbnails, and original-file opening alongside PPTX/PDF.
+  - Status: done, M009; native Mac1 and portable suite passed, .md opt-in
+  - Validation: 12 Markdown parsing/rendering/index/UI tests and 3 vanished-source safety tests pass; full 161-test suite passed on Pi and Mac1. Native Mac1 packaged CLI/installed app, HTML preview/thumbnail/CSP and preserved production config verified; M010 Obsidian vault navigation remains planned.
   - Feature: specs/005-markdown-snippets
   - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002
   - Security: No executable HTML, remote resources, source mutation or untrusted URL execution. Existing archive schema and incremental safety retained.

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - M009 Markdown visual snippet indexing: opt-in .md scanning, heading/paragraph sections, CommonMark/tables/code rendering into offline CSP-restricted HTML previews, Pillow JPEG cards, safe iframe modal, md filter and config control, same transactional SQLite/image generations, with no raw HTML or external resources. M010 Obsidian vault-aware double-click navigation is planned separately.
 - Scanner resilience: skip a file or symlink target that vanishes between directory enumeration and stat, report incomplete discovery, and defer deletions rather than aborting archive refresh or removing existing indexed records; hard I/O and permission errors still fail safely.
+- Mac1 native M009 acceptance: 161 full tests, isolated Markdown/PDF snippet scan, packaged Markdown CLI, rebuilt arm64 app (17/17 artifact checks) and data-preserving install. Markdown checkbox/filter published in existing viewer, still opt-in; one vanished file was safely skipped during resumed scan.
 - Phase 1 per-user desktop-agent runtime with installed config discovery, `init-config`, startup refresh, scheduled incremental refresh, localhost serving, and durable per-user logs.
 - PyInstaller frozen-resource support for viewer templates/static assets.
 - Windows packaging scaffold with console and windowless agent executables, a per-user Inno Setup installer, and current-user logon startup registration.
