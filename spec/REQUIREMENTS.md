@@ -136,6 +136,19 @@ lists are implementation work and do not replace this inventory.
   - M008g native acceptance: Mac1 installed upgraded arm64 app preserving config/SQLite and published 2,959 decks / 15,809 slides; paused startup confirmed. Separate 4-PDF GUI LaunchAgent resumed, paused, saved and retained pause across restart. Production remains paused for explicit user control.
   - Source: macOS desktop preparation request, 2026-11-12
 
+## Markdown archive extension
+
+- [ ] **REQ-MD-001** — Index .md files as heading-level visual snippets with safe offline HTML previews, searchable text, lightweight thumbnails, and original-file opening alongside PPTX/PDF.
+  - Status: active, M009
+  - Portable verification: 12 Markdown parsing/rendering/index/UI tests and 3 vanished-source safety tests pass; full repository suite 161 tests on Pi. Mac1 native app acceptance pending.
+  - Feature: specs/005-markdown-snippets
+  - Depends on: REQ-ARCHIVE-001, REQ-ARCHIVE-002
+  - Security: No executable HTML, remote resources, source mutation or untrusted URL execution. Existing archive schema and incremental safety retained.
+
+- [ ] **REQ-OBSIDIAN-001** — Open Markdown indexed within local Obsidian vault at its note/section on double click, with a safe OS file-open fallback.
+  - Status: planned for M010; not included in M009
+  - Depends on: REQ-MD-001
+
 ## Backlog
 
 Add accepted requirements here using stable IDs. Do not renumber existing IDs. Substantial new behavior should be linked to a numbered `specs/<feature>/` record before implementation.

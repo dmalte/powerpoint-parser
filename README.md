@@ -107,6 +107,18 @@ macOS may request a **one-time** permission grant for the separately packaged Po
 
 Mac1's live archive had 3,952 discovered files and showed repeated file-access prompts, so the user LaunchAgent was stopped and its startup plist put on hold (not deleted). The new staging behavior has portable tests and requires an isolated native **small-deck** user-session smoke test before the large library may safely resume. Mac1's prior 6/6 hidden-slide smoke, run through Terminal, remains valid for the older staging strategy.
 
+## Markdown visual snippets (M009)
+
+Markdown (.md) is an **opt-in** third file type alongside PPTX and PDF. Enable it in the local Settings page (http://127.0.0.1:8080/settings.html) and choose the directories to index; existing Mac1 user settings are never expanded automatically. Markdown scanning works without Microsoft PowerPoint.
+
+Each document is split at H1–H4 section headings, with long unheaded content divided into smaller blocks. Each section becomes a searchable index entry with a locally generated JPEG thumbnail and a **rendered Markdown HTML preview**. It retains headings, bold/emphasis, lists, tables, blockquotes and fenced code. MarkdownIt is used as a production CommonMark parser (small pure-Python dependency) rather than a fragile custom Markdown implementation; Pillow supplies the preview cards.
+
+The preview opens in a sandboxed iframe. Raw HTML, scripts, external links and remote image loading are disabled; embedded images currently appear as alt-text placeholders. The original Markdown file is never modified, and clicking Open Original uses the normal local OS file handler. Future **M010 Obsidian-aware navigation** will detect whether a Markdown file lies inside an Obsidian vault and, on double click, open that note/section in Obsidian. The current implementation does not infer a vault or execute arbitrary Markdown links.
+
+The Markdown preview HTML and JPEG cards use the existing immutable generation directories; previous versions and SQLite records survive a processing failure. Incremental scans and Pause & Save / Resume work across Markdown and PPTX/PDF. The SQLite schema remains compatible with existing archives.
+
+Scanner recovery improvement: if a file or symbolic-link target vanishes between directory listing and file inspection, that entry is skipped with a warning and the scan defers all deletion inference for that pass. Other I/O or permissions failures still abort to avoid losing data. Settings reports an incomplete discovery warning after such a scan.
+
 ## Quick Start
 
 1. **Create a config file** — copy and edit the example:

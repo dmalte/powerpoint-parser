@@ -216,6 +216,15 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Cache-Control", "private, max-age=0, must-revalidate")
         elif route == "/data/export.json":
             self.send_header("Cache-Control", "no-store")
+        elif route.startswith("/assets/decks/") and route.endswith(".html"):
+            # Markdown previews must stay inert even when opened directly.
+            self.send_header(
+                "Content-Security-Policy",
+                "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+                "script-src 'none'; connect-src 'none'; frame-src 'none'; "
+                "object-src 'none'; base-uri 'none'; form-action 'none'",
+            )
+            self.send_header("X-Content-Type-Options", "nosniff")
         super().end_headers()
 
     def _send_json(self, status: int, payload: dict) -> None:

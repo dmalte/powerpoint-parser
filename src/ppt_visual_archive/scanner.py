@@ -13,9 +13,17 @@ from .models import ChangeSet, ScanResult
 from .utils import logger
 
 
+class ScanInventory(list[ScanResult]):
+    """Found files plus whether a transiently vanished entry made discovery incomplete."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.skipped_missing: int = 0
+
+
 def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[ScanResult]:
     """Recursively scan configured roots for presentation/document files."""
-    results: list[ScanResult] = []
+    results = ScanInventory()
     seen_paths: set[str] = set()
     active_roots = [str(Path(root).resolve()) for root in (roots or config.scan_roots)]
     allowed_exts = {ext.lower().lstrip(".") for ext in config.file_types}
@@ -62,9 +70,21 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
 
                 try:
                     stat = os.stat(full_path)
+                except FileNotFoundError:
+                    # A document or symlink target may disappear between
+                    # os.walk and stat (e.g., a Syncthing update). Continue
+                    # with other files, but flag this scan as incomplete so
+                    # the pipeline cannot infer deletions from missing paths.
+                    # Other I/O/permission failures still abort the scan.
+                    if Path(root).is_dir() and not Path(full_path).exists():
+                        results.skipped_missing += 1
+                        logger.warning(
+                            "One discovered file became unavailable before stat; "
+                            "skipping it and deferring deck deletion reconciliation"
+                        )
+                        continue
+                    raise
                 except OSError as exc:
-                    # Skipping the file would misclassify an indexed document
-                    # as deleted. Abort this scan and retry after I/O recovers.
                     logger.error("Incomplete scan: cannot stat %s: %s", full_path, exc)
                     raise
 
@@ -85,7 +105,11 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
                     )
                 )
 
-    logger.info("Scanned %d files (%s) across %d roots", len(results), ", ".join(sorted(allowed_exts)), len(active_roots))
+    logger.info(
+        "Scanned %d files (%s) across %d roots; %d vanished entries skipped",
+        len(results), ", ".join(sorted(allowed_exts)),
+        len(active_roots), results.skipped_missing,
+    )
     return results
 
 

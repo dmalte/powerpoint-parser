@@ -15,6 +15,7 @@ exclude_patterns:
 file_types:
   - "pptx"
   - "pdf"
+  # - "md"  # opt in to local Markdown section snippets
 
 output_dir: "D:/ppt-viewer-output"
 db_path: "D:/ppt-viewer-output/data/index.db"

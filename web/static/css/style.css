@@ -453,3 +453,7 @@ input[type="search"]:focus { border-color: #4a7cff; }
   max-height: 52vh;
 }
 .perf-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+
+#modal-markdown{display:block;width:min(100%,900px);height:min(65vh,650px);min-height:380px;margin:auto;border:1px solid #dce4ed;background:#fff;border-radius:8px}
+#modal-markdown[hidden],#modal-image[hidden]{display:none!important}

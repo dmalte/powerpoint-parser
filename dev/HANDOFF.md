@@ -1,11 +1,12 @@
 # Handoff
 
-- Last Updated: 2026-11-12T23:51:29-08:00
-- Active Feature: `specs/004-macos-desktop-agent`
+- Last Updated: 2026-11-14T08:11:54-08:00
+- Active Feature: `specs/005-markdown-snippets`
 
 ## Current Objective
 
-M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1. Pi and Mac1 both passed 146 tests. The installed arm64 app/CLI were rebuilt/verified and upgraded through the data-preserving user installer. Mac1's YAML config and SQLite index were backed up, pause was saved durably, and an HTML/JSON snapshot of 2,959 decks / 15,809 slides was published, with verified HTTP viewer/settings/JSON and images. The per-user LaunchAgent runs with scan_paused=true, so startup/restarts do not resume indexing. A separate isolated native PDF-only agent passed Resume/Pause, four successful imports and persisted pause after kickstart, and was removed. The user can resume the incomplete 3,937-file library from the viewer/Settings at any time. No remote push performed.
+M009 Markdown visual snippets source implementation complete on Pi and awaiting native Mac1 acceptance. The opt-in .md backend groups headings/long blocks into searchable sections, renders safe offline HTML previews and Pillow JPEG cards, reuses existing immutable asset generations and SQLite transactions, and adds Settings .md checkbox/viewer filter and sandboxed preview modal. Twelve Markdown tests and three vanished-source scanner safety tests pass; full Pi suite 161 passes. A vanished file/symlink target no longer aborts discovery, and deletion reconciliation is deferred for incomplete passes. M010 Obsidian vault-aware double-click note/section opening is planned separately. Next: commit M009 locally, fast-forward Mac1, rebuild package with new Markdown parser, test isolated Markdown/PDF library, then upgrade user app preserving all existing scan roots/types. Never automatically enable Markdown in the user's production configuration.
+
 
 ## Completed
 
@@ -84,6 +85,11 @@ M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1
 - M008g isolated Mac1 test agent on port 8081: initially paused, Scan Now returned HTTP 409; Resume HTTP 202 processed 4/4 PDF fixtures with zero errors; Pause HTTP 202 published/retained current state, and launchctl kickstart preserved paused status/index. Isolated test LaunchAgent removed, production stayed paused. Full Pi+Mac regression suites passed 146/146.
 - M008g scanner stop is cooperative after current file; partial DB is preserved and published, deletions are deferred until a completed pass. Resume does incremental change detection rather than a persisted file cursor; it skips unchanged committed documents. User-paused status persists after login.
 
+- M009: Local .md files yield heading-level section snippets with JPEG grid thumbnails plus CSP-protected CommonMark HTML detail previews (raw HTML disabled, no live links or remote resource requests). Section search and local source opening reuse existing Deck/Slide SQLite and immutable generation contracts. No schema migration. Rendered images currently show alt placeholders; local image asset import is future work.
+- M010 planned: recognize containing Obsidian vault and open correct vault-relative note/section on double-click; URI/security/fallback must be validated separately. M009 does not silently launch Obsidian.
+- Scanner fix: disappeared source path/symlink during os.walk/stat no longer aborts entire refresh. Scan inventory reports skipped missing count; pipeline defers all deletion reconciliation on incomplete pass. Other I/O/permissions failures still abort. This addresses Mac1's reported archive operation error without deleting historical records.
+- M009 new small production dependency markdown-it-py (CommonMark structure plus tables, HTML disabled), installed in Pi venv, with explicit native Mac/Windows PyInstaller hidden imports; Pillow already installed.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -112,6 +118,7 @@ M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1
 - Do not restart the large library's LaunchAgent until the bundled renderer is rebuilt, permission handling confirmed, and a bounded user-session smoke test passes.
 
 - M008g: src/ppt_visual_archive/{pipeline,agent,config,server}.py, web/templates/{index,settings}.html.j2, web/static/{js/agent-status.js,js/settings.js,css/style.css,loading.html}, tests/test_pause_resume.py and feature/README/design/requirements docs.
+- M009: src/ppt_visual_archive/markdown_processor.py, pipeline.py, scanner.py, agent.py, server.py; web templates/index/settings, web static app/settings/CSS; pyproject.toml, config example, package specs; tests/test_markdown_snippets.py, tests/test_scan_vanished.py; specs/005-markdown-snippets and consolidated docs.
 ## Files Changed
 
 - `ROADMAP.md`
@@ -156,6 +163,8 @@ M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1
 
 - M008g native Mac rollout pending: rebuild/staged-upgrade app, pause currently running 3,937-file scan, publish current SQLite rows safely, verify viewer output and persisted pause across restart; production should stay paused until the user explicitly clicks Resume.
 - M008g implementation and Mac1 acceptance complete; no code blocker. The full production source library is deliberately not fully indexed, and only resumes on explicit user click. Separate M008 visual fidelity, signing/notarization and full-library error triage remain open.
+- M009 native Mac1 validation and data-preserving app upgrade are pending; installed PowerPoint Archive may still run an older renderer until updated. The Mac1 archive currently has 2,959 decks/15,809 slides published and reported a vanished source file on Nov 14; new scanner fallback needs native verification. Do not enable .md in user settings without explicit action.
+- Markdown MVP images are rendered as alt-text placeholders; no Obsidian wikilinks or vault deep-link opening yet (M010).
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -176,10 +185,9 @@ M008g Pause Scan & Save / Resume Scan is fully implemented and installed on Mac1
 
 ## Next Step
 
-M008g complete. Create native-acceptance Git checkpoint and fast-forward the clean Mac1 checkout. Leave the installed app running but paused, with partial archive available at http://127.0.0.1:8080/ and user controls on /settings.html. When the user clicks Resume Scan, the agent will continue incremental processing; Pause Scan & Save finalizes current file and publishes an updated viewer. Future separate work: full native image fidelity/distribution and failure diagnostics. Do not push origin without project authorization.
+Run full Pi regression/packaging checks, checkpoint M009 locally and preserve original source/DB. Sync clean Mac1 checkout, install markdown-it-py in development venv, build/ad-hoc-sign native app and CLI. Run a **separate isolated user LaunchAgent** on a different localhost port with two synthetic Markdown files and a PDF; verify HTML iframe, JPEG assets, incremental update, pause/resume and no production changes. Then use the existing staged Mac installer to upgrade production app while retaining its configured scan_roots and file_types (without auto-enabling .md). Leave user to opt in through Settings. M010 Obsidian-aware opening is a separate future milestone.
 
-- M008g Mac1: 146/146 tests passed with 6 non-failing dependency warnings, native package preflight 17/17, strict codesign verification exit 0, installed app matches build. Published real SQLite/HTML/JSON 2,959 decks / 15,809 slides; viewer/status/settings and sample images HTTP 200, scan_paused true and no production auto scan.
-- Isolated Mac1 native control acceptance: 4-PDF test agent initially paused, manual scan 409, resume 202 processed 4/4 files with zero errors, pause 202 published/saved state, kickstart restarted still paused with 4 decks. Test LaunchAgent removed; production remains paused.
+- M009 Pi: 12 focused Markdown section/security/HTML/index/mixed-PDF/incremental/rollback tests and 3 scanner vanished-file safety tests pass; full repo 161 tests passed. Node syntax checks and macOS/Windows static packaging preflight passed with expected missing-native-artifact warnings. Mac1 native acceptance pending.
 
 ## Validation
 

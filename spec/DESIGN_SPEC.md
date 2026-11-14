@@ -167,6 +167,15 @@ The local-first architecture remains unchanged: source files and generated archi
 - Loopback-only endpoints POST /api/pause and POST /api/resume and GET /api/status expose scan_paused and snapshot_pending. Viewer top bar and Settings provide toggling buttons and progress/error state; standalone/offline static viewers hide these controls.
 - Configuration is atomically replaced on its existing filesystem so a crash cannot truncate the saved pause state. No SQLite schema migration, new dependency or Windows PowerPoint COM change is required.
 
+## Markdown rendered snippet architecture (M009)
+
+- Opt-in .md input flows through the same filesystem scanner and Deck/Slide SQLite tables as presentations. Each H1–H4 Markdown section (or bounded paragraph group for an unheaded long note) is a searchable slide-equivalent snippet, with its own locally generated JPEG card and inert HTML preview. No schema migration is required.
+- markdown-it-py interprets CommonMark safely with raw HTML and linkifying disabled, plus GFM-like tables. Links are rendered as inert styled text; images as labeled placeholders, not fetched. Each standalone preview uses an inline CSS stylesheet and restrictive CSP, served with additional CSP headers and shown in an iframe without sandbox permissions.
+- Pillow creates a portable text-card JPEG for the grid, avoiding a browser/PowerPoint dependency and avoiding expensive per-item iframe embedding. The detail modal switches from slide image to the HTML iframe only for Markdown previews.
+- A Markdown deck's complete assets are validated and published as an immutable generation; only then is the deck and its complete snippets set replaced in one SQLite transaction. Invalid UTF-8, oversize files and processing errors preserve previous deck and viewer outputs.
+- The file-type checkbox in Settings and .md filter in the viewer are opt-in, preserving existing PPTX/PDF users. M010 Obsidian vault detection and canonical deep-link double-click navigation are planned, with no untrusted URL execution; current Open Original uses the OS file handler.
+- If a scanned file vanishes after directory enumeration, skip it and mark discovery incomplete; defer all deletion reconciliation until a complete pass. Other I/O/permission errors still abort to preserve archive safety.
+
 ## Performance Notes
 
 - Incremental scanning avoids unnecessary rerendering.

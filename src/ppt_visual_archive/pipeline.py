@@ -13,6 +13,7 @@ from .asset_generations import ImageGeneration
 from .extractor import extract_metadata
 from .index_db import IndexDB
 from .models import ChangeSet, Deck, DeckStatus, ProcessingResult, ScanResult, Slide
+from .markdown_processor import render_markdown_snippets
 from .perf_metrics import TimedRun
 from .pdf_processor import extract_and_render_pdf
 from .renderer_factory import SlideRenderer, create_pptx_renderer
@@ -76,8 +77,18 @@ def _run_scan_inner(
             changeset = ChangeSet(new=scan_results)
         else:
             changeset = detect_changes(scan_results, db, deletion_scope_roots=active_roots)
+    missing_count = int(getattr(scan_results, "skipped_missing", 0))
+    if missing_count:
+        # A file vanished during discovery. Do not mistake it or any other
+        # unvisited existing deck for a deletion until a complete pass.
+        logger.warning(
+            "Discovery incomplete (%d vanished files); deck deletions deferred",
+            missing_count,
+        )
+        changeset.deleted.clear()
     for name in ("new", "changed", "unchanged", "deleted"):
         metrics.count(name, len(getattr(changeset, name)))
+    metrics.count("skipped_missing", missing_count)
 
     # 3. Process new and changed files. Deletions are deliberately deferred
     # until an uninterrupted full pass: a partial run cannot infer that any
@@ -95,6 +106,7 @@ def _run_scan_inner(
     # Partition files by type
     pptx_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pptx")]
     pdf_files = [sr for sr in to_process if sr.file_name.lower().endswith(".pdf")]
+    md_files = [sr for sr in to_process if sr.file_name.lower().endswith(".md")]
 
     success_count = 0
     error_count = 0
@@ -103,6 +115,7 @@ def _run_scan_inner(
     processed_slides = 0
     metrics.count("pptx_files_to_process", len(pptx_files))
     metrics.count("pdf_files_to_process", len(pdf_files))
+    metrics.count("markdown_files_to_process", len(md_files))
 
     # ── Process PPTX files with COM renderer ──
     if pptx_files and not (should_pause and should_pause()):
@@ -166,8 +179,35 @@ def _run_scan_inner(
             )
         progress("processing", processed_index, total_to_process, error_count)
 
+    # Markdown documents reuse the existing generation + per-deck SQLite
+    # transaction, with one searchable record for each rendered section.
+    for sr in md_files:
+        if should_pause and should_pause():
+            break
+        processed_index += 1
+        logger.info(_format_processing_message(processed_index, total_to_process, sr))
+        with metrics.step("markdown_render_extract"):
+            result = _process_single_md(config, sr)
+        if result.success:
+            with metrics.step("sqlite_upsert"):
+                _commit_with_generation(db, result)
+            success_count += 1
+            processed_slides += len(result.slides)
+            logger.info(
+                "[%d/%d] Processed Markdown: %s (%d sections)",
+                processed_index, total_to_process,
+                result.deck.file_name, len(result.slides),
+            )
+        else:
+            error_count += 1
+            logger.error(
+                "[%d/%d] Markdown failed: %s — %s",
+                processed_index, total_to_process, sr.file_name, result.error,
+            )
+        progress("processing", processed_index, total_to_process, error_count)
+
     paused = bool(should_pause and should_pause())
-    if not paused:
+    if not paused and not missing_count:
         # No incomplete scan can remove a previously indexed deck. Detection
         # scopes are validated before this point by the filesystem scanner.
         with metrics.step("deletion_updates"):
@@ -190,6 +230,9 @@ def _run_scan_inner(
     metrics.count("processed_ok", success_count)
     metrics.count("processed_err", error_count)
     summary = _build_summary(changeset, success_count, error_count)
+    if missing_count:
+        summary["skipped_missing"] = missing_count
+        summary["discovery_complete"] = False
     if paused:
         # Discovered/deferred deletions are NOT applied or reported as done.
         summary.update(
@@ -310,6 +353,47 @@ def _process_single_pdf(config: AppConfig, sr: ScanResult) -> ProcessingResult:
                 preview_path=gen.relative(page["preview_path"]),
                 width=page.get("thumb_width", 0),
                 height=page.get("thumb_height", 0),
+            ))
+        gen.publish(rendered)
+        return ProcessingResult(
+            deck=deck, slides=slides, success=True,
+            image_generation_dir=str(gen.path),
+        )
+
+
+def _process_single_md(config: AppConfig, sr: ScanResult) -> ProcessingResult:
+    """Render Markdown to safe offline snippet HTML and JPEG thumbnail cards."""
+    deck_id = make_deck_id(sr.file_path)
+    deck = Deck(
+        deck_id=deck_id, file_path=sr.file_path,
+        file_name=sr.file_name, folder_path=sr.folder_path,
+        file_size=sr.file_size, modified_time=sr.modified_time,
+        processed_time=time.time(), file_signature=sr.file_signature,
+        status=DeckStatus.ACTIVE.value,
+    )
+    with ImageGeneration(config.output_dir, deck_id) as gen:
+        try:
+            rendered = render_markdown_snippets(sr.file_path, gen.stage)
+            gen.validate(rendered)
+        except Exception as exc:
+            # Keep the old index and image generations intact.
+            return ProcessingResult(deck=deck, success=False, error=str(exc))
+
+        deck.slide_count = len(rendered)
+        slides: list[Slide] = []
+        for record in rendered:
+            number = record["slide_number"]
+            slides.append(Slide(
+                slide_id=f"{deck_id}_s{number:03d}",
+                deck_id=deck_id,
+                slide_number=number,
+                title=record.get("title", ""),
+                body_text=record.get("body_text", ""),
+                extracted_text=record.get("extracted_text", ""),
+                thumb_path=gen.relative(record["thumb_path"]),
+                preview_path=gen.relative(record["preview_path"]),
+                width=record.get("width", 0),
+                height=record.get("height", 0),
             ))
         gen.publish(rendered)
         return ProcessingResult(

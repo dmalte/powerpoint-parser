@@ -65,6 +65,7 @@
         <button class="filter-btn active" data-filetype="all">All</button>
         <button class="filter-btn" data-filetype="pptx">.pptx</button>
         <button class="filter-btn" data-filetype="pdf">.pdf</button>
+        <button class="filter-btn" data-filetype="md">.md</button>
       </div>
     </div>
 
@@ -173,6 +174,7 @@
     <div class="modal-body">
       <div class="modal-image-wrap">
         <img id="modal-image" src="" alt="Slide preview">
+        <iframe id="modal-markdown" title="Markdown section preview" sandbox="" referrerpolicy="no-referrer" loading="lazy" hidden></iframe>
       </div>
       <div class="modal-meta">
         <h2 id="modal-title">Slide</h2>

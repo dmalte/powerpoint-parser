@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "workflow_mode": "agent-managed",
-  "active_feature": "specs/004-macos-desktop-agent",
+  "active_feature": "specs/005-markdown-snippets",
   "spec_kit": {
     "enabled": false,
     "integration": "copilot",

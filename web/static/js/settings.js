@@ -45,6 +45,7 @@
       if (!rootsEl.children.length) rootsEl.append(rootRow());
       $('type-pptx').checked = (settings.file_types || []).includes('pptx');
       $('type-pdf').checked = (settings.file_types || []).includes('pdf');
+      $('type-md').checked = (settings.file_types || []).includes('md');
       $('scan-interval').value = settings.scan_interval_seconds ?? 1800;
     } catch (error) {
       showMessage(error.message, 'error');
@@ -74,7 +75,12 @@
       $('scan-progress').textContent = (scanning || transitioning)
         ? 'Progress: ' + phase + ' (' + count + total + ' files)' : '';
       $('last-refresh').textContent = status.last_refresh ? `Last refresh: ${new Date(status.last_refresh).toLocaleString()}` : 'No completed refresh yet';
-      $('last-error').textContent = status.last_error ? `Last error: ${status.last_error}` : '';
+      const skippedMissing = Number(status.last_summary?.skipped_missing || 0);
+      $('last-error').textContent = status.last_error
+        ? 'Last error: ' + status.last_error
+        : skippedMissing
+          ? skippedMissing + ' source file(s) unavailable during scan; existing records preserved and deletions deferred.'
+          : '';
     } catch (error) {
       $('agent-status').textContent = 'unavailable';
       $('last-error').textContent = error.message;
@@ -88,6 +94,7 @@
     const fileTypes = [];
     if ($('type-pptx').checked) fileTypes.push('pptx');
     if ($('type-pdf').checked) fileTypes.push('pdf');
+    if ($('type-md').checked) fileTypes.push('md');
     const interval = Number($('scan-interval').value);
     showMessage('Saving…');
     try {

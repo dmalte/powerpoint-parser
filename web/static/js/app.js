@@ -21,7 +21,7 @@
     searchTerms: [],     // committed search tags (Enter to add)
     deckId: null,
     folder: null,
-    fileType: "all",       // "all", "pptx", "pdf"
+    fileType: "all",       // "all", "pptx", "pdf", "md"
     dateRange: null,       // {from, to} ISO strings
     quickFilter: "all",
     starredOnly: false,
@@ -584,7 +584,7 @@
     const openBtn = document.createElement("button");
     openBtn.className = "icon-btn";
     openBtn.type = "button";
-    openBtn.title = "Open original presentation";
+    openBtn.title = "Open original file";
     openBtn.innerHTML = "↗";
     openBtn.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -781,13 +781,27 @@
     const overlay = document.getElementById("modal-overlay");
 
     const preview = document.getElementById("modal-image");
-    const previewStart = perf.now();
-    preview.onload = () => perf.end("image.preview_ms", previewStart);
-    preview.onerror = () => perf.count("image.preview_errors");
-    preview.src = slide.preview || slide.thumb || "";
+    const markdownFrame = document.getElementById("modal-markdown");
+    const isMarkdown = deck?._fileType === "md";
+    if (isMarkdown) {
+      preview.hidden = true;
+      preview.removeAttribute("src");
+      markdownFrame.hidden = false;
+      // Preview is generated with raw HTML disabled and strict CSP.
+      // The empty iframe sandbox forbids scripts and same-origin access.
+      markdownFrame.src = slide.preview || "about:blank";
+    } else {
+      markdownFrame.hidden = true;
+      markdownFrame.removeAttribute("src");
+      preview.hidden = false;
+      const previewStart = perf.now();
+      preview.onload = () => perf.end("image.preview_ms", previewStart);
+      preview.onerror = () => perf.count("image.preview_errors");
+      preview.src = slide.preview || slide.thumb || "";
+    }
     document.getElementById("modal-title").textContent = slide.title || `Slide ${slide.num}`;
     document.getElementById("modal-deck").textContent = deck?.file_name || "";
-    document.getElementById("modal-slide-num").textContent = `${slide.num} of ${deck?.slide_count || "?"}`;
+    document.getElementById("modal-slide-num").textContent = (isMarkdown ? "Section " : "Slide ") + slide.num + " of " + (deck?.slide_count || "?");
     document.getElementById("modal-folder").textContent = deck?.folder_path || "";
     document.getElementById("modal-date").textContent = deck ? formatDate(deck.modified_date) : "";
     document.getElementById("modal-size").textContent = deck ? formatSize(deck.file_size) : "";

@@ -14,6 +14,7 @@ hidden_imports = [
     "win32api",
     "win32gui",
     "win32timezone",
+    "markdown_it",
 ]
 
 common = dict(

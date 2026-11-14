@@ -161,8 +161,8 @@ class AgentRuntime:
         if not isinstance(file_types, list):
             raise ValueError("file_types must be a list")
         normalized_types = list(dict.fromkeys(str(v).lower().lstrip(".") for v in file_types))
-        if not normalized_types or any(v not in {"pptx", "pdf"} for v in normalized_types):
-            raise ValueError("file_types must contain pptx, pdf, or both")
+        if not normalized_types or any(v not in {"pptx", "pdf", "md"} for v in normalized_types):
+            raise ValueError("file_types must contain pptx, pdf, md, or a combination")
 
         interval = payload.get("scan_interval_seconds", self.scan_interval_seconds)
         if isinstance(interval, bool):
