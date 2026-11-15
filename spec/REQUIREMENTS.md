@@ -155,5 +155,7 @@ Add accepted requirements here using stable IDs. Do not renumber existing IDs. S
 
 ## Viewer folder navigation and Markdown images
 
-- [ ] **REQ-DIR-001** — Viewer-only searchable, expandable folder tree with recursive counts and multiple include/exclude filters, composable with existing search; no index deletion or SQL migration. Feature: specs/006-directory-tree-and-local-images (M011).
-- [ ] **REQ-MD-IMG-001** — Render local Markdown image references from safely copied immutable archive assets while preserving offline CSP, bounded source access and source immutability. Feature: specs/006-directory-tree-and-local-images (M011).
+- [x] **REQ-DIR-001** — Viewer-only searchable, expandable folder tree with recursive counts and multiple include/exclude filters, composable with existing search; no index deletion or SQL migration. Feature: specs/006-directory-tree-and-local-images (M011).
+- [x] **REQ-MD-IMG-001** — Render local Markdown image references from safely copied immutable archive assets while preserving offline CSP, bounded source access and source immutability. Feature: specs/006-directory-tree-and-local-images (M011).
+
+- M011 native acceptance: Pi and Mac1 full suites 170/170. Native app/CLI bundle rebuilt and installed after verified SQLite/config backup. Localhost browser serves directory tree, include/exclude controls, and Markdown preview CSP. An isolated native source and packaged CLI each rendered referenced local Markdown images successfully; existing Markdown previews are eligible for incremental reprocessing on the user's restored scan schedule.

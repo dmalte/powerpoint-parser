@@ -1,11 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-14T18:54:54-08:00
+- Last Updated: 2026-11-14T19:06:31-08:00
 - Active Feature: `specs/006-directory-tree-and-local-images`
 
 ## Current Objective
 
-M011 source change implements hierarchical directory browsing with indexed recursive counts, directory search and multiple include/exclude viewer-only filters, plus safe local Markdown images in offline previews and section-specific thumbnails. Obsidian explicit vault-relative image embeds are supported, but note-opening remains future M010. Final Pi full suite passed 170 tests, including latest section thumbnail and Obsidian image features; Node 4/4 and Chromium synthetic viewer smoke passed; synthetic Chromium viewer startup/search smoke passed. Prepare final full check, commit on Pi, sync and test native Mac1, preserve live scan/SQLite on staged upgrade. Markdown renderer version change reprocesses existing previews once; no push to origin.
+M011 source and native Mac1 deployment completed. The viewer now has a collapsible directory tree with recursive counts, folder-path search and multiple include/exclude viewer-only rules. Markdown previews/section thumbnails render safe relative and explicit Obsidian vault-path images as offline sanitized immutable assets; Obsidian note deep links remain M010. Pi and Mac1 full suites each passed 170 tests, native arm64 package 17/17. Mac1 was fast-forwarded preserving unrelated generated metadata changes, source-and-packaged Markdown image smoke passed, installed app upgraded after verified YAML/SQLite backup (14,166 decks and 141,843 snippets), and new UI served from localhost. Pre-upgrade scan state was unpaused; restored with Resume. Full existing Markdown rerender was still in progress (10,331 pending files initially); no remote push. M011 implementation complete; full-library conversion/previously encrypted PDF errors remain separate.
 
 ## Completed
 
@@ -98,6 +98,10 @@ M011 source change implements hierarchical directory browsing with indexed recur
 - M011: Markdown local image references resolve only beneath selected scan roots and may use a nearest Obsidian vault root for explicit vault-relative image paths. Pillow re-encodes safe bounded images in immutable deck assets; CSP/iframe allow only same-origin images, never scripts, remote network or active links. Sections get illustrated cards only when they contain an image.
 - M011: Pi full suite 170 passed, direct Node tree tests 4/4 (18k synthetic deck stress), seven local Markdown-image tests, and Chromium synthetic viewer smoke passed.
 
+- M011 native: Mac1 full suite 170 passed, six nonfatal dependency warnings; built arm64 app/CLI preflight 17/17 and strict ad hoc signature verification passed. Source native smoke with standard and Obsidian-style local image references passed including CSP/HTTP assets; bundled CLI independently built a Markdown image preview. Pi Chromium actual DOM clicks for folder exclusion, clear and path search passed.
+- M011 deployment: Mac1 installed upgrade after backup of existing production config/SQLite; previous unpaused state temporarily paused then restored. 14,166 indexed documents / 141,843 snippets preserved, 10,254 previously indexed Markdown decks. New Markdown render signature triggers one incremental reprocess; active scan initially showed 10,331 to process. Existing viewer stays browsable during scan.
+- Mac1 tracked generated egg-info file changes were preserved exactly during fast-forward, not overwritten, committed or pushed.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -177,6 +181,7 @@ M011 source change implements hierarchical directory browsing with indexed recur
 - Mac1 existing PPTX/PDF library continues incremental scan with per-file processing failures; one inaccessible file is skipped and deletion reconciliation deferred. Some documents may be closed/encrypted, others fail PowerPoint PDF export. Error diagnostics/triage remain a separate task.
 - M010 planned: detect Obsidian .obsidian vault root and open vault note/section from Markdown double click with URI escaping, trusted vault names and fallback; not implemented in M009.
 - M011 native Mac1 upgrade and active-scan preservation still pending. Markdown renderer signature deliberately makes old Markdown notes rerender; attached-image-only changes do not independently invalidate a cached preview. Obsidian vault basename search and note deep links remain separate.
+- M011 delivered. Current scan of 10,331 updated/new documents may take time; previous Markdown previews remain old until reindexed/published. User can Pause Scan & Save to checkpoint. Image-only file changes do not yet independently invalidate referring Markdown, and vault basename lookup/Obsidian note-opening remain future work.
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -197,7 +202,9 @@ M011 source change implements hierarchical directory browsing with indexed recur
 
 ## Next Step
 
-Run full Pi/Node/browser tests and package preflight, then checkpoint M011 feature locally under writer lease. Fast-forward clean Mac1 checkout from the Pi, run native tests and isolated Markdown/local-image smoke, rebuild/sign arm64 app and perform staged user upgrade with DB/config backup, preserving scan preference and prior assets. Publish new viewer UI without triggering unnecessary full rescan. Verify image/CSP and tree in live browser; no origin push.
+Checkpoint native Mac1 M011 acceptance on Pi and fast-forward clean source into Mac1 without modifying its unrelated egg-info changes. Leave user's original unpaused scan preference and live archive intact. Users can browse directory filtering now; Markdown images appear as existing notes are re-rendered and published. Separate future work: automatic partial publication during large scans, image-dependency signature tracking, Obsidian vault deep links (M010), and per-document failure reports. No push to origin.
+
+- M011 Pi/Mac1 full suite: 170 passed each; Node 4/4 folder-tree semantics and Chromium 120-slide real DOM folder exclude/clear/search checks passed. Mac native package 17/17 preflight and strict ad hoc signature passed; isolated image preview CSP/HTTP and packaged CLI image smoke passed. Mac1 live viewer served tree and new JS, user scan state restored, existing 14,166/141,843 index preserved after backup.
 
 ## Validation
 

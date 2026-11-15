@@ -13,3 +13,12 @@
 - Embeds using Obsidian image form are normalized outside fenced code blocks. Vault fallback is only available with a .obsidian ancestor and an explicit path, not basename search or note-opening deep links.
 - Markdown preview images share the immutable deck generation; scripts/forms/network remain blocked by restrictive CSP, with same-origin images permitted inside a no-script sandbox iframe. Old MD signatures get a renderer version suffix to reprocess them at next scan. Image-only edits do not yet trigger rerender without touching the Markdown file.
 - Pi tests, Node subtree tests and headless Chromium synthetic startup/interaction pass. Native Mac acceptance and large-library safe deployment remain pending.
+
+## Native Mac1 deployment and validation (2026-11-14)
+
+- Clean Pi commit a880e1a fast-forwarded into Mac1, preserving three pre-existing generated egg-info modifications (no overlapping files); Mac1 full repository suite 170/170, six non-failing dependency warnings.
+- Isolated native Markdown source scan rendered both ordinary relative and Obsidian vault-path embedded images in two snippets, verified offline HTML/CSP, HTTP image response and unchanged source checksums. Isolated packaged CLI also scanned and built a Markdown note with a local image.
+- Arm64 .app and CLI rebuilt, 17/17 packaging checks and strict ad hoc codesign verification passed. Staged installer upgraded the existing per-user app while preserving all configured scan roots, enabled PPTX/PDF/MD types, SQLite and historical asset generations.
+- Before upgrade, user agent was paused and source YAML/SQLite backed up and verified: 14,166 active decks / 141,843 slides/snippets (10,254 Markdown decks). Installed app hash matched rebuilt bundle; localhost viewer served tree UI, new JS and type controls. Prior unpaused preference was restored via Resume and scan was accepted.
+- Existing Markdown file signatures are intentionally invalidated once; agent reported 10,331 files queued for the next incremental reprocessing pass, which was still running when checked. Existing published archive remains browseable until another checkpoint/completion. Large-library completion and individual source conversion errors are not part of this feature acceptance.
+- Pi real DOM browser test clicked folder exclude/clear and typed folder search in headless Chromium; all operations passed, with 120 synthetic slides and no JS errors.

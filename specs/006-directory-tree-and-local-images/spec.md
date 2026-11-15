@@ -3,7 +3,7 @@
 - Feature: specs/006-directory-tree-and-local-images
 - Milestone: M011
 - Requirements: REQ-DIR-001, REQ-MD-IMG-001
-- Status: active
+- Status: done (source and native Mac1 deployment accepted; full Markdown image refresh still in progress)
 
 ## Accepted behavior
 - Viewer sidebar has a collapsible, searchable directory tree derived from indexed folder paths (not scan roots); show recursive document/snippet counts and type-to-find path search.
