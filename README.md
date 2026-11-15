@@ -329,3 +329,11 @@ python -m pytest tests/ -v
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Searchable directory tree and Markdown local images (M011)
+
+The viewer's Folders sidebar is now a collapsible tree of indexed paths, with recursive document (d) and slide/snippet (s) counts, path search and multiple include (+) and exclude (−) subtree rules. Clicking a folder includes its descendants. Exclusions override inclusions; with no selected inclusion all indexed folders remain visible except exclusions. Folder rules combine with text, date, file type, stars and grid pagination, and can be removed individually via filter chips or cleared together. These are view filters only, not filesystem ingestion exclusions; the SQLite archive and scan roots remain unchanged.
+
+Markdown image links that point to safe local JPEG/PNG/WebP/GIF files under configured scan roots are decoded and re-encoded to static, metadata-free JPG/PNG files in the Markdown deck's immutable asset generation. Obsidian-style explicit vault-relative embeds are supported when a .obsidian ancestor exists. Preview HTML references only those local assets, with sandbox and CSP blocking scripts, navigation and remote resources; unsafe, unrecognized or missing images show escaped alt text instead. The first image belonging to a section also appears on its JPEG snippet card. Obsidian note-opening deep links are still M010.
+
+An updated Markdown renderer signature causes existing notes to be reprocessed once during incremental scanning; updates to an image file alone require touching/changing the referring Markdown note or a deliberate forced rerender.

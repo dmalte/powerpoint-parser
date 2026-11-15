@@ -73,3 +73,5 @@ All notable changes to this project will be documented in this file.
 - CLI subcommands now accept `--config` directly on each command.
 - Scan logging now shows per-file progress as `(x/total)` and includes the source directory for each deck being processed.
 - README and viewer documentation now reflect the `.venv` workflow, scoped scans, direct-open support, stars, and heatmap range selection.
+- M011: searchable expandable directory tree with recursive document/snippet counts and multi-include/exclude viewer filtering, without changing scan roots or SQLite.
+- M011: Markdown previews and section thumbnails display safely decoded local images, including direct Obsidian vault-relative image paths. Assets are copied into immutable versioned generations; remote/unsafe images remain placeholders under restrictive iframe/CSP. Existing Markdown previews reprocess once for renderer upgrade.

@@ -15,6 +15,11 @@
   const formattedDateCache = new Map();
   const perf = window.PPTViewerPerf;
   let gridPage = 0;
+  let folderModel = null;
+  let folderExpanded = new Set();
+  let folderSearchQuery = "";
+  const folderIncludes = new Set();
+  const folderExcludes = new Set();
 
   const filters = {
     search: "",
@@ -111,6 +116,25 @@
         filters.searchScopes[box.dataset.scope] = box.checked;
         applyFilters();
       });
+    });
+
+    // Directory tree search does not affect the main document text search.
+    const folderInput = document.getElementById("folder-search");
+    let folderDebounce;
+    folderInput.addEventListener("input", () => {
+      clearTimeout(folderDebounce);
+      folderDebounce = setTimeout(() => {
+        folderSearchQuery = folderInput.value.trim();
+        renderFolderList();
+      }, 120);
+    });
+    document.getElementById("folder-clear").addEventListener("click", () => {
+      folderIncludes.clear();
+      folderExcludes.clear();
+      filters.deckId = null;
+      clearDeckHighlight();
+      renderFolderList();
+      applyFilters();
     });
 
     // Deck search
@@ -214,6 +238,7 @@
       deck._fileType = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
       deck._searchDeck = name.toLowerCase();
       deck._searchFolder = (deck.folder_path || "").toLowerCase();
+      deck._folderKey = window.FolderFilterTree.normalize(deck.folder_path);
     });
 
     DATA.slides.forEach((slide, sourceIndex) => {
@@ -263,7 +288,7 @@
 
       // Deck / folder filter
       if (filters.deckId && s.deck_id !== filters.deckId) return false;
-      if (filters.folder && deck.folder_path !== filters.folder) return false;
+      if (!window.FolderFilterTree.matches(deck._folderKey, folderIncludes, folderExcludes)) return false;
       if (filters.starredOnly && !isStarred(s.id)) return false;
 
       // File type filter (derived once during normalization)
@@ -433,23 +458,89 @@
     }
   }
 
-  /* ── Folder list ── */
+  /* ── Recursive indexed folder tree (viewer-only include/exclude rules) ── */
+  function toggleFolderRule(kind, path) {
+    const target = kind === "include" ? folderIncludes : folderExcludes;
+    const opposite = kind === "include" ? folderExcludes : folderIncludes;
+    if (target.has(path)) target.delete(path);
+    else { target.add(path); opposite.delete(path); }
+    filters.deckId = null;
+    clearDeckHighlight();
+    renderFolderList();
+    applyFilters();
+  }
+
   function renderFolderList() {
+    const tree = window.FolderFilterTree;
     const ul = document.getElementById("folder-list");
-    ul.innerHTML = "";
-    DATA.folders.forEach(f => {
+    if (!folderModel) {
+      folderModel = tree.build(DATA.decks);
+      folderExpanded = tree.defaultExpanded(folderModel);
+    }
+    const selected = folderIncludes.size + folderExcludes.size;
+    document.getElementById("folder-selection-status").textContent =
+      selected ? folderIncludes.size + " included · " + folderExcludes.size + " excluded" : "All folders";
+    document.getElementById("folder-clear").disabled = selected === 0;
+
+    const listing = tree.visible(folderModel, folderExpanded, folderSearchQuery, 360);
+    const fragment = document.createDocumentFragment();
+    for (const {node, open} of listing.rows) {
       const li = document.createElement("li");
-      li.textContent = f.split(/[\\/]/).pop() || f;
-      li.title = f;
-      li.addEventListener("click", () => {
-        filters.folder = filters.folder === f ? null : f;
-        filters.deckId = null;
-        highlightActive(ul, li, filters.folder === f);
-        clearDeckHighlight();
-        applyFilters();
+      li.className = "folder-tree-row";
+      li.style.setProperty("--folder-depth", String(Math.min(node.depth, 10)));
+      if (folderIncludes.has(node.path)) li.classList.add("included");
+      if (folderExcludes.has(node.path)) li.classList.add("excluded");
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "folder-toggle";
+      toggle.textContent = node.children.length ? (open ? "▾" : "▸") : "";
+      toggle.disabled = !node.children.length || Boolean(folderSearchQuery);
+      toggle.setAttribute("aria-label", (open ? "Collapse " : "Expand ") + node.path);
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.addEventListener("click", () => {
+        if (folderExpanded.has(node.path)) folderExpanded.delete(node.path);
+        else folderExpanded.add(node.path);
+        renderFolderList();
       });
-      ul.appendChild(li);
-    });
+      li.appendChild(toggle);
+
+      const name = document.createElement("button");
+      name.type = "button";
+      name.className = "folder-name";
+      name.textContent = node.name;
+      name.title = node.path + " — click to include all nested folders";
+      name.setAttribute("aria-pressed", String(folderIncludes.has(node.path)));
+      name.addEventListener("click", () => toggleFolderRule("include", node.path));
+      li.appendChild(name);
+
+      const count = document.createElement("span");
+      count.className = "folder-count";
+      count.textContent = node.decks.toLocaleString() + "d · " + node.snippets.toLocaleString() + "s";
+      count.title = String(node.decks) + " documents · " + String(node.snippets) + " snippets (including descendants)";
+      li.appendChild(count);
+
+      for (const [kind, glyph] of [["include", "+"], ["exclude", "−"]]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "folder-rule folder-" + kind;
+        button.textContent = glyph;
+        const isSelected = (kind === "include" ? folderIncludes : folderExcludes).has(node.path);
+        button.setAttribute("aria-pressed", String(isSelected));
+        button.title = (kind === "include" ? "Include " : "Exclude ") + node.path + " and all subdirectories";
+        button.setAttribute("aria-label", button.title);
+        button.addEventListener("click", () => toggleFolderRule(kind, node.path));
+        li.appendChild(button);
+      }
+      fragment.appendChild(li);
+    }
+    ul.replaceChildren(fragment);
+    document.getElementById("folder-list-status").textContent =
+      listing.truncated
+        ? "Showing first 360 matching/expanded directories. Search to narrow the tree."
+        : (folderSearchQuery && listing.rows.length === 0
+          ? "No matching indexed directories."
+          : String(listing.rows.length) + " folders shown · " + String(folderModel.nodes.size) + " indexed paths");
   }
 
   /* ── Deck list ── */
@@ -465,8 +556,9 @@
         if (filters.deckId === d.id) li.classList.add("active");
         li.addEventListener("click", () => {
           filters.deckId = filters.deckId === d.id ? null : d.id;
-          filters.folder = null;
-          clearFolderHighlight();
+          folderIncludes.clear();
+          folderExcludes.clear();
+          renderFolderList();
           highlightActive(ul, li, filters.deckId === d.id);
           applyFilters();
         });
@@ -479,7 +571,15 @@
     const container = document.getElementById("active-filters");
     container.innerHTML = "";
     if (filters.deckId) addFilterTag(container, "Deck: " + (deckMap[filters.deckId]?.file_name || filters.deckId), () => { filters.deckId = null; clearDeckHighlight(); applyFilters(); });
-    if (filters.folder) addFilterTag(container, "Folder: " + filters.folder.split(/[\\/]/).pop(), () => { filters.folder = null; clearFolderHighlight(); applyFilters(); });
+    for (const [kind, choices] of [["Include", folderIncludes], ["Exclude", folderExcludes]]) {
+      for (const path of choices) {
+        addFilterTag(container, kind + ": " + path, () => {
+          choices.delete(path);
+          renderFolderList();
+          applyFilters();
+        });
+      }
+    }
     if (filters.fileType !== "all") addFilterTag(container, "Type: ." + filters.fileType, () => { filters.fileType = "all"; document.querySelectorAll("#filetype-filters .filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filetype === "all")); applyFilters(); });
     filters.searchTerms.forEach((term, idx) => {
       addFilterTag(container, `Search: "${term}"`, () => {
@@ -788,7 +888,7 @@
       preview.removeAttribute("src");
       markdownFrame.hidden = false;
       // Preview is generated with raw HTML disabled and strict CSP.
-      // The empty iframe sandbox forbids scripts and same-origin access.
+      // Same-origin image loads are allowed; sandbox still blocks scripts and navigation.
       markdownFrame.src = slide.preview || "about:blank";
     } else {
       markdownFrame.hidden = true;

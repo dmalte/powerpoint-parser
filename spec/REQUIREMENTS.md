@@ -152,3 +152,8 @@ lists are implementation work and do not replace this inventory.
 ## Backlog
 
 Add accepted requirements here using stable IDs. Do not renumber existing IDs. Substantial new behavior should be linked to a numbered `specs/<feature>/` record before implementation.
+
+## Viewer folder navigation and Markdown images
+
+- [ ] **REQ-DIR-001** — Viewer-only searchable, expandable folder tree with recursive counts and multiple include/exclude filters, composable with existing search; no index deletion or SQL migration. Feature: specs/006-directory-tree-and-local-images (M011).
+- [ ] **REQ-MD-IMG-001** — Render local Markdown image references from safely copied immutable archive assets while preserving offline CSP, bounded source access and source immutability. Feature: specs/006-directory-tree-and-local-images (M011).

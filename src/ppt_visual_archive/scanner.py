@@ -93,6 +93,10 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
                 signature = ScanResult.compute_signature(
                     full_path, file_size, modified_time
                 )
+                # Re-render older Markdown preview generations once so they
+                # gain local image assets without touching PDF/PPTX indexes.
+                if ext == "md":
+                    signature += "|markdown-local-images-v1"
 
                 results.append(
                     ScanResult(

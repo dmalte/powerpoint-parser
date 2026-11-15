@@ -207,3 +207,9 @@ M007 / REQ-PERF-001 should begin with a reproducible 6,000-slide benchmark and t
 - File-by-file publication avoids torn files but cannot guarantee a single coherent generation across separate browser requests; image processing and SQLite updates are not part of the atomic file-swap boundary.
 - PowerPoint COM is tied to an interactive Windows user session; packaging must not move rendering into a Session 0 Windows Service
 - Windows packaging must bundle the web templates/static assets used by the generated viewer and preserve writable per-user data outside the installation directory
+
+## M011 — Viewer-only directory tree and safe Markdown assets
+
+Build an in-memory directory trie from indexed deck folder_path values (POSIX/Windows/UNC) and aggregate descendant document and slide counts. Render expanded/search-relevant branches only, maximum 360 rows; match selected include/exclude paths on segment boundaries before existing search/type/date/star filtering. Selections are in-session browser state with no SQLite/backend ingestion changes.
+
+Markdown image tokens and explicit Obsidian image embeds resolve only relative paths contained within configured scan roots, with optional nearest-vault root fallback for an explicit path. Pillow decodes whitelisted, bounded JPG/PNG/WebP/GIF and re-encodes static JPG/PNG images inside the immutable deck image generation. Output HTML references generated basenames only, and iframe/CSP permit same-origin images but no scripts/network/forms/navigation; failed images are escaped text placeholders. The image parser version is appended to Markdown file signatures to refresh older previews on the next scan. Attached-image-only edits are not yet a signature trigger.

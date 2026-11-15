@@ -1,12 +1,11 @@
 # Handoff
 
-- Last Updated: 2026-11-14T08:24:05-08:00
-- Active Feature: `specs/005-markdown-snippets`
+- Last Updated: 2026-11-14T18:54:54-08:00
+- Active Feature: `specs/006-directory-tree-and-local-images`
 
 ## Current Objective
 
-M009 Markdown visual snippets is completed and deployed on Mac1. The source backend safely renders heading/paragraph sections from opt-in .md files into offline HTML previews and Pillow JPEG cards using existing SQLite/immutable asset generations. Full 161-test suite passed on Pi and Mac1. The native Mac1 source and packaged CLI smoke indexed Markdown/PDF fixtures successfully (4 Markdown snippets plus PDF, then 2 more bundled Markdown snippets). Rebuilt arm64 app preflight 17/17 and ad hoc codesign passed. A verified backup of user YAML/SQLite preceded staged upgrade; existing scan roots, PPTX/PDF types and unpaused preference were preserved, and Markdown remains opt-in. A temporary pause published updated viewer HTML with Markdown checkbox/filter (3,575 decks/18,040 slides/pages at checkpoint), and normal scanning was resumed. The scanner skipped one vanished source without deleting indexed records; separate per-document encrypted/corrupt PDF or PowerPoint conversion failures require future triage. M010 Obsidian-aware double-click vault navigation is a planned separate milestone, not implemented.
-
+M011 source change implements hierarchical directory browsing with indexed recursive counts, directory search and multiple include/exclude viewer-only filters, plus safe local Markdown images in offline previews and section-specific thumbnails. Obsidian explicit vault-relative image embeds are supported, but note-opening remains future M010. Final Pi full suite passed 170 tests, including latest section thumbnail and Obsidian image features; Node 4/4 and Chromium synthetic viewer smoke passed; synthetic Chromium viewer startup/search smoke passed. Prepare final full check, commit on Pi, sync and test native Mac1, preserve live scan/SQLite on staged upgrade. Markdown renderer version change reprocesses existing previews once; no push to origin.
 
 ## Completed
 
@@ -95,6 +94,10 @@ M009 Markdown visual snippets is completed and deployed on Mac1. The source back
 - Mac1 scan recovery: an unavailable file encountered during discovery was safely skipped (skipped_missing=1), no deletion inference; remaining conversion errors (document closed/encrypted, PowerPoint conversion produced no PDF) are distinct issues, not data-loss regressions.
 - M010 Obsidian deep-link on double click remains planned; current Markdown Open Original uses OS default file handler.
 
+- M011: Feature specs/006-directory-tree-and-local-images selected with REQ-DIR-001 and REQ-MD-IMG-001. Viewer folder filters do not change scan roots, ingestion, or SQL. Inclusions and exclusions are segment-aware and recursive; exclusion wins. Tree caps DOM at 360 rendered paths; folder path search reveals matching paths/ancestors.
+- M011: Markdown local image references resolve only beneath selected scan roots and may use a nearest Obsidian vault root for explicit vault-relative image paths. Pillow re-encodes safe bounded images in immutable deck assets; CSP/iframe allow only same-origin images, never scripts, remote network or active links. Sections get illustrated cards only when they contain an image.
+- M011: Pi full suite 170 passed, direct Node tree tests 4/4 (18k synthetic deck stress), seven local Markdown-image tests, and Chromium synthetic viewer smoke passed.
+
 ## Decisions
 
 - Keep SQLite and the single local export for the 6,000-slide target unless real browser measurements show the data payload remains a material bottleneck after DOM/search optimization.
@@ -173,6 +176,7 @@ M009 Markdown visual snippets is completed and deployed on Mac1. The source back
 - M009 source/native acceptance and app upgrade complete. No outstanding Markdown backend implementation blocker. Markdown file type disabled in user config by default until manually opted in.
 - Mac1 existing PPTX/PDF library continues incremental scan with per-file processing failures; one inaccessible file is skipped and deletion reconciliation deferred. Some documents may be closed/encrypted, others fail PowerPoint PDF export. Error diagnostics/triage remain a separate task.
 - M010 planned: detect Obsidian .obsidian vault root and open vault note/section from Markdown double click with URI escaping, trusted vault names and fallback; not implemented in M009.
+- M011 native Mac1 upgrade and active-scan preservation still pending. Markdown renderer signature deliberately makes old Markdown notes rerender; attached-image-only changes do not independently invalidate a cached preview. Obsidian vault basename search and note deep links remain separate.
 ## Open Issues
 
 - M004 installer/PPTX/logon smoke validation remains pending.
@@ -193,9 +197,8 @@ M009 Markdown visual snippets is completed and deployed on Mac1. The source back
 
 ## Next Step
 
-M009 complete. Commit native acceptance docs and fast-forward clean Mac1 checkout. User can enable Markdown in http://127.0.0.1:8080/settings.html by checking Markdown and selecting folders, then Scan Now; existing user config is preserved until they opt in. Future M010: Obsidian-aware vault navigation. Also triage failed encrypted/PDF/PowerPoint source conversions in a separate maintenance task. Do not push the local development repo without authorization.
+Run full Pi/Node/browser tests and package preflight, then checkpoint M011 feature locally under writer lease. Fast-forward clean Mac1 checkout from the Pi, run native tests and isolated Markdown/local-image smoke, rebuild/sign arm64 app and perform staged user upgrade with DB/config backup, preserving scan preference and prior assets. Publish new viewer UI without triggering unnecessary full rescan. Verify image/CSP and tree in live browser; no origin push.
 
-- M009 Mac1: 161/161 tests pass; native PyInstaller app/CLI 17/17 checks and ad hoc strict signature verification; packaged Markdown CLI processed a new Markdown note (2 snippets), source native mixed Markdown/PDF library 3 decks/5 records with CSP HTML and JPEGs; production app upgraded with config/DB backup, MD controls published, no automatic MD opt-in, prior scan preference restored. Pi suite 161/161, Mac/Windows static packaging preflights pass.
 ## Validation
 
 - `python scripts/workflow_gate.py pre-implement --change-class feature` → passed for `specs/003-large-archive-performance`.

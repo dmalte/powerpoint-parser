@@ -84,7 +84,15 @@
 
     <div class="sidebar-section">
       <h3>Folders</h3>
-      <ul id="folder-list" class="sidebar-list"></ul>
+      <label class="sr-only" for="folder-search">Search folder paths</label>
+      <input id="folder-search" type="search" placeholder="Find folder path…" autocomplete="off">
+      <div class="folder-help">Click a folder to include all its subfolders. Use − to exclude a subtree.</div>
+      <div class="folder-actions">
+        <button type="button" class="btn" id="folder-clear">Clear folder filters</button>
+        <span id="folder-selection-status" aria-live="polite"></span>
+      </div>
+      <ul id="folder-list" class="sidebar-list folder-tree" aria-label="Indexed directory tree"></ul>
+      <p id="folder-list-status" class="folder-help" aria-live="polite"></p>
     </div>
 
     <div class="sidebar-section">
@@ -174,7 +182,7 @@
     <div class="modal-body">
       <div class="modal-image-wrap">
         <img id="modal-image" src="" alt="Slide preview">
-        <iframe id="modal-markdown" title="Markdown section preview" sandbox="" referrerpolicy="no-referrer" loading="lazy" hidden></iframe>
+        <iframe id="modal-markdown" title="Markdown section preview" sandbox="allow-same-origin" referrerpolicy="no-referrer" loading="lazy" hidden></iframe>
       </div>
       <div class="modal-meta">
         <h2 id="modal-title">Slide</h2>
@@ -218,6 +226,7 @@
 </div>
 
 <script src="js/performance.js"></script>
+<script src="js/folder-tree.js"></script>
 <script src="js/app.js"></script>
 <script src="js/agent-status.js"></script>
 </body>

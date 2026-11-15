@@ -273,7 +273,8 @@ def test_frontend_has_html_iframe_filter_and_settings_checkbox():
     index = (web / "templates/index.html.j2").read_text()
     settings = (web / "templates/settings.html.j2").read_text()
     js = (web / "static/js/settings.js").read_text()
-    assert 'id="modal-markdown"' in index and 'sandbox=""' in index
+    assert 'id="modal-markdown"' in index and 'sandbox="allow-same-origin"' in index
+    assert 'allow-scripts' not in index and 'allow-top-navigation' not in index
     assert 'data-filetype="md"' in index
     assert 'id="type-md"' in settings
     assert "type-md" in js and "fileTypes.push('md')" in js

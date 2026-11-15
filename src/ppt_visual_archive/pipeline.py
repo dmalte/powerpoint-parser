@@ -373,7 +373,9 @@ def _process_single_md(config: AppConfig, sr: ScanResult) -> ProcessingResult:
     )
     with ImageGeneration(config.output_dir, deck_id) as gen:
         try:
-            rendered = render_markdown_snippets(sr.file_path, gen.stage)
+            rendered = render_markdown_snippets(
+                sr.file_path, gen.stage, allowed_roots=config.scan_roots,
+            )
             gen.validate(rendered)
         except Exception as exc:
             # Keep the old index and image generations intact.

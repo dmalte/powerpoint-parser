@@ -1,0 +1,7 @@
+# M011 tasks
+- [x] D001 Implement recursive folder tree model, path-search and multi-select include/exclude controls.
+- [x] D002 Integrate tree selectors into existing filtering, chips and folder/deck UI; maintain responsive large-archive DOM.
+- [x] D003 Render embedded local Markdown images safely and offline, respecting scan-root boundaries and asset versioning.
+- [x] D004 Add regression tests (JS tree/browser, Markdown image/CSP and end-to-end changed preview).
+- [x] D005 Full Pi suite 170 passed, direct Node 4/4, Chromium 120-slide smoke and Mac/Windows source preflights; consolidated docs updated and local Git checkpoint.
+- [ ] D006 Validate and deploy on Mac1 with data-preserving upgrade and no unwanted scan reset; document actual state.

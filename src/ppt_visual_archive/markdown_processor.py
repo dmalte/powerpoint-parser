@@ -9,24 +9,32 @@ from __future__ import annotations
 import html
 import re
 import textwrap
+import warnings
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote, unquote, urlsplit
 
 from markdown_it import MarkdownIt
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
 
 
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
 MAX_SNIPPETS = 512
 TARGET_SECTION_CHARS = 3600
 _CARD_SIZE = (640, 400)
+MAX_LOCAL_IMAGES = 48
+MAX_LOCAL_IMAGE_BYTES = 12 * 1024 * 1024
+MAX_TOTAL_IMAGE_BYTES = 64 * 1024 * 1024
+MAX_IMAGE_PIXELS = 16_000_000
+_SAFE_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+_SAFE_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
 _BLOCK_START = {
     "paragraph_open", "heading_open", "fence", "code_block", "blockquote_open",
     "bullet_list_open", "ordered_list_open", "table_open", "html_block", "hr",
 }
 
 _CSP = (
-    "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; "
     "font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; "
     "connect-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'"
 )
@@ -53,6 +61,7 @@ th,td{border:1px solid #dce3ed;padding:7px 10px;text-align:left}
 th{background:#f1f5f9}
 hr{border:0;border-top:1px solid #dce3ed;margin:1.4em 0}
 .md-image-placeholder{display:inline-block;color:#526276;background:#edf2f7;border-radius:6px;padding:4px 8px}
+.md-local-image{display:block;max-width:100%;height:auto;margin:12px auto;border-radius:6px}
 .md-link{color:#24639b;text-decoration:underline}
 .meta{font-size:.8em;color:#64748b;text-transform:uppercase;letter-spacing:.08em}
 """
@@ -65,13 +74,17 @@ def _parser() -> MarkdownIt:
     # target. Obsidian deep links will be introduced via a trusted UI action.
     parser.add_render_rule("link_open", lambda renderer, tokens, idx, options, env: '<span class="md-link">')
     parser.add_render_rule("link_close", lambda renderer, tokens, idx, options, env: "</span>")
-    parser.add_render_rule(
-        "image",
-        lambda renderer, tokens, idx, options, env: (
-            '<span class="md-image-placeholder">Image: '
-            + html.escape(tokens[idx].content, quote=True) + "</span>"
-        ),
-    )
+    def render_image(renderer, tokens, idx, options, env):
+        token = tokens[idx]
+        alt = html.escape(token.content or "Referenced image", quote=True)
+        image_resolver = env.get("local_image_resolver")
+        filename = image_resolver(token.attrGet("src") or "") if image_resolver else None
+        if filename:
+            # Filename is a controlled generated basename, never raw Markdown.
+            return '<img class="md-local-image" loading="lazy" src="' + html.escape(filename, quote=True) + '" alt="' + alt + '">'
+        return '<span class="md-image-placeholder">Image: ' + alt + "</span>"
+
+    parser.add_render_rule("image", render_image)
     return parser
 
 
@@ -82,6 +95,11 @@ class _TextExtractor(HTMLParser):
 
     def handle_data(self, text: str) -> None:
         self.parts.append(text)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "img":
+            alt = dict(attrs).get("alt") or ""
+            self.parts.append(alt)
 
     def text(self) -> str:
         return re.sub(r"\s+", " ", " ".join(self.parts)).strip()
@@ -185,7 +203,10 @@ def _font(size: int, bold: bool = False) -> ImageFont.ImageFont:
         return ImageFont.load_default()
 
 
-def _thumbnail(path: Path, title: str, excerpt: str, number: int) -> None:
+def _thumbnail(
+    path: Path, title: str, excerpt: str, number: int,
+    first_image: Path | None = None,
+) -> None:
     image = Image.new("RGB", _CARD_SIZE, (255, 255, 255))
     draw = ImageDraw.Draw(image)
     draw.rounded_rectangle((18, 18, 622, 382), radius=16, fill=(249, 250, 253), outline=(218, 226, 239), width=2)
@@ -206,21 +227,150 @@ def _thumbnail(path: Path, title: str, excerpt: str, number: int) -> None:
             break
         draw.text((43, y), line, fill=(86, 98, 118), font=body_font)
         y += 27
+    if first_image is not None and first_image.is_file():
+        with Image.open(first_image) as picture:
+            picture = picture.convert("RGB")
+            picture.thumbnail((238, 148), Image.Resampling.LANCZOS)
+            image.paste(picture, (596 - picture.width, 355 - picture.height))
     image.save(path, format="JPEG", quality=86, optimize=True)
 
 
-def render_markdown_snippets(source: str | Path, output_dir: str | Path) -> list[dict]:
+# Obsidian image embeds are only a syntax convenience here. The file resolver
+# still validates every path against explicit local scan roots; vault opening
+# and wiki-style note links belong to M010.
+_OBSIDIAN_IMAGE = re.compile(
+    r"!\[\[([^\]|\n]+?\.(?:png|jpe?g|webp|gif))(?:\|[^\]\n]*)?\]\]",
+    flags=re.IGNORECASE,
+)
+
+
+def _normalize_image_embeds(text: str) -> str:
+    def convert(match: re.Match[str]) -> str:
+        name = match.group(1).strip()
+        alt = Path(name).name.replace("[", "").replace("]", "")
+        return "![" + alt + "](" + quote(name, safe="/._-") + ")"
+
+    # Keep fenced code unchanged. CommonMark's fenced block token maps are
+    # authoritative even when fences have uncommon lengths or markers.
+    lines = text.splitlines(keepends=True)
+    parser = _parser()
+    blocked = set()
+    for token in parser.parse(text):
+        if token.type in {"fence", "code_block"} and token.map:
+            blocked.update(range(token.map[0], token.map[1]))
+    return "".join(
+        line if index in blocked else _OBSIDIAN_IMAGE.sub(convert, line)
+        for index, line in enumerate(lines)
+    )
+
+
+class _LocalImageAssets:
+    """Only decode explicitly referenced local images from authorized roots.
+
+    Images are re-encoded to a safe static format and saved in the *same*
+    immutable generation as each Markdown document's HTML previews.
+    """
+
+    def __init__(self, source: Path, output: Path, roots: list[str | Path] | None) -> None:
+        self.source = source.resolve()
+        self.output = output
+        self.roots = [
+            Path(path).expanduser().resolve()
+            for path in (roots if roots is not None else [source.parent])
+        ]
+        self.cached: dict[Path, str] = {}
+        self.vault_root = next(
+            (parent for parent in self.source.parents if (parent / ".obsidian").is_dir()),
+            None,
+        )
+        self.first_in_section: Path | None = None
+        self.total_bytes = 0
+
+    def _resolve(self, raw: str) -> Path | None:
+        if not raw or raw.startswith(("/", "\\")):
+            return None
+        try:
+            parsed = urlsplit(raw)
+        except ValueError:
+            return None
+        if parsed.scheme or parsed.netloc or not parsed.path:
+            return None
+        decoded = unquote(parsed.path)
+        if "\x00" in decoded or "\\" in decoded or not decoded or re.match(r"^[A-Za-z]:", decoded):
+            return None
+        if Path(decoded).suffix.lower() not in _SAFE_IMAGE_SUFFIXES:
+            return None
+        candidate = (self.source.parent / decoded).resolve()
+        # Obsidian commonly embeds vault-root-relative attachment paths.
+        # This fallback does not perform any global filename/asset search.
+        if not candidate.is_file() and self.vault_root is not None:
+            candidate = (self.vault_root / decoded).resolve()
+        if not any(candidate.is_relative_to(root) for root in self.roots):
+            return None
+        return candidate
+
+    def __call__(self, raw: str) -> str | None:
+        candidate = self._resolve(raw)
+        if candidate is None:
+            return None
+        if candidate in self.cached:
+            cached = self.cached[candidate]
+            if self.first_in_section is None:
+                self.first_in_section = self.output / cached
+            return cached
+        if len(self.cached) >= MAX_LOCAL_IMAGES:
+            return None
+        try:
+            stat = candidate.stat()
+            if not candidate.is_file() or not 0 < stat.st_size <= MAX_LOCAL_IMAGE_BYTES:
+                return None
+            if self.total_bytes + stat.st_size > MAX_TOTAL_IMAGE_BYTES:
+                return None
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
+                with Image.open(candidate) as original:
+                    if original.format not in _SAFE_IMAGE_FORMATS:
+                        return None
+                    if original.width * original.height > MAX_IMAGE_PIXELS:
+                        return None
+                    original.seek(0)  # animated formats get a safe static preview
+                    image = ImageOps.exif_transpose(original).copy()
+            self.total_bytes += stat.st_size
+            image.thumbnail((2048, 2048), Image.Resampling.LANCZOS)
+            # Re-encode pixels; do not copy metadata or user-provided SVG/HTML.
+            has_alpha = image.mode in ("RGBA", "LA") or "transparency" in image.info
+            extension = "png" if has_alpha else "jpg"
+            output_name = f"local_image_{len(self.cached) + 1:03d}.{extension}"
+            output_file = self.output / output_name
+            if has_alpha:
+                image.convert("RGBA").save(output_file, format="PNG", optimize=True)
+            else:
+                image.convert("RGB").save(output_file, format="JPEG", quality=88, optimize=True)
+            self.cached[candidate] = output_name
+            if self.first_in_section is None:
+                self.first_in_section = output_file
+            return output_name
+        except (OSError, ValueError, SyntaxError, UnidentifiedImageError, Image.DecompressionBombError):
+            return None
+
+
+def render_markdown_snippets(
+    source: str | Path, output_dir: str | Path,
+    *, allowed_roots: list[str | Path] | None = None,
+) -> list[dict]:
     """Render each Markdown section to a JPEG card and restricted local HTML."""
     source = Path(source)
     if source.stat().st_size > MAX_SOURCE_BYTES:
         raise ValueError("Markdown file exceeds the configured safety limit")
-    text = source.read_text(encoding="utf-8-sig")
+    text = _normalize_image_embeds(source.read_text(encoding="utf-8-sig"))
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     parser = _parser()
+    images = _LocalImageAssets(source, out, allowed_roots)
     result = []
     for number, (title, markdown_section) in enumerate(split_markdown(text, source.stem), 1):
-        body_html = parser.render(markdown_section)
+        images.first_in_section = None
+        body_html = parser.render(markdown_section, {"local_image_resolver": images})
         text_value = _text_from_html(body_html)
         preview_name = f"preview_{number:03d}.html"
         thumb_name = f"thumb_{number:03d}.jpg"
@@ -235,7 +385,7 @@ def render_markdown_snippets(source: str | Path, output_dir: str | Path) -> list
             + body_html + "</main></body></html>"
         )
         (out / preview_name).write_text(page, encoding="utf-8")
-        _thumbnail(out / thumb_name, title, text_value, number)
+        _thumbnail(out / thumb_name, title, text_value, number, images.first_in_section)
         result.append({
             "slide_number": number,
             "title": title,

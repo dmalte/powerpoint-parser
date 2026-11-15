@@ -220,7 +220,7 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             # Markdown previews must stay inert even when opened directly.
             self.send_header(
                 "Content-Security-Policy",
-                "default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; "
+                "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; "
                 "script-src 'none'; connect-src 'none'; frame-src 'none'; "
                 "object-src 'none'; base-uri 'none'; form-action 'none'",
             )
