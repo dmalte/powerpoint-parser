@@ -51,6 +51,7 @@
 - [x] T063 Validate first run, unchanged/changed/deleted refresh, missing/stale output, failure recovery and concurrent browser readers.
 - [x] T064 Run full tests, collect performance evidence, reconcile docs/handoff, inspect diff, and commit locally without pushing.
 - [x] T065 Prevent failed-only scan candidates from triggering a full rebuild; cover retries, later success and first-run failure in integration tests (2026-11-15).
+- [x] T066 Deploy Mac1 arm64 app after verified SQLite/YAML backup, pass native suite/preflight and verify a live 69-failure, zero-commit scan reuses current viewer without rebuilding (2026-11-15).
 
 ## M007d — Performance Regression Tracking (2026-11-12)
 
