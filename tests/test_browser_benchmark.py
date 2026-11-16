@@ -38,6 +38,7 @@ def test_benchmark_prepares_genuine_viewer_with_synthetic_data(tmp_path):
     assert (output / "assets" / "thumbnail.jpg").is_file()
     assert (output / "js" / "performance.js").is_file()
     assert (output / "js" / "agent-status.js").is_file()
+    assert (output / "js" / "deck-pager.js").is_file()
     assert 'id="slide-grid"' in (output / "index.html").read_text()
     assert "source_path" not in json.dumps(fixture)
 
@@ -56,17 +57,21 @@ def test_browser_benchmark_cdp_integration(tmp_path):
     if int(version.lstrip("v").split(".")[0]) < 22:
         pytest.skip("Node.js >=22 is required for the CDP harness")
     result = runner.run_scenario(
-        slides=260,
+        slides=3150,
         text_chars=80,
         iterations=2,
         browser=browser,
         node=node,
         timeout_seconds=45,
     )
-    assert result["fixture"]["slide_count"] == 260
+    assert result["fixture"]["slide_count"] == 3150
+    assert result["sidebar_rows_initial"] == 100
+    assert result["sidebar_rows_final"] <= 100
+    assert result["sidebar_verification"]["passed"] is True
+    assert result["sidebar_verification"]["pages_checked"] == 2
     assert result["max_visible_cards"] == 240
     assert result["scripted_actions"]["searches"] == 2
-    assert result["browser_report"]["library"]["slides"] == 260
+    assert result["browser_report"]["library"]["slides"] == 3150
     assert "startup.interactive_ms" in result["browser_report"]["timings"]
     assert "interaction.search_filter_ms" in result["browser_report"]["timings"]
     assert "interaction.sort_ms" in result["browser_report"]["timings"]

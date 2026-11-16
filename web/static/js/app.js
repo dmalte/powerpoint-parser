@@ -15,6 +15,8 @@
   const formattedDateCache = new Map();
   const perf = window.PPTViewerPerf;
   let gridPage = 0;
+  let deckPage = 0;
+  let deckSearchQuery = "";
   let folderModel = null;
   let folderExpanded = new Set();
   let folderSearchQuery = "";
@@ -140,7 +142,38 @@
     // Deck search
     const deckSearch = document.getElementById("deck-search");
     deckSearch.addEventListener("input", () => {
-      renderDeckList(deckSearch.value.trim().toLowerCase());
+      deckSearchQuery = deckSearch.value.trim().toLowerCase();
+      deckPage = 0;
+      renderDeckList();
+    });
+    document.getElementById("deck-page-prev").addEventListener("click", () => {
+      deckPage -= 1;
+      renderDeckList();
+    });
+    document.getElementById("deck-page-next").addEventListener("click", () => {
+      deckPage += 1;
+      renderDeckList();
+    });
+    const deckList = document.getElementById("deck-list");
+    const selectDeck = (row) => {
+      const deckId = row.dataset.deckId;
+      filters.deckId = filters.deckId === deckId ? null : deckId;
+      folderIncludes.clear();
+      folderExcludes.clear();
+      renderFolderList();
+      highlightActive(deckList, row, filters.deckId === deckId);
+      applyFilters();
+    };
+    deckList.addEventListener("click", (event) => {
+      const row = event.target.closest("li[data-deck-id]");
+      if (row && deckList.contains(row)) selectDeck(row);
+    });
+    deckList.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const row = event.target.closest("li[data-deck-id]");
+      if (!row || !deckList.contains(row)) return;
+      event.preventDefault();
+      selectDeck(row);
     });
 
     // Quick filter buttons (event delegation for dynamic year buttons)
@@ -543,27 +576,37 @@
           : String(listing.rows.length) + " folders shown · " + String(folderModel.nodes.size) + " indexed paths");
   }
 
-  /* ── Deck list ── */
-  function renderDeckList(filterText) {
+  /* ── Bounded presentation list, independent from slide-grid pagination ── */
+  function renderDeckList() {
+    const started = perf.now();
     const ul = document.getElementById("deck-list");
-    ul.innerHTML = "";
-    DATA.decks
-      .filter(d => !filterText || d.file_name.toLowerCase().includes(filterText))
-      .forEach(d => {
-        const li = document.createElement("li");
-        li.textContent = d.file_name;
-        li.title = `${d.file_path}\n${d.slide_count} slides · ${formatDate(d.modified_date)}`;
-        if (filters.deckId === d.id) li.classList.add("active");
-        li.addEventListener("click", () => {
-          filters.deckId = filters.deckId === d.id ? null : d.id;
-          folderIncludes.clear();
-          folderExcludes.clear();
-          renderFolderList();
-          highlightActive(ul, li, filters.deckId === d.id);
-          applyFilters();
-        });
-        ul.appendChild(li);
-      });
+    const listing = window.DeckPager.paginate(DATA.decks, deckSearchQuery, deckPage);
+    deckPage = listing.page;
+    const fragment = document.createDocumentFragment();
+    for (const deck of listing.entries) {
+      const li = document.createElement("li");
+      li.dataset.deckId = deck.id;
+      li.textContent = deck.file_name;
+      li.title = `${deck.file_path}\n${deck.slide_count} slides · ${formatDate(deck.modified_date)}`;
+      li.tabIndex = 0;
+      li.setAttribute("role", "button");
+      const selected = filters.deckId === deck.id;
+      li.setAttribute("aria-pressed", String(selected));
+      if (selected) li.classList.add("active");
+      fragment.appendChild(li);
+    }
+    ul.replaceChildren(fragment);
+    ul.scrollTop = 0;
+    const first = listing.total ? listing.start + 1 : 0;
+    const last = listing.start + listing.entries.length;
+    document.getElementById("deck-result-range").textContent = listing.total
+      ? `${first.toLocaleString()}–${last.toLocaleString()} of ${listing.total.toLocaleString()} presentations`
+      : "No matching presentations";
+    document.getElementById("deck-page-indicator").textContent =
+      `Page ${listing.pages ? listing.page + 1 : 0} of ${listing.pages}`;
+    document.getElementById("deck-page-prev").disabled = listing.page === 0;
+    document.getElementById("deck-page-next").disabled = listing.page + 1 >= listing.pages;
+    perf.end("sidebar.render_ms", started);
   }
 
   /* ── Active filter tags ── */
@@ -1055,12 +1098,21 @@
   }
 
   function highlightActive(ul, activeLi, isActive) {
-    ul.querySelectorAll("li").forEach(li => li.classList.remove("active"));
-    if (isActive) activeLi.classList.add("active");
+    ul.querySelectorAll("li").forEach(li => {
+      li.classList.remove("active");
+      li.setAttribute("aria-pressed", "false");
+    });
+    if (isActive) {
+      activeLi.classList.add("active");
+      activeLi.setAttribute("aria-pressed", "true");
+    }
   }
 
   function clearDeckHighlight() {
-    document.getElementById("deck-list").querySelectorAll("li").forEach(li => li.classList.remove("active"));
+    document.getElementById("deck-list").querySelectorAll("li").forEach(li => {
+      li.classList.remove("active");
+      li.setAttribute("aria-pressed", "false");
+    });
   }
 
   function clearFolderHighlight() {

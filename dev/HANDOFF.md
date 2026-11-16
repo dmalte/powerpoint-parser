@@ -1,15 +1,19 @@
 # Handoff
 
-- Last Updated: 2026-11-15T18:16:09-08:00
-- Active Feature: `specs/006-directory-tree-and-local-images`
+- Last Updated: 2026-11-15T19:43:12-08:00
+- Active Feature: `specs/003-large-archive-performance`
 
 ## Current Objective
+
+M007h selected: cap the Presentations sidebar at 100 document rows while retaining full-library filename search and active-deck selection. Source and browser acceptance tests pass on Pi (174 Python tests; 8 Node tests). Fresh before-optimization Mac1 baseline: 145,289 snippets, 995.16 MiB Chrome JS heap, 92,208 CDP nodes, 1,380.4 ms startup, 187.9 ms search p95; `.runtime/benchmarks/mac1-sidebar-before.json` on Pi. Native Mac repeat with the extended CDP counters, staged install and after measurements remain pending.
 
 M007c follow-up deployed to Mac1 and validated in production: failed-only incremental scans now reuse the existing export. M007g measurements show the 142k-snippet archive remains interactive but uses approximately 1 GiB of Chrome heap, requiring targeted memory/DOM investigation before Windows acceptance.
 
 M011 source and native Mac1 deployment completed. The viewer now has a collapsible directory tree with recursive counts, folder-path search and multiple include/exclude viewer-only rules. Markdown previews/section thumbnails render safe relative and explicit Obsidian vault-path images as offline sanitized immutable assets; Obsidian note deep links remain M010. Pi and Mac1 full suites each passed 170 tests, native arm64 package 17/17. Mac1 was fast-forwarded preserving unrelated generated metadata changes, source-and-packaged Markdown image smoke passed, installed app upgraded after verified YAML/SQLite backup (14,166 decks and 141,843 snippets), and new UI served from localhost. Pre-upgrade scan state was unpaused; restored with Resume. Full existing Markdown rerender was still in progress (10,331 pending files initially); no remote push. M011 implementation complete; full-library conversion/previously encrypted PDF errors remain separate.
 
 ## Completed
+
+- M007h source: independent browser deck pager, 100 entries maximum, controls showing match counts/page boundaries, delegated click and keyboard selection, test harness live DOM measurements and synthetic-only off-page filename search test. 174 Pi Python and 8 Node checks passed; native Mac qualification pending.
 
 - M007c follow-up (2026-11-15): failed-only new/changed candidates no longer rebuild an unchanged viewer. `refresh_archive` now gates publication on committed processing/deletions, explicit pause, or a missing/stale published marker. Added two integration tests for retries, repair and initial failure; Pi full suite 172 passed.
 - M007g macOS evidence: native Chrome 157 headless completed 6k/20k/50k synthetic tests (7 searches, 240-card cap; 50k initial 426.5ms, filter-to-grid p95 60.2ms) and two read-only real-archive runs over 142,145 snippets (~390.7 MiB JSON). Run 1: interactive 1.344s, search p95 240.5ms, heap 999.93MiB, CDP nodes 101,214. Run 2: interactive 1.218s, search p95 185.8ms (5 recorded searches), heap 986.02MiB, CDP nodes 96,152. Reports in ignored `.runtime/benchmarks/mac1-real-archive-20261115*.json` on Pi. Mac1 status confirmed 69 failed-only candidates and unnecessary viewer rebuild. Mac1 source accepted 172/172 tests; installed arm64 app rebuilt and accepted 17/17 packaging preflight, upgraded while idle after SQLite/YAML backup. Manual production scan then retried 69 failed new files with zero successful commits, and returned `viewer_rebuilt=false`, `status=idle`, `last_error=null`; the last scan took 5.40 s and no build followed. Live config SHA matches pre-upgrade backup, SQLite `PRAGMA quick_check=ok`, 14,657 deck rows / 145,207 slide rows retained, export 395.5 MiB. Three unrelated Mac egg-info modifications preserved.
@@ -206,6 +210,8 @@ M011 source and native Mac1 deployment completed. The viewer now has a collapsib
 - Native user-level LaunchAgent install/upgrade/login and actual PPTX visual fidelity are not yet accepted. Do not auto-install or sign/notarize until renderer is validated.
 
 ## Next Step
+
+M007h: commit source and docs locally, fast-forward Mac1 without overwriting unrelated egg-info changes, run same CDP harness against the old installed frontend, then safely stage/build/install the new native application with SQLite/config backup and acceptance checks; compare DOM/heap/startup/search. Do not conflate synthetic or Mac measurements with Windows acceptance.
 
 M007c failed-only scan fix is deployed and accepted on Mac1. Next: investigate ~1 GiB Chrome JS heap / 96k–101k CDP node accounting at production scale, design measurements for live versus detached DOM and search-memory, and only then decide if server-side query/pagination is justified. Windows Chrome/Edge benchmarks, per-document conversion failure triage and M010 Obsidian integration remain separate pending work.
 

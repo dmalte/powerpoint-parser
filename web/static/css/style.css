@@ -128,6 +128,12 @@ input[type="search"]:focus { border-color: #4a7cff; }
 .folder-tree-row .folder-exclude[aria-pressed=true] { background:#a62d3c; border-color:#a62d3c; }
 
 #deck-search { width: 100%; margin-bottom: 6px; font-size: .85rem; }
+#deck-list li:focus-visible { outline: 2px solid #4a7cff; outline-offset: -2px; }
+.deck-list-meta { color: #59677e; font-size: .73rem; margin-bottom: 5px; }
+.deck-pagination { display: flex; gap: 5px; align-items: center; justify-content: space-between; margin-top: 7px; color: #59677e; font-size: .73rem; }
+.deck-pagination .btn { padding: 3px 6px; font-size: .73rem; }
+.deck-pagination .btn:disabled { opacity: .45; cursor: default; }
+.deck-pagination span { white-space: nowrap; }
 
 /* ── Main ── */
 #content {

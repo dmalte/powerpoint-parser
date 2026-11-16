@@ -97,3 +97,11 @@ Update design/requirements/roadmap/README/changelog/handoff with implemented opt
 - Prefer a narrow rendering optimization first: repeated date formatting and repeated DOM construction in the 240-card grid are likely contributors; change only after measurements and preserve all UI interactions.
 - Validate with DOM/action smoke checks and focused source-level tests; measure before/after on clean commits, plus a 50,000-slide synthetic stress run. Store reports in ignored .runtime/benchmarks and compare with scripts/benchmark_history.py.
 - Treat browser scheduling noise as measurement uncertainty; do not infer Windows release readiness or introduce server-side SQLite search absent evidence.
+
+## M007h — Bounded Sidebar Implementation (2026-11-15)
+
+- A browser-only pagination helper computes a full-dataset, case-insensitive filename match set, clamps the requested page, and returns at most 100 matching deck references with total counts. Unit test the helper in Node without loading the browser.
+- `app.js` tracks an independent presentation-page index and filename query. Typing in the existing presentation search resets this index, but selected-deck filtering remains unchanged; selecting a page never changes the slide grid. Render only the current 100 list entries using a fragment; preserve title/path actions and selected-row highlighting.
+- Provide compact Previous/Next buttons, Page X of Y, and visible range in the sidebar. Disabled controls represent empty and boundary states. The folder tree's existing 360-node cap and 240-card slide-grid bound are independent.
+- Extend the headless CDP benchmark with bounded-sidebar measurements and a separate synthetic deck-search/page-navigation interaction, performed after the standard timing report is captured so existing search timings stay comparable. Compare real Mac1 before/after with the same archive and Chrome build.
+- Update packaging and deploy via existing Mac staged installer after native tests and SQLite/config backup; monitor the live agent and verify the output is browseable.

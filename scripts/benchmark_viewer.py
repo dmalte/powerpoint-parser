@@ -105,7 +105,8 @@ def run_scenario(
         fixture = prepare_synthetic_site(Path(tmp) / "site", slides=slides, text_chars=text_chars)
         completed = subprocess.run(
             [node, str(ROOT / "scripts" / "measure_viewer.mjs"),
-             browser, str(Path(tmp) / "site"), str(iterations), str(timeout_seconds)],
+             browser, str(Path(tmp) / "site"), str(iterations), str(timeout_seconds),
+             "--verify-sidebar"],
             cwd=ROOT, capture_output=True, text=True, timeout=timeout_seconds + 35,
         )
         if completed.returncode != 0:

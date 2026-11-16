@@ -225,7 +225,7 @@ See [`config/config.example.yaml`](config/config.example.yaml) for all options:
 - **Search scopes** — limit search to deck, folder, title, subtitle, slide text, additional text, or notes
 - **Quick filters** — Today, This Week, This Month
 - **Stars** — star slides locally in the browser and filter to starred slides only
-- **Sidebar** — browse by folder or presentation
+- **Sidebar** — browse by recursive folders or presentation; the presentation list has Previous/Next controls, shows 100 entries per page, and searches filenames across *all* indexed presentations
 - **Thumbnail grid** — lazy-loaded, grouped by deck/day/week, and paginated to at most 240 live cards for large archives; optional "Wrap per deck" to start each presentation on a new row
 - **PDF support** — scan, render, and browse PDF pages alongside PowerPoint slides
 - **Calendar heatmap** — switch between the last 12 months or a specific year, then click any day to filter to that date
@@ -268,13 +268,15 @@ python scripts/benchmark_viewer.py --slides 6000 20000 --iterations 5
 
 This command generates deterministic **synthetic** archives using the actual viewer templates and JS. A headless browser measures initial readiness and scripted search/filter, sort, pagination and modal interactions, plus DOM/card counts and available JS heap. It writes JSON reports under `.runtime/benchmarks/` containing the Git revision, browser version, dataset size and in-page metrics (excluded from Git). Set `--browser /path/to/chrome` and `--output-dir DIRECTORY` when necessary; Node.js is a development/test dependency, not a packaged application requirement.
 
+The synthetic benchmark also verifies presentation-sidebar navigation, an off-page filename match, selected-deck persistence, and empty-result controls after collecting the normal timing snapshot. New reports include presentation-row counts and a separate live-DOM element count in addition to CDP node and JS heap metrics. The normal run never exports real filenames or search terms.
+
 The synthetic fixtures deliberately use a **shared placeholder JPEG**. The timings are suitable for tracking frontend regressions but **do not measure realistic thumbnail fetching/decoding, PowerPoint rendering, initial library ingestion, or Windows end-user acceptance**. Use the built-in Performance report on real content for those measurements.
 
 The first Pi run (6 search iterations, 1,000 characters per slide) measured approximately 953 ms initial viewer readiness and 131 ms p95 filter-to-grid at 6,000 slides; 1,377 ms and 195 ms respectively at 20,000 slides. Both retained at most 240 grid cards. These are environment-specific baselines, not release budgets.
 
 ### Incremental refresh and safe publication (M007c)
 
-The background agent now skips viewer generation when the filesystem scan reports no new, changed, or deleted documents **and** the current publication is complete. The first scan after an upgrade from a legacy archive refreshes the HTML/JSON once to establish its freshness marker. Missing generated assets, modified frontend sources, or a changed viewer title also trigger a rebuild, even when document files are unchanged.
+The background agent now skips viewer generation when no successful document updates or applied deletions changed the indexed data **and** the current publication is complete. Failed-only conversion attempts are retried on later scans without re-exporting the unchanged viewer. The first scan after an upgrade from a legacy archive refreshes the HTML/JSON once to establish its freshness marker. Missing generated assets, modified frontend sources, or a changed viewer title also trigger a rebuild, even when document files are unchanged.
 
 A rebuild prepares JSON, templates, CSS and JavaScript in a temporary directory. Each complete file is then atomically substituted into the live archive; the first-run index page is published after JSON and scripts are available. A small private `.viewer-build.json` marker records the final generated-file timestamps/sizes and a fingerprint of the bundled frontend/configuration. The marker is written last; if publication fails, the next refresh detects it and tries again. Existing CSS/JS directories are not deleted while clients are reading them.
 
@@ -318,6 +320,12 @@ A clean-revision Pi comparison (same Chromium build, 8 scripted searches, 1,000 
 Revision 7cc0da7 is the baseline and 03fc5f4 is the optimized version. Individual browser runs vary; repeat benchmarks on the target hardware before treating these percentages as stable.
 
 These are synthetic text/placeholder-image workloads, not realistic thumbnail decoding or PowerPoint COM processing. A single JSON export can become large (about 106 MiB for 50,000 synthetic slides with 1,000 text characters each), so real-library memory and image performance still require representative hardware validation.
+
+### Bounded presentation sidebar (M007h)
+
+The sidebar's **Presentations** list now displays no more than 100 filename rows at once. Use the **Previous** and **Next** buttons to move through the list, or type in **Filter decks…** to search every indexed presentation, including those beyond the visible page. The match count and page number update automatically; no matches disable both page buttons. Selecting a presentation filters the slide grid as before, and selection persists while switching sidebar pages or narrowing/clearing the sidebar search. The existing main filter chip can clear a selection that is off-page. Folder-tree filtering and the 240-card slide grid are separate controls.
+
+This changes only the generated viewer's HTML/CSS/JS. SQLite, source documents and archive export JSON are unchanged. Benchmark full-library behavior using the browser Performance panel or the repeatable CDP runner; high JS heap usage from the single large JSON payload remains a separate scalability consideration.
 
 ## Development
 

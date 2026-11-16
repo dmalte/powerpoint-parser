@@ -8,7 +8,9 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
-const [browserCommand, siteDirectory, repetitionsRaw, deadlineRaw] = process.argv.slice(2);
+const [browserCommand, siteDirectory, repetitionsRaw, deadlineRaw, sidebarFlag] = process.argv.slice(2);
+const verifySidebar = sidebarFlag === '--verify-sidebar';
+if (sidebarFlag && !verifySidebar) throw new Error('Unsupported browser verification mode');
 const repetitions = Number(repetitionsRaw || 5);
 const deadline = Number(deadlineRaw || 90) * 1000;
 if (!browserCommand || !siteDirectory || !Number.isInteger(repetitions) || repetitions < 1) {
@@ -130,6 +132,7 @@ async function browserExperiment() {
   const browserVersion = (await send('Browser.getVersion')).product || 'unknown';
   await waitUntil(() => evaluate('Boolean(window.PPTViewerPerf?.report().timings["startup.interactive_ms"])'), deadline, 'viewer initialized');
   const startingCards = await evaluate('document.querySelectorAll(".slide-card").length');
+  const startingDeckRows = await evaluate('document.querySelectorAll("#deck-list li").length');
   const expectedSlides = await evaluate('window.PPTViewerPerf.report().library.slides');
   if (startingCards > 240) throw new Error('Rendered too many cards: ' + startingCards);
 
@@ -171,6 +174,8 @@ async function browserExperiment() {
 
   const report = await evaluate('window.PPTViewerPerf.report()');
   const cards = await evaluate('document.querySelectorAll(".slide-card").length');
+  const deckRows = await evaluate('document.querySelectorAll("#deck-list li").length');
+  const liveDomNodes = await evaluate('document.getElementsByTagName("*").length');
   const cdpm = (await send('Performance.getMetrics')).metrics || [];
   const cdpMetrics = Object.fromEntries(
     cdpm.filter(metric => ['JSHeapUsedSize', 'Nodes', 'LayoutCount', 'RecalcStyleCount'].includes(metric.name))
@@ -181,16 +186,69 @@ async function browserExperiment() {
   if (!report.timings['interaction.search_filter_ms']) {
     throw new Error('Search instrumentation produced no measurements');
   }
+
+  // A separate, synthetic-only UI acceptance run is performed *after* the
+  // timing/heap snapshot, so the normal measurements stay comparable. Real
+  // archives are never searched by document name as part of this benchmark.
+  let sidebarVerification = null;
+  if (verifySidebar) {
+    const decks = report.library.decks;
+    const finalName = `deck-${decks - 1}.pptx`;
+    sidebarVerification = await evaluate(`(() => {
+      const list = document.getElementById('deck-list');
+      const prev = document.getElementById('deck-page-prev');
+      const next = document.getElementById('deck-page-next');
+      const input = document.getElementById('deck-search');
+      const firstCount = list.children.length;
+      if (!prev.disabled || firstCount > 100) return {passed:false, reason:'initial bound'};
+      if (${decks} > 100) {
+        next.click();
+        if (list.children.length > 100 || prev.disabled) return {passed:false, reason:'next page'};
+        prev.click();
+        if (list.children.length !== firstCount) return {passed:false, reason:'previous page'};
+      }
+      input.value = ${JSON.stringify(finalName)};
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+      const matches = Array.from(list.querySelectorAll('li'));
+      if (matches.length !== 1 || matches[0].textContent !== ${JSON.stringify(finalName)})
+        return {passed:false, reason:'off-page filename search'};
+      matches[0].click();
+      const selected = matches[0].getAttribute('aria-pressed') === 'true';
+      const filteredCount = Number.parseInt(document.getElementById('result-count').textContent, 10);
+      input.value = '';
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+      const persisted = Number.parseInt(document.getElementById('result-count').textContent, 10) === filteredCount;
+      const tag = document.querySelector('#active-filters .filter-tag .remove');
+      if (!tag) return {passed:false, reason:'no selected-deck filter tag'};
+      tag.click();
+      const cleared = Number.parseInt(document.getElementById('result-count').textContent, 10) === ${expectedSlides};
+      input.value = '__unknown_synthetic_deck_name__';
+      input.dispatchEvent(new Event('input', {bubbles:true}));
+      const empty = list.children.length === 0 && prev.disabled && next.disabled &&
+        document.getElementById('deck-page-indicator').textContent === 'Page 0 of 0';
+      return {passed: selected && persisted && cleared && empty, initial_rows:firstCount,
+        selected, persisted, cleared, empty, pages_checked:${decks} > 100 ? 2 : 1};
+    })()`);
+    if (!sidebarVerification?.passed) {
+      throw new Error('Synthetic sidebar interaction failed: ' + JSON.stringify(sidebarVerification));
+    }
+  }
   return {
     browser_version: browserVersion,
     library_slides: expectedSlides,
     max_visible_cards: Math.max(startingCards, cards),
+    sidebar_rows_initial: startingDeckRows,
+    sidebar_rows_final: deckRows,
+    live_dom_nodes: liveDomNodes,
+    sidebar_verification: sidebarVerification,
     dom_nodes: cdpMetrics.Nodes ?? null,
     js_heap_used_mb: cdpMetrics.JSHeapUsedSize == null ? null : Math.round(cdpMetrics.JSHeapUsedSize / 1048576 * 100) / 100,
     cdp_metrics: cdpMetrics,
     browser_report: report,
     scripted_actions: {searches: repetitions, sort_changes: 4, page_changes: 1, modal_openings: 1},
-    limitations: 'Synthetic extracted text and shared placeholder images; no Office COM rendering or real source-document I/O.',
+    limitations: verifySidebar
+      ? 'Synthetic extracted text and shared placeholder images; no Office COM rendering or real source-document I/O.'
+      : 'Local archive browser workload. This does not measure original-file PowerPoint processing or realistic image decoding throughput.',
   };
 }
 

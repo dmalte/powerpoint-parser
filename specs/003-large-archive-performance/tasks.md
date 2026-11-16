@@ -83,6 +83,16 @@
 - [ ] T102 Investigate the near-1-GB Chrome JS heap and high CDP DOM node accounting at ~142k pages; assess whether server-side search/pagination is warranted after additional measurements.
 - [ ] T103 Run representative Windows Chrome/Edge performance acceptance with real images.
 
+## M007h — Bounded Presentation Sidebar (2026-11-15)
+
+- [x] T110 Capture a native Chrome baseline on the production archive before source changes.
+- [x] T111 Add the bounded 100-row presentation pager with full-dataset filename search, empty/boundary handling, and independent page state.
+- [x] T112 Render accessible page controls and result counts, retaining selected-deck and folder-filter semantics.
+- [x] T113 Add Node pagination tests and CDP/pytest browser acceptance for off-page search, navigation, selection and DOM bounds.
+- [ ] T114 Repeat representative Mac1 production-archive benchmarks and compare heap, DOM, search and startup, noting remaining bottlenecks.
+- [ ] T115 Run full Pi/Mac suites, safely deploy the updated native app, and verify live output and preserved archive data.
+- [ ] T116 Reconcile requirements, roadmap, changelog and handoff; inspect final diff and checkpoint validated changes.
+
 ## Validation and Convergence
 
 - [x] T030 Run focused M007 tests and the 6,000-slide fixture.

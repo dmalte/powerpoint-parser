@@ -127,6 +127,7 @@ The local-first architecture remains unchanged: source files and generated archi
 - Real acceptance budgets for Windows Edge/Chrome remain pending. Headless Chromium running on Raspberry Pi is an instrumentation smoke test, not representative hardware validation.
 
 - M007f rendering optimization caches locale-formatted dates and disconnects IntersectionObserver subscriptions for offscreen images on each grid redraw, retaining the 240-card page bound. No search API/schema changes; very large single JSON exports remain a scaling consideration.
+- M007h renders at most 100 presentation-sidebar list rows, computed by `web/static/js/deck-pager.js` from the *complete* in-memory deck array. Sidebar page and filename search are independent of the 240-card slide grid and folder tree. Previous/Next and range/page labels convey boundaries and empty states; delegated click/keyboard selection prevents one listener per indexed deck and keeps the selected deck filter active across page changes. `sidebar.render_ms` and bounded-side-row/live-DOM counters extend the local diagnostics and headless CDP benchmark without altering `export.json`, SQLite, or server API. Real Mac/Windows memory and image timing remain explicit acceptance gates.
 
 ## macOS Renderer and Deployment Architecture (M008)
 

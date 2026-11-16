@@ -103,3 +103,12 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - Preserve search, sorting, grouping, pagination, starred actions, modal opening, HTML escaping and bounded card count. No Windows-specific changes or backend schema migration.
 - Run equivalent clean-revision benchmarks before/after on the Pi, report both the improvement and any regressions, and add a 50,000-slide stress test where resources permit.
 - Do not claim representative image/PowerPoint performance; shared placeholder images do not test realistic thumbnail decoding or disk I/O.
+
+## M007h — Bounded Presentation Sidebar (2026-11-15)
+
+- The presentation sidebar must render no more than 100 document rows per page at all library sizes, including after search and navigation.
+- Its search must continue to match **all indexed filenames**, including those beyond the first page, using the existing local in-memory dataset.
+- Provide accessible Previous/Next buttons, current page and total-match range; handle empty searches, first/last-page boundaries and narrowing search without invalid/empty pages.
+- A selected document continues filtering the slide grid across sidebar page changes. Clearing filters or selecting a different document must retain existing folder and main-search semantics.
+- Limit the optimization to frontend presentation and instrumentation: no archive, SQLite, export format, or remote query API changes. A newly published frontend may trigger the existing safe static build; original images and source documents remain unchanged.
+- Measure before/after DOM-node count, Chrome heap, startup and search on a real Mac1 library using the same headless browser workload; record variance and do not claim a Windows acceptance result.
