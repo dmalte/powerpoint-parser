@@ -36,6 +36,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- M007c failed-only scans now avoid re-exporting the viewer when all new/changed candidates fail and the existing SQLite/publication marker is current. Successful processing, applied deletions, initial publication, stale markers, and explicit pause still rebuild; regression coverage added.
+- M007g native Mac1 Chrome benchmarks captured 6k/20k/50k synthetic workloads and two read-only runs against ~142k real snippets. Initial interaction measured ~1.22–1.34 s, with ~986–1,000 MiB JS heap; memory/DOM profile and Windows acceptance remain open.
+
 - Mac1 native acceptance preparation: Apple Silicon PyInstaller app and CLI build passed, bundled PDF ingestion/viewer passed, and strict ad hoc code-signature verification passed. Added opt-in PowerPoint-native smoke command and documented unresolved -9074 PDF export failure; no LaunchAgent installed.
 
 

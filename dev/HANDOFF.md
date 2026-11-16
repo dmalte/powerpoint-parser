@@ -1,6 +1,6 @@
 # Handoff
 
-- Last Updated: 2026-11-14T19:06:31-08:00
+- Last Updated: 2026-11-15T18:04:54-08:00
 - Active Feature: `specs/006-directory-tree-and-local-images`
 
 ## Current Objective
@@ -8,6 +8,9 @@
 M011 source and native Mac1 deployment completed. The viewer now has a collapsible directory tree with recursive counts, folder-path search and multiple include/exclude viewer-only rules. Markdown previews/section thumbnails render safe relative and explicit Obsidian vault-path images as offline sanitized immutable assets; Obsidian note deep links remain M010. Pi and Mac1 full suites each passed 170 tests, native arm64 package 17/17. Mac1 was fast-forwarded preserving unrelated generated metadata changes, source-and-packaged Markdown image smoke passed, installed app upgraded after verified YAML/SQLite backup (14,166 decks and 141,843 snippets), and new UI served from localhost. Pre-upgrade scan state was unpaused; restored with Resume. Full existing Markdown rerender was still in progress (10,331 pending files initially); no remote push. M011 implementation complete; full-library conversion/previously encrypted PDF errors remain separate.
 
 ## Completed
+
+- M007c follow-up (2026-11-15): failed-only new/changed candidates no longer rebuild an unchanged viewer. `refresh_archive` now gates publication on committed processing/deletions, explicit pause, or a missing/stale published marker. Added two integration tests for retries, repair and initial failure; Pi full suite 172 passed.
+- M007g macOS evidence: native Chrome 157 headless completed 6k/20k/50k synthetic tests (7 searches, 240-card cap; 50k initial 426.5ms, filter-to-grid p95 60.2ms) and two read-only real-archive runs over 142,145 snippets (~390.7 MiB JSON). Run 1: interactive 1.344s, search p95 240.5ms, heap 999.93MiB, CDP nodes 101,214. Run 2: interactive 1.218s, search p95 185.8ms (5 recorded searches), heap 986.02MiB, CDP nodes 96,152. Reports in ignored `.runtime/benchmarks/mac1-real-archive-20261115*.json` on Pi. Mac1 status confirmed 69 failed-only candidates and unnecessary viewer rebuild. Code fix remains Pi-only until native Mac qualification.
 
 - M005 self-service controls checkpoint committed as `2021893`; portable/full tests were green (51 passed).
 - Created/selected `specs/003-large-archive-performance` and passed the feature pre-implementation gate.
@@ -201,6 +204,8 @@ M011 source and native Mac1 deployment completed. The viewer now has a collapsib
 - Native user-level LaunchAgent install/upgrade/login and actual PPTX visual fidelity are not yet accepted. Do not auto-install or sign/notarize until renderer is validated.
 
 ## Next Step
+
+M007 maintenance: validate Pi fix on Mac1 without overwriting its three unrelated generated package metadata edits. If safe, back up installed config/SQLite and use the existing staged installer during an idle window. Confirm a subsequent failed-only scan reports `viewer_rebuilt=false`. Investigate the ~1 GB Chrome JS heap and high CDP node count before considering a server-side query architecture; Windows Chrome/Edge acceptance remains open.
 
 Checkpoint native Mac1 M011 acceptance on Pi and fast-forward clean source into Mac1 without modifying its unrelated egg-info changes. Leave user's original unpaused scan preference and live archive intact. Users can browse directory filtering now; Markdown images appear as existing notes are re-rendered and published. Separate future work: automatic partial publication during large scans, image-dependency signature tracking, Obsidian vault deep links (M010), and per-document failure reports. No push to origin.
 

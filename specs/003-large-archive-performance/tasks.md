@@ -50,6 +50,7 @@
 - [x] T062 Stage complete JSON/HTML/CSS/JS output, publish each file atomically without removing live directories, and invalidate marker on interrupted commit.
 - [x] T063 Validate first run, unchanged/changed/deleted refresh, missing/stale output, failure recovery and concurrent browser readers.
 - [x] T064 Run full tests, collect performance evidence, reconcile docs/handoff, inspect diff, and commit locally without pushing.
+- [x] T065 Prevent failed-only scan candidates from triggering a full rebuild; cover retries, later success and first-run failure in integration tests (2026-11-15).
 
 ## M007d — Performance Regression Tracking (2026-11-12)
 
@@ -73,6 +74,13 @@
 - [x] T092 Add regression checks for correctness, accessibility and bounded rendering.
 - [x] T093 Run comparable post-change benchmarks and a 50,000-slide synthetic stress case.
 - [x] T094 Update performance docs and handoff, run full suite, inspect diff and commit locally.
+
+## M007g — Production-scale macOS Measurements (2026-11-15)
+
+- [x] T100 Benchmark native Mac1 Chrome on 6,000/20,000/50,000 synthetic slides and on the existing ~142k-page local archive without modifying its sources or app state.
+- [x] T101 Repeat real-archive benchmark and record heap, initial load, search/filter latency, and DOM metrics; distinguish headless Chrome from Windows acceptance.
+- [ ] T102 Investigate the near-1-GB Chrome JS heap and high CDP DOM node accounting at ~142k pages; assess whether server-side search/pagination is warranted after additional measurements.
+- [ ] T103 Run representative Windows Chrome/Edge performance acceptance with real images.
 
 ## Validation and Convergence
 

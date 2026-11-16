@@ -57,6 +57,59 @@ def test_noop_refresh_does_not_reexport_or_rewrite_site(tmp_path, monkeypatch):
     assert [event["operation"] for event in events] == ["scan", "build", "scan"]
 
 
+def test_failed_only_scan_retries_without_rebuilding_current_viewer(tmp_path, monkeypatch):
+    config, source = _empty_config(tmp_path, monkeypatch)
+    existing = source / "existing.pdf"
+    document = fitz.open()
+    document.new_page().insert_text((20, 70), "Original indexed slide")
+    document.save(existing)
+    document.close()
+
+    first = refresh_archive(config)
+    assert first["processed_ok"] == 1 and first["viewer_rebuilt"] is True
+    assert _read_json(config)["stats"]["slide_count"] == 1
+    output = Path(config.output_dir)
+    published = [output / "index.html", output / "data/export.json", output / ".viewer-build.json"]
+    before = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in published}
+
+    # Neither a damaged indexed source nor a newly discovered invalid source
+    # can modify the committed SQLite inventory; both should remain retryable.
+    existing.write_bytes(b"invalid changed pdf")
+    (source / "new.pdf").write_bytes(b"invalid new pdf")
+    with monkeypatch.context() as patch:
+        patch.setattr(builder, "build_viewer", lambda _: pytest.fail("failed-only scan rebuilt viewer"))
+        for _ in range(2):
+            failed = refresh_archive(config)
+            assert failed["new"] == 1 and failed["changed"] == 1
+            assert failed["processed_ok"] == 0 and failed["processed_err"] == 2
+            assert failed["deleted"] == 0 and failed["viewer_rebuilt"] is False
+            assert builder.viewer_is_current(config)
+    assert {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in published} == before
+
+    # Once one previously invalid source recovers, its committed index update
+    # must be published even while another source continues to fail.
+    repaired = fitz.open()
+    repaired.new_page().insert_text((20, 70), "Repaired slide")
+    repaired.new_page().insert_text((20, 70), "Another repaired slide")
+    repaired.save(existing)
+    repaired.close()
+    recovered = refresh_archive(config)
+    assert recovered["processed_ok"] == 1 and recovered["processed_err"] == 1
+    assert recovered["viewer_rebuilt"] is True
+    assert _read_json(config)["stats"]["slide_count"] == 2
+
+
+def test_initial_failed_source_still_publishes_empty_viewer(tmp_path, monkeypatch):
+    config, source = _empty_config(tmp_path, monkeypatch)
+    (source / "bad.pdf").write_bytes(b"not a valid PDF")
+
+    result = refresh_archive(config)
+    assert result["new"] == 1 and result["processed_err"] == 1
+    assert result["processed_ok"] == 0 and result["viewer_rebuilt"] is True
+    assert builder.viewer_is_current(config)
+    assert _read_json(config)["stats"]["slide_count"] == 0
+
+
 def test_changed_and_deleted_pdf_require_rebuild(tmp_path, monkeypatch):
     config, source = _empty_config(tmp_path, monkeypatch)
     pdf_path = source / "deck.pdf"

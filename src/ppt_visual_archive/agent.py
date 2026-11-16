@@ -49,7 +49,10 @@ def refresh_archive(
     # Avoid a full SQLite export, JSON serialization, template render and
     # static-file copy on unchanged scans. A missing/stale/incomplete viewer
     # always forces publication, including after an interrupted prior build.
-    has_changes = any(summary.get(key, 0) for key in ("new", "changed", "deleted"))
+    # Discovered new/changed files are candidates, not SQLite commits. Failed
+    # conversions leave the indexed archive intact, so retrying them must not
+    # republish a large export. Completed deletions and successful imports do.
+    has_changes = bool(summary.get("processed_ok", 0) or summary.get("deleted", 0))
     # A user-requested pause is a checkpoint: serialize the current SQLite
     # inventory to the browsable HTML/JSON viewer even though work remains.
     should_build = has_changes or bool(summary.get("paused")) or not viewer_is_current(config)
