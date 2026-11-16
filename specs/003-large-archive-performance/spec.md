@@ -112,3 +112,10 @@ Make the local browser remain responsive with at least 6,000 indexed slides/page
 - A selected document continues filtering the slide grid across sidebar page changes. Clearing filters or selecting a different document must retain existing folder and main-search semantics.
 - Limit the optimization to frontend presentation and instrumentation: no archive, SQLite, export format, or remote query API changes. A newly published frontend may trigger the existing safe static build; original images and source documents remain unchanged.
 - Measure before/after DOM-node count, Chrome heap, startup and search on a real Mac1 library using the same headless browser workload; record variance and do not claim a Windows acceptance result.
+
+### M007h Native Acceptance
+
+- [x] Source and browser regression checks: Pi and Mac1 174/174 Python tests; Node 8/8, including off-page filename search and persistent selection.
+- [x] Native Mac1 install: arm64 bundle, 17/17 packaging preflight, code-signature verification, verified SQLite/config backup and unchanged semantic configuration.
+- [x] Headless Chrome 157 repeated on the same 145,289-page archive: sidebar rows 14,677 → 100; live DOM elements 17,901 → 3,330.
+- [ ] Significant JS-heap/startup-search improvement remains unproven; M007g memory work and Windows Chrome/Edge acceptance stay open.

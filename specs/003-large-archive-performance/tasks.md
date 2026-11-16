@@ -89,9 +89,9 @@
 - [x] T111 Add the bounded 100-row presentation pager with full-dataset filename search, empty/boundary handling, and independent page state.
 - [x] T112 Render accessible page controls and result counts, retaining selected-deck and folder-filter semantics.
 - [x] T113 Add Node pagination tests and CDP/pytest browser acceptance for off-page search, navigation, selection and DOM bounds.
-- [ ] T114 Repeat representative Mac1 production-archive benchmarks and compare heap, DOM, search and startup, noting remaining bottlenecks.
-- [ ] T115 Run full Pi/Mac suites, safely deploy the updated native app, and verify live output and preserved archive data.
-- [ ] T116 Reconcile requirements, roadmap, changelog and handoff; inspect final diff and checkpoint validated changes.
+- [x] T114 Repeat representative Mac1 production-archive benchmarks and compare heap, DOM, search and startup, noting remaining bottlenecks.
+- [x] T115 Run full Pi/Mac suites, safely deploy the updated native app, and verify live output and preserved archive data.
+- [x] T116 Reconcile requirements, roadmap, changelog and handoff; inspect final diff and checkpoint validated changes.
 
 ## Validation and Convergence
 

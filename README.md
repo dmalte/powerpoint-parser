@@ -325,7 +325,9 @@ These are synthetic text/placeholder-image workloads, not realistic thumbnail de
 
 The sidebar's **Presentations** list now displays no more than 100 filename rows at once. Use the **Previous** and **Next** buttons to move through the list, or type in **Filter decks…** to search every indexed presentation, including those beyond the visible page. The match count and page number update automatically; no matches disable both page buttons. Selecting a presentation filters the slide grid as before, and selection persists while switching sidebar pages or narrowing/clearing the sidebar search. The existing main filter chip can clear a selection that is off-page. Folder-tree filtering and the 240-card slide grid are separate controls.
 
-This changes only the generated viewer's HTML/CSS/JS. SQLite, source documents and archive export JSON are unchanged. Benchmark full-library behavior using the browser Performance panel or the repeatable CDP runner; high JS heap usage from the single large JSON payload remains a separate scalability consideration.
+This changes only the generated viewer's HTML/CSS/JS. SQLite, source documents and archive export JSON are unchanged. Benchmark full-library behavior using the browser Performance panel or the repeatable CDP runner.
+
+**Mac1 native result (2026-11-15):** On the same 145,289-snippet / 14,677-presentation archive and Chrome 157, sidebar rows fell from 14,677 to 100 and live DOM elements from 17,901 to 3,330 (about 81% fewer). CDP-reported nodes declined from approximately 92,000 to 63,000–68,000. JS heap stayed around 1.0 GiB (before 995–1,001 MiB; after 1,000–1,021 MiB). Startup/search timing varied between runs, so this is a **DOM reduction**, not a demonstrated overall latency or memory win. The large single JSON export remains a separate scalability issue, and Windows/browser-image acceptance is still pending.
 
 ## Development
 

@@ -105,3 +105,7 @@ Update design/requirements/roadmap/README/changelog/handoff with implemented opt
 - Provide compact Previous/Next buttons, Page X of Y, and visible range in the sidebar. Disabled controls represent empty and boundary states. The folder tree's existing 360-node cap and 240-card slide-grid bound are independent.
 - Extend the headless CDP benchmark with bounded-sidebar measurements and a separate synthetic deck-search/page-navigation interaction, performed after the standard timing report is captured so existing search timings stay comparable. Compare real Mac1 before/after with the same archive and Chrome build.
 - Update packaging and deploy via existing Mac staged installer after native tests and SQLite/config backup; monitor the live agent and verify the output is browseable.
+
+### M007h Outcome
+
+The native Mac rollout confirmed the expected 100-row cap and about 81% reduction in *live* DOM elements on a 145,289-snippet dataset. Headless Chrome JS heap remains ~1 GiB after removing list nodes, indicating the complete in-memory JSON/search representation dominates the remaining memory footprint. The installed agent initially waited on an in-flight macOS PowerPoint conversion; a persisted Pause & Save followed by a controlled user LaunchAgent restart published the already committed index without reprocessing, and Resume restored the original unpaused setting. The source archive, SQLite schema, scanned inputs and exported JSON shape were unchanged. Follow-on server-side query architecture is not part of this change.
