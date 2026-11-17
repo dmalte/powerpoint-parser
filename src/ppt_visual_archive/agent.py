@@ -13,6 +13,7 @@ from pathlib import Path
 
 from .config import AppConfig, save_config
 from .platform_paths import default_log_dir
+from .retry_policy import RetryState
 from .utils import logger
 
 
@@ -124,7 +125,7 @@ class AgentRuntime:
 
     def status_snapshot(self) -> dict:
         with self._state_lock:
-            return {
+            snapshot = {
                 "status": self._status,
                 "scan_paused": self.scan_paused,
                 "snapshot_pending": self._snapshot_pending.is_set(),
@@ -137,6 +138,10 @@ class AgentRuntime:
                 "file_types": list(self.config.file_types),
                 "viewer_url": f"http://127.0.0.1:{self.port}/",
             }
+        # Retry status contains only category totals; no source paths/contents.
+        # Read outside _state_lock to avoid blocking UI on local filesystem I/O.
+        snapshot["retry_policy"] = RetryState(self.config).status()
+        return snapshot
 
     def settings_snapshot(self) -> dict:
         return {
@@ -289,6 +294,37 @@ class AgentRuntime:
             self._refresh_lock.release()
             return {"started": False, "reason": "paused"}
         return self._start_refresh_worker_locked()
+
+    def request_retry_reset(self, *, file_path: str | None = None) -> dict:
+        """Explicitly reset saved retry state and optionally start a fresh scan.
+
+        Serializes with scans/pause snapshots so an in-flight conversion cannot
+        race a reset. With scanning paused, the reset never unpauses the agent.
+        """
+        if not self._refresh_lock.acquire(blocking=False):
+            return {"started": False, "reset": 0, "reason": "busy"}
+        handed_to_worker = False
+        try:
+            resolved = None
+            if file_path is not None:
+                resolved = Path(file_path).expanduser().resolve()
+                if not any(resolved.is_relative_to(Path(root).resolve()) for root in self.config.scan_roots):
+                    raise ValueError("File is outside configured scan roots")
+                if resolved.suffix.lower() not in {".pdf", ".pptx", ".md"}:
+                    raise ValueError("Unsupported retry file type")
+            ledger = RetryState(self.config)
+            changed = ledger.clear(file_path=str(resolved) if resolved else None,
+                                   all_entries=resolved is None)
+            if not changed:
+                return {"started": False, "reset": 0, "reason": "no_deferred_files"}
+            if self.scan_paused:
+                return {"started": False, "reset": changed, "reason": "paused"}
+            result = self._start_refresh_worker_locked()
+            handed_to_worker = True
+            return {"started": result["started"], "reset": changed}
+        finally:
+            if not handed_to_worker and self._refresh_lock.locked():
+                self._refresh_lock.release()
 
     def _publish_snapshot_locked(self) -> None:
         """Publish the already committed DB without scanning any source files."""

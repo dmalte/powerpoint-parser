@@ -10,7 +10,8 @@ import { extname, join, resolve, sep } from 'node:path';
 
 const [browserCommand, siteDirectory, repetitionsRaw, deadlineRaw, sidebarFlag] = process.argv.slice(2);
 const verifySidebar = sidebarFlag === '--verify-sidebar';
-if (sidebarFlag && !verifySidebar) throw new Error('Unsupported browser verification mode');
+const profileMemory = sidebarFlag === '--profile-memory';
+if (sidebarFlag && !verifySidebar && !profileMemory) throw new Error('Unsupported browser verification mode');
 const repetitions = Number(repetitionsRaw || 5);
 const deadline = Number(deadlineRaw || 90) * 1000;
 if (!browserCommand || !siteDirectory || !Number.isInteger(repetitions) || repetitions < 1) {
@@ -136,6 +137,17 @@ async function browserExperiment() {
   const expectedSlides = await evaluate('window.PPTViewerPerf.report().library.slides');
   if (startingCards > 240) throw new Error('Rendered too many cards: ' + startingCards);
 
+  // Optional research-only retained-heap probe (no source paths or content).
+  // Force GC before capturing the initial heap and after the normal scripted
+  // interactions. Both candidate and baseline get the exact same workload.
+  const heapUsedMB = async () => {
+    await send('HeapProfiler.collectGarbage');
+    const metrics = (await send('Performance.getMetrics')).metrics || [];
+    const size = metrics.find(item => item.name === 'JSHeapUsedSize')?.value;
+    return size == null ? null : Math.round(size / 1048576 * 100) / 100;
+  };
+  const initialRetainedHeapMB = profileMemory ? await heapUsedMB() : null;
+
   // Dispatch the same input/change/click events as a user, not private app functions.
   const searches = ['benchmark', 'Slide 1', 'not-in-the-archive', 'Slide 2', 'benchmark x'];
   for (let i = 0; i < repetitions; i++) {
@@ -181,6 +193,7 @@ async function browserExperiment() {
     cdpm.filter(metric => ['JSHeapUsedSize', 'Nodes', 'LayoutCount', 'RecalcStyleCount'].includes(metric.name))
       .map(metric => [metric.name, metric.value])
   );
+  const postSearchRetainedHeapMB = profileMemory ? await heapUsedMB() : null;
   if (cards > 240) throw new Error('Grid limit violated after interactions: ' + cards);
   if (exceptions.length) throw new Error(exceptions.slice(0, 3).join('; '));
   if (!report.timings['interaction.search_filter_ms']) {
@@ -233,6 +246,54 @@ async function browserExperiment() {
       throw new Error('Synthetic sidebar interaction failed: ' + JSON.stringify(sidebarVerification));
     }
   }
+  // Run synthetic search-scope behavior after timing capture. These queries
+  // refer exclusively to the deterministic generated fixture, never the
+  // user's production document text, search history, or filenames.
+  let searchScopeVerification = null;
+  if (verifySidebar) {
+    searchScopeVerification = await evaluate(`(async () => {
+      const boxes = [...document.querySelectorAll('#search-scopes input[type=checkbox]')];
+      const input = document.getElementById('search-input');
+      const count = () => Number.parseInt(document.getElementById('result-count').textContent, 10);
+      const run = async (scopes, query) => {
+        boxes.forEach(box => {
+          const enabled = scopes.includes(box.dataset.scope);
+          if (box.checked !== enabled) {
+            box.checked = enabled;
+            box.dispatchEvent(new Event('change', {bubbles:true}));
+          }
+        });
+        input.value = query;
+        input.dispatchEvent(new Event('input', {bubbles:true}));
+        await new Promise(done => setTimeout(done, 290));
+        return count();
+      };
+      const all = boxes.map(box => box.dataset.scope);
+      const scenarios = [
+        {scopes:['body'], query:'benchmark', expected:${expectedSlides}},
+        {scopes:['title'], query:'benchmark', expected:0},
+        {scopes:['subtitle'], query:'subtitle', expected:${expectedSlides}},
+        {scopes:['notes'], query:'benchmark', expected:0},
+        {scopes:['extra'], query:'benchmark', expected:0},
+        {scopes:['folder'], query:'benchmark', expected:${expectedSlides}},
+        {scopes:['deck'], query:'deck-0.pptx', expected:Math.min(30, ${expectedSlides})},
+        {scopes:['title'], query:'Slide ${expectedSlides - 1}', expected:1},
+        {scopes:['title','body'], query:'"Slide ${expectedSlides - 1} benchmark"', expected:1},
+      ];
+      let passed = true;
+      for (const scenario of scenarios) {
+        if (await run(scenario.scopes, scenario.query) !== scenario.expected) {
+          passed = false;
+          break;
+        }
+      }
+      const restored = await run(all, '') === ${expectedSlides};
+      return {passed:passed && restored, tested:scenarios.length, restored};
+    })()`);
+    if (!searchScopeVerification?.passed) {
+      throw new Error('Synthetic search-scope regression failed: ' + JSON.stringify(searchScopeVerification));
+    }
+  }
   return {
     browser_version: browserVersion,
     library_slides: expectedSlides,
@@ -241,8 +302,13 @@ async function browserExperiment() {
     sidebar_rows_final: deckRows,
     live_dom_nodes: liveDomNodes,
     sidebar_verification: sidebarVerification,
+    search_scope_verification: searchScopeVerification,
     dom_nodes: cdpMetrics.Nodes ?? null,
     js_heap_used_mb: cdpMetrics.JSHeapUsedSize == null ? null : Math.round(cdpMetrics.JSHeapUsedSize / 1048576 * 100) / 100,
+    memory_profile: profileMemory ? {
+      initial_retained_heap_mb: initialRetainedHeapMB,
+      post_search_retained_heap_mb: postSearchRetainedHeapMB,
+    } : null,
     cdp_metrics: cdpMetrics,
     browser_report: report,
     scripted_actions: {searches: repetitions, sort_changes: 4, page_changes: 1, modal_openings: 1},

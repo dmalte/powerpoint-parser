@@ -1,4 +1,4 @@
-"""M009: Markdown section snippets, local HTML safety, mixed incremental archive."""
+"""M012: first-page US Letter Markdown images, secure full-text indexing and recovery."""
 from __future__ import annotations
 
 import json
@@ -16,7 +16,8 @@ from ppt_visual_archive.builder import viewer_is_current
 from ppt_visual_archive.config import default_config, load_config, save_config
 from ppt_visual_archive.index_db import IndexDB
 from ppt_visual_archive.markdown_processor import (
-    MAX_SOURCE_BYTES, _parser, render_markdown_snippets, split_markdown,
+    LETTER_PREVIEW_PIXELS, LETTER_THUMB_PIXELS, MAX_SOURCE_BYTES,
+    _parser, render_markdown_snippets,
 )
 from ppt_visual_archive.pipeline import run_scan
 from ppt_visual_archive.server import create_server
@@ -46,33 +47,47 @@ def _data(config):
     return json.loads((Path(config.output_dir) / "data/export.json").read_text())
 
 
-def test_markdown_split_respects_frontmatter_nested_headings_and_code_fences():
+def test_one_letter_page_ignores_all_heading_boundaries_and_frontmatter(tmp_path):
     tick = chr(96)
-    document = (
-        "---\ntags: [internal]\n---\n"
-        "Intro paragraph.\n\n# Overview\n"
+    source = tmp_path / "notes.md"
+    source.write_text(
+        "---\ntags: [internal]\n---\nIntro paragraph.\n\n# Overview\n"
         "Normal text.\n" + tick * 3 + "markdown\n# Not a heading\n" + tick * 3
         + "\n\n## Details\nA paragraph.\n\n"
         + "~~~python\n## Also not a heading\n~~~\n"
-        + "\n### Third\nMore text."
+        + "\n### Third\nMore text.", encoding="utf-8"
     )
-    sections = split_markdown(document, "notes")
-    assert [x[0] for x in sections] == ["notes", "Overview", "Details", "Third"]
-    assert "tags:" not in "".join(fragment for _, fragment in sections)
-    assert "# Not a heading" in sections[1][1]
-    assert "## Also not a heading" in sections[2][1]
+    rendered = render_markdown_snippets(source, tmp_path / "out")
+    assert len(rendered) == 1
+    record = rendered[0]
+    assert record["slide_number"] == 1 and record["title"] == "notes"
+    for value in ("Intro paragraph", "Overview", "Not a heading", "Details", "Third"):
+        assert value in record["extracted_text"]
+    assert "tags:" not in record["extracted_text"]
+    assert record["width"] == 816 and record["height"] == 1056
+    with Image.open(tmp_path / "out" / record["preview_path"]) as page:
+        assert page.size == LETTER_PREVIEW_PIXELS and page.format == "JPEG"
+    with Image.open(tmp_path / "out" / record["thumb_path"]) as thumb:
+        assert thumb.size == LETTER_THUMB_PIXELS and thumb.format == "JPEG"
 
 
-def test_unheaded_long_markdown_gets_bounded_paragraph_snippets():
-    document = "\n\n".join(("Paragraph " + str(i) + " " + "readable " * 30) for i in range(30))
-    sections = split_markdown(document, "long-note")
-    assert len(sections) > 1
-    assert sections[0][0] == "long-note"
-    assert sections[1][0].startswith("long-note (part 2)")
-    assert "".join(text for _, text in sections).replace("\n", "").replace(" ", "") == document.replace("\n", "").replace(" ", "")
+def test_long_markdown_has_one_page_but_full_document_is_searchable(tmp_path):
+    source = tmp_path / "long-note.md"
+    beginning = "\n\n".join("First-page paragraph with normal words. " * 25 for _ in range(45))
+    source.write_text(beginning, encoding="utf-8")
+    first = render_markdown_snippets(source, tmp_path / "before")[0]
+    # This extra paragraph is far beyond the Letter page; it remains indexed
+    # but cannot change the actual pixels laid out on the first page.
+    source.write_text(beginning + "\n\n## Very late section\nLATE_DOCUMENT_SEARCH_SENTINEL", encoding="utf-8")
+    second = render_markdown_snippets(source, tmp_path / "after")[0]
+    assert "LATE_DOCUMENT_SEARCH_SENTINEL" in second["extracted_text"]
+    assert len([p for p in (tmp_path / "after").glob("preview*.jpg")]) == 1
+    with Image.open(tmp_path / "before" / first["preview_path"]) as one, Image.open(tmp_path / "after" / second["preview_path"]) as two:
+        assert one.size == two.size == LETTER_PREVIEW_PIXELS
+        assert one.tobytes() == two.tobytes()  # only first Letter page visible
 
 
-def test_markdown_output_renders_tables_code_and_escapes_active_content(tmp_path):
+def test_letter_page_renders_rich_markdown_without_active_html(tmp_path):
     source = tmp_path / "Untrusted Notes.md"
     tick = chr(96)
     original = (
@@ -87,21 +102,19 @@ def test_markdown_output_renders_tables_code_and_escapes_active_content(tmp_path
     source.write_text(original, encoding="utf-8")
     before = source.read_bytes()
     records = render_markdown_snippets(source, tmp_path / "generated")
-    assert source.read_bytes() == before
-    assert len(records) == 1
-    rec = records[0]
-    page = (tmp_path / "generated" / rec["preview_path"]).read_text(encoding="utf-8")
-    assert "<table>" in page and "<strong>value</strong>" in page and "<em>emphasis</em>" in page
-    assert "<pre>" in page and "safe code" in page
-    assert "<script>" not in page and "<img " not in page and "<iframe" not in page
-    assert "<a " not in page and "https://bad.example" not in page
-    assert "&lt;script&gt;" in page and "Image: remote image" in page
-    assert "default-src &#x27;none&#x27;" in page or "default-src 'none'" in page
-    assert "lang" in page
-    assert "Security &amp; Data" in page
-    assert "Rate" in rec["extracted_text"]
-    with Image.open(tmp_path / "generated" / rec["thumb_path"]) as image:
-        assert image.size == (640, 400) and image.format == "JPEG"
+    assert source.read_bytes() == before and len(records) == 1
+    record = records[0]
+    assert "Security & Data" in record["extracted_text"]
+    assert "Rate" in record["extracted_text"] and "value" in record["extracted_text"]
+    assert "safe code" in record["extracted_text"]
+    assert "title: private" not in record["extracted_text"]
+    assert record["preview_path"].endswith(".jpg")
+    assert not list((tmp_path / "generated").glob("*.html"))
+    assert not list((tmp_path / "generated").glob("local_image_*"))
+    with Image.open(tmp_path / "generated" / record["preview_path"]) as page:
+        page.verify()
+    with Image.open(tmp_path / "generated" / record["thumb_path"]) as image:
+        assert image.size == LETTER_THUMB_PIXELS and image.format == "JPEG"
 
 
 def test_commonmark_heading_and_table_parser_is_available():
@@ -124,13 +137,14 @@ def test_markdown_incremental_index_and_browsable_viewer(tmp_path):
 
     deck = _data(config)
     assert deck["stats"]["deck_count"] == 1
-    assert deck["stats"]["slide_count"] == 2
-    titles = {slide["title"] for slide in deck["slides"]}
-    assert titles == {"Heading One", "Heading Two"}
-    assert any("Second bold sentence" in slide["body"] for slide in deck["slides"])
+    assert deck["stats"]["slide_count"] == 1
+    assert len(deck["slides"]) == 1
+    assert deck["slides"][0]["title"] == "my note"
+    assert "Heading One" in deck["slides"][0]["body"]
+    assert "Second bold sentence" in deck["slides"][0]["body"]
     assets = Path(config.output_dir)
     for slide in deck["slides"]:
-        assert slide["preview"].endswith(".html")
+        assert slide["preview"].endswith(".jpg")
         assert slide["thumb"].endswith(".jpg")
         assert (assets / slide["preview"]).is_file()
         assert (assets / slide["thumb"]).is_file()
@@ -154,11 +168,100 @@ def test_markdown_updates_publish_new_generation_and_preserve_prior_browsing(tmp
     updated = refresh_archive(config)
     assert updated["changed"] == 1 and updated["processed_ok"] == 1
     slides = _data(config)["slides"]
-    assert len(slides) == 2
-    assert all(slide["preview"] != previous["preview"] for slide in slides)
+    assert len(slides) == 1
+    assert slides[0]["preview"] != previous["preview"]
+    assert "New section" in slides[0]["body"]
     assert prior_html.read_bytes() == original_bytes
     assert prior_thumb.is_file()
     assert viewer_is_current(config)
+
+
+def test_markdown_signature_migration_replaces_legacy_sections_incrementally(tmp_path):
+    config, root = _config(tmp_path, types=["pdf", "md"])
+    document = root / "legacy.md"
+    document.write_text("# Old heading\n\nOne.\n\n## Old second heading\n\nTwo.")
+    _pdf(root / "unchanged.pdf")
+    first = refresh_archive(config)
+    assert first["processed_ok"] == 2
+    export = _data(config)
+    old_md = next(row for row in export["decks"] if row["file_name"] == "legacy.md")
+    assert old_md["slide_count"] == 1
+    old_image = next(s for s in export["slides"] if s["deck_id"] == old_md["id"])
+    old_preview = Path(config.output_dir) / old_image["preview"]
+    original_bytes = old_preview.read_bytes()
+    source_bytes = document.read_bytes()
+
+    # Simulate a two-section legacy index. The next successful refresh must
+    # replace both old rows with one, not leave orphan heading snippets.
+    from ppt_visual_archive.models import Slide
+    db = IndexDB(config.db_path)
+    try:
+        deck = next(d for d in db.get_all_active_decks() if d.deck_id == old_md["id"])
+        assert deck.file_signature.endswith("|markdown-letter-page-v1")
+        deck.file_signature = deck.file_signature.replace(
+            "|markdown-letter-page-v1", "|markdown-local-images-v1"
+        )
+        deck.slide_count = 2
+        original = next(s for s in db.get_all_slides() if s.deck_id == deck.deck_id)
+        additional = Slide(
+            slide_id=deck.deck_id + "_s002", deck_id=deck.deck_id,
+            slide_number=2, title="Legacy second section", body_text="Two",
+            extracted_text="Old second heading Two", thumb_path=original.thumb_path,
+            preview_path=original.preview_path,
+        )
+        db.replace_deck_and_slides(deck, [original, additional])
+        assert len([s for s in db.get_all_slides() if s.deck_id == deck.deck_id]) == 2
+    finally:
+        db.close()
+    updated = refresh_archive(config)
+    assert updated["processed_ok"] == 1 and updated["changed"] == 1
+    assert updated["unchanged"] == 1  # PDF never re-rendered
+    assert _data(config)["stats"]["slide_count"] == 2
+    new_image = next(s for s in _data(config)["slides"] if s["deck_id"] == old_md["id"])
+    assert new_image["preview"] != old_image["preview"]
+    assert old_preview.read_bytes() == original_bytes
+    assert document.read_bytes() == source_bytes
+    assert refresh_archive(config)["viewer_rebuilt"] is False
+
+
+def test_full_document_text_after_first_page_is_indexed_in_sqlite(tmp_path):
+    cfg, root = _config(tmp_path)
+    (root / "long.md").write_text(
+        "# Letter document\n\n" + ("A lot of words " * 80 + "\n\n") * 40
+        + "## Later heading\n\nSEARCHABLE_BEYOND_FIRST_PAGE"
+    )
+    assert refresh_archive(cfg)["processed_ok"] == 1
+    assert _data(cfg)["stats"]["slide_count"] == 1
+    with_db = IndexDB(cfg.db_path)
+    try:
+        matched = with_db.search_slides("SEARCHABLE_BEYOND_FIRST_PAGE")
+        assert len(matched) == 1
+        assert "Later heading" in matched[0].extracted_text
+    finally:
+        with_db.close()
+
+
+def test_legacy_html_asset_remains_browseable_with_inert_csp(tmp_path):
+    from ppt_visual_archive.server import create_server
+    archive = tmp_path / "archive"
+    old = archive / "assets/decks/legacy/v-old/preview_001.html"
+    old.parent.mkdir(parents=True)
+    old.write_text("<h1>Legacy heading</h1><p>Old archived preview</p>")
+    server = create_server(str(archive), 0)
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.server_port}/assets/decks/legacy/v-old/preview_001.html", timeout=3
+        ) as response:
+            assert response.status == 200
+            assert "Legacy heading" in response.read().decode()
+            assert "script-src 'none'" in response.headers["Content-Security-Policy"]
+            assert response.headers["X-Content-Type-Options"] == "nosniff"
+    finally:
+        server.shutdown()
+        server.server_close()
+        worker.join(timeout=2)
 
 
 def test_corrupt_markdown_change_preserves_previous_db_and_assets(tmp_path):
@@ -177,7 +280,7 @@ def test_corrupt_markdown_change_preserves_previous_db_and_assets(tmp_path):
     assert viewer_is_current(config)
     db = IndexDB(config.db_path)
     try:
-        assert db.get_all_slides()[0].title == "Valid"
+        assert db.get_all_slides()[0].title == "draft"
     finally:
         db.close()
 
@@ -222,27 +325,27 @@ def test_markdown_can_pause_between_files_and_resume_safely(tmp_path):
     assert _data(config)["stats"]["deck_count"] == 2
 
 
-def test_http_html_preview_csp_and_jpeg_asset(tmp_path):
+def test_http_letter_jpeg_preview_and_thumbnail_have_inert_image_mime(tmp_path):
     config, root = _config(tmp_path)
-    (root / "view.md").write_text("# Preview\n\nA safe section", encoding="utf-8")
+    (root / "view.md").write_text("# Preview\n\nA safe page", encoding="utf-8")
     refresh_archive(config)
     server = create_server(config.output_dir, 0)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     base = f"http://127.0.0.1:{server.server_port}"
     try:
-        with urllib.request.urlopen(base + "/data/export.json", timeout=3) as resp:
-            data = json.load(resp)
+        with urllib.request.urlopen(base + "/data/export.json", timeout=3) as response:
+            data = json.load(response)
+        assert len(data["slides"]) == 1
         snippet = data["slides"][0]
-        with urllib.request.urlopen(base + "/" + snippet["preview"], timeout=3) as resp:
-            page = resp.read().decode()
-            assert resp.status == 200
-            assert "default-src 'none'" in resp.headers.get("Content-Security-Policy", "")
-            assert resp.headers.get("X-Content-Type-Options") == "nosniff"
-            assert "<h1>Preview</h1>" in page
-        with urllib.request.urlopen(base + "/" + snippet["thumb"], timeout=3) as resp:
-            assert resp.headers.get("Content-Type") == "image/jpeg"
-            assert len(resp.read()) > 100
+        for field, expected in (("preview", LETTER_PREVIEW_PIXELS), ("thumb", LETTER_THUMB_PIXELS)):
+            with urllib.request.urlopen(base + "/" + snippet[field], timeout=3) as response:
+                assert response.status == 200
+                assert response.headers["Content-Type"] == "image/jpeg"
+                assert response.headers["X-Content-Type-Options"] == "nosniff"
+                assert response.read(3) == b"\xff\xd8\xff"
+            with Image.open(Path(config.output_dir) / snippet[field]) as image:
+                assert image.size == expected
     finally:
         server.shutdown()
         server.server_close()
@@ -267,16 +370,18 @@ def test_settings_can_enable_markdown_without_unpausing(tmp_path):
     assert saved.file_types == ["pdf", "md"]
 
 
-def test_frontend_has_html_iframe_filter_and_settings_checkbox():
+def test_frontend_keeps_legacy_html_but_new_markdown_uses_letter_image():
     web = Path(__file__).resolve().parents[1] / "web"
     app = (web / "static/js/app.js").read_text()
     index = (web / "templates/index.html.j2").read_text()
     settings = (web / "templates/settings.html.j2").read_text()
+    css = (web / "static/css/style.css").read_text()
     js = (web / "static/js/settings.js").read_text()
     assert 'id="modal-markdown"' in index and 'sandbox="allow-same-origin"' in index
     assert 'allow-scripts' not in index and 'allow-top-navigation' not in index
-    assert 'data-filetype="md"' in index
-    assert 'id="type-md"' in settings
+    assert 'data-filetype="md"' in index and 'id="type-md"' in settings
     assert "type-md" in js and "fileTypes.push('md')" in js
-    assert 'markdownFrame.src = slide.preview' in app
-    assert 'markdownFrame.hidden = true' in app
+    assert 'isLegacyMarkdownHtml' in app and 'markdownFrame.src = slide.preview' in app
+    assert 'preview.src = slide.preview || slide.thumb || ""' in app
+    assert '"1 of 1 (US Letter)"' in app
+    assert '.slide-card.slide-card-letter img' in css

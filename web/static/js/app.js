@@ -266,6 +266,11 @@
 
   /* ═══════════════ FILTERING ═══════════════ */
   function normalizeData() {
+    // Default scopes are all enabled. Build one shared-by-scope search string
+    // per slide up front so the first search stays fast without a second
+    // separately retained lowercase copy of the full document body.
+    const initialScopes = activeSearchScopeKey().split("|").filter(Boolean);
+    const initialScopeKey = initialScopes.join("|");
     DATA.decks.forEach(deck => {
       const name = deck.file_name || "";
       deck._fileType = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
@@ -275,6 +280,11 @@
     });
 
     DATA.slides.forEach((slide, sourceIndex) => {
+      // The grid uses subtitle/body/extra before the fallback `text`. When
+      // body is present, point the unused `text` slot at the *same* string
+      // rather than retaining another near-duplicate extracted-text value.
+      // The serialized export.json remains fully backward-compatible.
+      if (slide.body) slide.text = slide.body;
       const deck = deckMap[slide.deck_id];
       slide._sourceIndex = sourceIndex;
       slide._searchFields = {
@@ -282,12 +292,15 @@
         folder: deck?._searchFolder || "",
         title: (slide.title || "").toLowerCase(),
         subtitle: (slide.subtitle || "").toLowerCase(),
-        body: (slide.body || "").toLowerCase(),
+        // Do not retain a second full lowercase body: searchBlob() will
+        // lowercase it only when the selected search scopes include body.
         extra: (slide.extra || "").toLowerCase(),
         notes: (slide.notes || "").toLowerCase(),
       };
-      slide._searchCacheKey = "";
-      slide._searchBlob = "";
+      slide._searchCacheKey = initialScopeKey;
+      slide._searchBlob = initialScopes.map(scope =>
+        scope === "body" ? (slide.body || "").toLowerCase() : (slide._searchFields[scope] || "")
+      ).join(" ");
     });
   }
 
@@ -301,7 +314,9 @@
   function searchBlob(slide, scopeKey) {
     if (slide._searchCacheKey !== scopeKey) {
       const fields = slide._searchFields || {};
-      slide._searchBlob = scopeKey.split("|").filter(Boolean).map(scope => fields[scope] || "").join(" ");
+      slide._searchBlob = scopeKey.split("|").filter(Boolean).map(scope =>
+        scope === "body" ? (slide.body || "").toLowerCase() : (fields[scope] || "")
+      ).join(" ");
       slide._searchCacheKey = scopeKey;
     }
     return slide._searchBlob;
@@ -709,6 +724,9 @@
     const card = document.createElement("div");
     card.className = "slide-card";
     if (isStarred(slide.id)) card.classList.add("slide-card-starred");
+    if (deck?._fileType === "md" && !String(slide.preview || "").toLowerCase().endsWith(".html")) {
+      card.classList.add("slide-card-letter");
+    }
     card.addEventListener("click", () => openModal(globalIdx));
 
     const actions = document.createElement("div");
@@ -926,7 +944,10 @@
     const preview = document.getElementById("modal-image");
     const markdownFrame = document.getElementById("modal-markdown");
     const isMarkdown = deck?._fileType === "md";
-    if (isMarkdown) {
+    // Keep previously indexed section-HTML previews usable until incremental
+    // Markdown-only reprocessing replaces them with one Letter-page JPEG.
+    const isLegacyMarkdownHtml = isMarkdown && String(slide.preview || "").toLowerCase().endsWith(".html");
+    if (isLegacyMarkdownHtml) {
       preview.hidden = true;
       preview.removeAttribute("src");
       markdownFrame.hidden = false;
@@ -944,7 +965,10 @@
     }
     document.getElementById("modal-title").textContent = slide.title || `Slide ${slide.num}`;
     document.getElementById("modal-deck").textContent = deck?.file_name || "";
-    document.getElementById("modal-slide-num").textContent = (isMarkdown ? "Section " : "Slide ") + slide.num + " of " + (deck?.slide_count || "?");
+    document.getElementById("modal-number-label").textContent = isMarkdown ? "Page" : "Slide #";
+    document.getElementById("modal-slide-num").textContent = isMarkdown
+      ? (isLegacyMarkdownHtml ? "Legacy section " + slide.num + " of " + (deck?.slide_count || "?") : "1 of 1 (US Letter)")
+      : "Slide " + slide.num + " of " + (deck?.slide_count || "?");
     document.getElementById("modal-folder").textContent = deck?.folder_path || "";
     document.getElementById("modal-date").textContent = deck ? formatDate(deck.modified_date) : "";
     document.getElementById("modal-size").textContent = deck ? formatSize(deck.file_size) : "";

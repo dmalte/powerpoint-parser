@@ -1,69 +1,56 @@
-"""Safe, offline HTML snippets and JPEG cards for local Markdown documents.
+"""Safe, one-page US Letter JPEG previews for local Markdown documents.
 
-Markdown is parsed as CommonMark with raw HTML disabled. The generated HTML
-has no executable content, remote resource loading or active links and is
-displayed inside a sandboxed iframe by the viewer. Source files never change.
+CommonMark is parsed with raw HTML/active links disabled, and only explicitly
+allowed, sanitized local images can enter the page layout. One physical Letter
+page is rasterized; the entire document remains searchable. Sources are read-only.
 """
 from __future__ import annotations
 
 import html
+import io
 import re
-import textwrap
 import warnings
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, unquote, urlsplit
 
 from markdown_it import MarkdownIt
-from PIL import Image, ImageDraw, ImageFont, ImageOps, UnidentifiedImageError
+import fitz
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 MAX_SOURCE_BYTES = 16 * 1024 * 1024
-MAX_SNIPPETS = 512
-TARGET_SECTION_CHARS = 3600
-_CARD_SIZE = (640, 400)
+# The PDF/Story layout uses physical points. At 96 dpi the preview is an
+# 816 × 1056 px portrait US Letter image, never a multi-page output.
+LETTER_WIDTH_PT = 612
+LETTER_HEIGHT_PT = 792
+LETTER_PREVIEW_PIXELS = (816, 1056)
+LETTER_THUMB_PIXELS = (408, 528)
+LETTER_MARGIN_PT = 45
 MAX_LOCAL_IMAGES = 48
 MAX_LOCAL_IMAGE_BYTES = 12 * 1024 * 1024
 MAX_TOTAL_IMAGE_BYTES = 64 * 1024 * 1024
 MAX_IMAGE_PIXELS = 16_000_000
 _SAFE_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 _SAFE_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP", "GIF"}
-_BLOCK_START = {
-    "paragraph_open", "heading_open", "fence", "code_block", "blockquote_open",
-    "bullet_list_open", "ordered_list_open", "table_open", "html_block", "hr",
-}
 
-_CSP = (
-    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; "
-    "font-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; "
-    "connect-src 'none'; script-src 'none'; form-action 'none'; base-uri 'none'"
-)
-
-_STYLE = """
-:root{color-scheme:light}
-*{box-sizing:border-box}
-body{font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:#242936;background:#fff;margin:0;padding:28px 34px;overflow-wrap:anywhere}
-main{max-width:880px;margin:auto}
-h1,h2,h3,h4{color:#1e293b;line-height:1.25;margin:1.1em 0 .55em}
-h1{font-size:1.65em;border-bottom:1px solid #dfe4ed;padding-bottom:.35em}
-h2{font-size:1.37em}
-p,ul,ol,blockquote,table,pre{margin:0 0 1.05em}
-ul,ol{padding-left:1.65em}
-blockquote{padding:.25em 1em;border-left:4px solid #cbd5e1;color:#465469;background:#f8fafc}
-pre{background:#f2f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:14px;
-  overflow-x:auto;white-space:pre-wrap}
-code{font:0.89em/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:#f2f5f9;
-  padding:1px 4px;border-radius:3px}
-pre code{padding:0;background:transparent}
-table{border-collapse:collapse;width:100%;font-size:.92em}
-th,td{border:1px solid #dce3ed;padding:7px 10px;text-align:left}
+# Only fixed author-controlled CSS is passed to PyMuPDF Story. Image sources
+# in rendered HTML are exclusively generated file basenames from _LocalImageAssets.
+_LETTER_CSS = """
+body{font-family:sans-serif;font-size:11pt;line-height:1.35;color:#253046}
+h1,h2,h3,h4,h5,h6{color:#1e293b;line-height:1.18;margin:11pt 0 6pt}
+h1{font-size:19pt} h2{font-size:16pt} h3{font-size:13pt}
+p,ul,ol,blockquote,table,pre{margin:0 0 9pt}
+ul,ol{padding-left:18pt}
+blockquote{margin-left:8pt;padding-left:10pt;border-left:2pt solid #cbd5e1}
+pre{font-family:monospace;font-size:9pt;white-space:pre-wrap;padding:6pt;background:#f3f6fa}
+code{font-family:monospace;font-size:9pt}
+table{border-collapse:collapse;width:100%;font-size:9.5pt}
+th,td{border:0.6pt solid #dce3ed;padding:4pt;text-align:left}
 th{background:#f1f5f9}
-hr{border:0;border-top:1px solid #dce3ed;margin:1.4em 0}
-.md-image-placeholder{display:inline-block;color:#526276;background:#edf2f7;border-radius:6px;padding:4px 8px}
-.md-local-image{display:block;max-width:100%;height:auto;margin:12px auto;border-radius:6px}
-.md-link{color:#24639b;text-decoration:underline}
-.meta{font-size:.8em;color:#64748b;text-transform:uppercase;letter-spacing:.08em}
+.md-local-image{display:block;max-width:100%;max-height:245pt;width:auto;height:auto;margin:8pt 0}
+.md-image-placeholder{color:#64748b;background:#f1f5f9}
+.md-link{color:#28557f}
 """
 
 def _parser() -> MarkdownIt:
@@ -121,118 +108,46 @@ def _remove_yaml_frontmatter(source: str) -> str:
     return source
 
 
-def _section_starts(parser: MarkdownIt, lines: list[str]) -> list[tuple[int, str]]:
-    joined = "".join(lines)
-    headings: list[tuple[int, str]] = []
-    tokens = parser.parse(joined)
-    for index, token in enumerate(tokens):
-        if token.type != "heading_open" or not token.map or token.tag not in {"h1", "h2", "h3", "h4"}:
-            continue
-        inline = tokens[index + 1] if index + 1 < len(tokens) else None
-        heading = _text_from_html(parser.render(inline.content)) if inline else ""
-        headings.append((token.map[0], heading or "Untitled section"))
-    return headings
+def _render_letter_page(fragment: str, output_dir: Path, preview_path: Path, thumb_path: Path) -> None:
+    """Lay out *only* page one, then derive both JPEGs from identical pixels.
 
-
-def _chunk_section(parser: MarkdownIt, content: str, max_chars: int) -> list[str]:
-    if len(content) <= max_chars:
-        return [content]
-    lines = content.splitlines(keepends=True)
-    cuts = {0, len(lines)}
-    for token in parser.parse(content):
-        if token.level == 0 and token.map and token.type in _BLOCK_START:
-            cuts.add(token.map[0])
-    boundaries = sorted(cuts)
-    blocks = ["".join(lines[a:b]) for a, b in zip(boundaries, boundaries[1:]) if a < b]
-    groups: list[str] = []
-    current = ""
-    for block in blocks:
-        if current and len(current) + len(block) > max_chars:
-            groups.append(current)
-            current = ""
-        current += block
-    if current.strip():
-        groups.append(current)
-    return groups or [content]
-
-
-def split_markdown(source: str, file_stem: str) -> list[tuple[str, str]]:
-    """Return section titles and Markdown content, preserving source ordering.
-
-    Headings within fenced code do not split a document. A long section can
-    produce multiple snippets, but a code fence/table is never cut in half.
+    Unlike a character/heading budget, Story.place() obeys actual image sizes,
+    line wrapping and block height. Content beyond the first Letter page is not
+    drawn or rasterized, even though it remains indexed for text search.
     """
-    parser = _parser()
-    without_frontmatter = _remove_yaml_frontmatter(source)
-    lines = without_frontmatter.splitlines(keepends=True)
-    if not lines or not without_frontmatter.strip():
-        return [((file_stem or "Untitled note"), "")]
-    starts = _section_starts(parser, lines)
-    sections: list[tuple[str, str]] = []
-    if not starts:
-        sections.append((file_stem or "Untitled note", without_frontmatter))
-    else:
-        if starts[0][0] > 0 and "".join(lines[:starts[0][0]]).strip():
-            sections.append((file_stem or "Introduction", "".join(lines[:starts[0][0]])))
-        for index, (first, title) in enumerate(starts):
-            last = starts[index + 1][0] if index + 1 < len(starts) else len(lines)
-            sections.append((title, "".join(lines[first:last])))
-    result: list[tuple[str, str]] = []
-    for title, segment in sections:
-        for i, block in enumerate(_chunk_section(parser, segment, TARGET_SECTION_CHARS)):
-            result.append((title if i == 0 else title + f" (part {i + 1})", block))
-            if len(result) > MAX_SNIPPETS:
-                raise ValueError("Markdown file contains too many snippet sections")
-    return result or [(file_stem or "Untitled note", "")]
-
-
-def _font(size: int, bold: bool = False) -> ImageFont.ImageFont:
-    candidates = (
-        ["DejaVuSans-Bold.ttf", "Arial Bold.ttf", "Helvetica-Bold.ttf"]
-        if bold else
-        ["DejaVuSans.ttf", "Arial.ttf", "Helvetica.ttf"]
+    buffer = io.BytesIO()
+    story = fitz.Story(
+        html=fragment, user_css=_LETTER_CSS, em=11,
+        archive=fitz.Archive(str(output_dir)),
     )
-    for candidate in candidates:
-        try:
-            return ImageFont.truetype(candidate, size=size)
-        except OSError:
-            pass
+    writer = fitz.DocumentWriter(buffer)
     try:
-        return ImageFont.load_default(size=size)
-    except TypeError:
-        return ImageFont.load_default()
-
-
-def _thumbnail(
-    path: Path, title: str, excerpt: str, number: int,
-    first_image: Path | None = None,
-) -> None:
-    image = Image.new("RGB", _CARD_SIZE, (255, 255, 255))
-    draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((18, 18, 622, 382), radius=16, fill=(249, 250, 253), outline=(218, 226, 239), width=2)
-    draw.rounded_rectangle((38, 37, 165, 69), radius=12, fill=(229, 239, 250))
-    draw.text((53, 41), "MARKDOWN", fill=(37, 87, 135), font=_font(16, True))
-    draw.text((536, 42), f"#{number}", fill=(110, 123, 140), font=_font(17))
-    y = 90
-    title_font = _font(31, True)
-    for line in textwrap.wrap(title or "Untitled note", width=33, break_long_words=True)[:3]:
-        draw.text((42, y), line, fill=(35, 48, 69), font=title_font)
-        y += 39
-    y = max(y + 10, 190)
-    draw.line((42, y, 596, y), fill=(215, 223, 235), width=2)
-    y += 20
-    body_font = _font(20)
-    for line in textwrap.wrap(excerpt or "Empty section", width=57, break_long_words=True)[:6]:
-        if y + 26 > 355:
-            break
-        draw.text((43, y), line, fill=(86, 98, 118), font=body_font)
-        y += 27
-    if first_image is not None and first_image.is_file():
-        with Image.open(first_image) as picture:
-            picture = picture.convert("RGB")
-            picture.thumbnail((238, 148), Image.Resampling.LANCZOS)
-            image.paste(picture, (596 - picture.width, 355 - picture.height))
-    image.save(path, format="JPEG", quality=86, optimize=True)
+        device = writer.begin_page(fitz.Rect(0, 0, LETTER_WIDTH_PT, LETTER_HEIGHT_PT))
+        story.place(fitz.Rect(
+            LETTER_MARGIN_PT, LETTER_MARGIN_PT,
+            LETTER_WIDTH_PT - LETTER_MARGIN_PT,
+            LETTER_HEIGHT_PT - LETTER_MARGIN_PT,
+        ))
+        story.draw(device)
+        writer.end_page()
+    finally:
+        writer.close()
+    # The in-memory PDF never becomes an exported asset. Only the first page is
+    # opened, even if the source contains enough content for hundreds of pages.
+    with fitz.open(stream=buffer.getvalue(), filetype="pdf") as document:
+        pixels = document[0].get_pixmap(
+            matrix=fitz.Matrix(4 / 3, 4 / 3), colorspace=fitz.csRGB,
+            alpha=False,
+        )
+        with Image.frombytes("RGB", (pixels.width, pixels.height), pixels.samples) as first:
+            if first.size != LETTER_PREVIEW_PIXELS:
+                raise RuntimeError("Letter preview dimensions differ from physical page geometry")
+            first.save(preview_path, format="JPEG", quality=87, optimize=True)
+            thumbnail = first.resize(LETTER_THUMB_PIXELS, Image.Resampling.LANCZOS)
+            try:
+                thumbnail.save(thumb_path, format="JPEG", quality=86, optimize=True)
+            finally:
+                thumbnail.close()
 
 
 # Obsidian image embeds are only a syntax convenience here. The file resolver
@@ -283,7 +198,6 @@ class _LocalImageAssets:
             (parent for parent in self.source.parents if (parent / ".obsidian").is_dir()),
             None,
         )
-        self.first_in_section: Path | None = None
         self.total_bytes = 0
 
     def _resolve(self, raw: str) -> Path | None:
@@ -314,10 +228,7 @@ class _LocalImageAssets:
         if candidate is None:
             return None
         if candidate in self.cached:
-            cached = self.cached[candidate]
-            if self.first_in_section is None:
-                self.first_in_section = self.output / cached
-            return cached
+            return self.cached[candidate]
         if len(self.cached) >= MAX_LOCAL_IMAGES:
             return None
         try:
@@ -347,8 +258,6 @@ class _LocalImageAssets:
             else:
                 image.convert("RGB").save(output_file, format="JPEG", quality=88, optimize=True)
             self.cached[candidate] = output_name
-            if self.first_in_section is None:
-                self.first_in_section = output_file
             return output_name
         except (OSError, ValueError, SyntaxError, UnidentifiedImageError, Image.DecompressionBombError):
             return None
@@ -358,42 +267,40 @@ def render_markdown_snippets(
     source: str | Path, output_dir: str | Path,
     *, allowed_roots: list[str | Path] | None = None,
 ) -> list[dict]:
-    """Render each Markdown section to a JPEG card and restricted local HTML."""
+    """Generate exactly one physical Letter preview for the first page of a note.
+
+    The existing pipeline method name is retained for source compatibility.
+    Full-document text goes into SQLite search; only page-one pixels enter the
+    JPEG preview/thumbnail. Existing HTML previews stay browseable in the UI.
+    """
     source = Path(source)
     if source.stat().st_size > MAX_SOURCE_BYTES:
         raise ValueError("Markdown file exceeds the configured safety limit")
-    text = _normalize_image_embeds(source.read_text(encoding="utf-8-sig"))
+    content = _remove_yaml_frontmatter(source.read_text(encoding="utf-8-sig"))
+    content = _normalize_image_embeds(content)
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     parser = _parser()
     images = _LocalImageAssets(source, out, allowed_roots)
-    result = []
-    for number, (title, markdown_section) in enumerate(split_markdown(text, source.stem), 1):
-        images.first_in_section = None
-        body_html = parser.render(markdown_section, {"local_image_resolver": images})
-        text_value = _text_from_html(body_html)
-        preview_name = f"preview_{number:03d}.html"
-        thumb_name = f"thumb_{number:03d}.jpg"
-        page = (
-            "<!DOCTYPE html><html lang=\"en\"><head>"
-            "<meta charset=\"UTF-8\">"
-            '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            '<meta http-equiv="Content-Security-Policy" content="' + html.escape(_CSP, quote=True) + '">'
-            "<title>" + html.escape(title, quote=True) + "</title>"
-            "<style>" + _STYLE + "</style></head><body><main>"
-            '<div class="meta">Markdown section ' + str(number) + "</div>"
-            + body_html + "</main></body></html>"
-        )
-        (out / preview_name).write_text(page, encoding="utf-8")
-        _thumbnail(out / thumb_name, title, text_value, number, images.first_in_section)
-        result.append({
-            "slide_number": number,
-            "title": title,
-            "body_text": text_value,
-            "extracted_text": text_value,
-            "thumb_path": thumb_name,
-            "preview_path": preview_name,
-            "width": _CARD_SIZE[0],
-            "height": _CARD_SIZE[1],
-        })
-    return result
+    # No heading splitting. HTML is transient and rendered only by the trusted
+    # local Story layout engine, never served to the browser.
+    page_html = parser.render(content, {"local_image_resolver": images})
+    full_text = _text_from_html(page_html)
+    preview_name, thumb_name = "preview_001.jpg", "thumb_001.jpg"
+    try:
+        _render_letter_page(page_html, out, out / preview_name, out / thumb_name)
+    finally:
+        # The first-page raster embeds every visible image; temporary sanitized
+        # input assets are not needed in the final immutable generation.
+        for filename in images.cached.values():
+            (out / filename).unlink(missing_ok=True)
+    return [{
+        "slide_number": 1,
+        "title": source.stem or "Untitled note",
+        "body_text": full_text,
+        "extracted_text": full_text,
+        "thumb_path": thumb_name,
+        "preview_path": preview_name,
+        "width": LETTER_PREVIEW_PIXELS[0],
+        "height": LETTER_PREVIEW_PIXELS[1],
+    }]

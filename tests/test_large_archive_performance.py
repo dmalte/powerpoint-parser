@@ -22,6 +22,16 @@ def test_grid_render_is_bounded_and_avoids_quadratic_index_lookup():
     assert "pageSlides = slides.slice" in source
 
 
+def test_memory_optimized_search_retains_full_scope_semantics_and_text_fallback():
+    source = (ROOT / "web/static/js/app.js").read_text(encoding="utf-8")
+    assert "if (slide.body) slide.text = slide.body;" in source
+    assert "slide.subtitle || slide.body || slide.extra || slide.text" in source
+    assert "const initialScopes = activeSearchScopeKey()" in source
+    assert "slide._searchCacheKey = initialScopeKey;" in source
+    assert 'scope === "body" ? (slide.body || "").toLowerCase()' in source
+    assert 'body: (slide.body || "").toLowerCase()' not in source
+
+
 def test_repeated_card_rendering_reuses_dates_and_releases_stale_image_observers():
     source = (ROOT / "web/static/js/app.js").read_text(encoding="utf-8")
     assert "const formattedDateCache = new Map();" in source

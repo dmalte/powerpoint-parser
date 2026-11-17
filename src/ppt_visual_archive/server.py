@@ -90,6 +90,26 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(202 if result.get("started") else 409, result)
             return
 
+        if route == "/api/retry/reset":
+            if not self._require_control():
+                return
+            try:
+                payload = self._read_json()
+                is_all = payload.get("all") is True
+                path = payload.get("path")
+                if is_all == (path is not None) or (path is not None and not isinstance(path, str)):
+                    raise ValueError("Specify all=true or one path")
+                result = self.control.request_retry_reset(file_path=path)
+            except (ValueError, OSError, RuntimeError) as exc:
+                logger.warning("Retry reset rejected: %s", type(exc).__name__)
+                self._send_json(400, {"ok": False, "error": "Retry reset request was invalid"})
+                return
+            if result.get("reason") == "busy":
+                self._send_json(409, {"ok": False, **result})
+            else:
+                self._send_json(202, {"ok": True, **result})
+            return
+
         if route == "/api/pause":
             if not self._require_control():
                 return
@@ -214,6 +234,7 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
         route = urlparse(self.path).path
         if route.startswith("/assets/decks/") and Path(route).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
             self.send_header("Cache-Control", "private, max-age=0, must-revalidate")
+            self.send_header("X-Content-Type-Options", "nosniff")
         elif route == "/data/export.json":
             self.send_header("Cache-Control", "no-store")
         elif route.startswith("/assets/decks/") and route.endswith(".html"):

@@ -76,7 +76,7 @@ Current PDF/PPTX image generations are immutable: old image paths are retained f
 
 ## Current native Mac1 evidence (2026-11-12)
 
-- Mac checkout: /Users/malte/workspace/dev/powerpoint-parser at a31f08b before the native-testing checkpoint; clean checkout prior to local build.
+- Mac checkout: a standard per-user development workspace at a31f08b before the native-testing checkpoint; clean checkout prior to local build.
 - Project environment: isolated .venv, Python 3.12; full 132-test portable suite passed.
 - PyInstaller build: completed on Apple Silicon (arm64). Native preflight passed 17/17 checks, both CLI and application bundle exist.
 - Bundled CLI: --help, PDF scan and HTML viewer build passed. Native application started its localhost server, served status/viewer, and accepted shutdown while HOME pointed to an isolated test directory.
