@@ -40,10 +40,10 @@ def test_noop_refresh_does_not_reexport_or_rewrite_site(tmp_path, monkeypatch):
     assert builder.viewer_is_current(config)
     output = Path(config.output_dir)
     marker = output / ".viewer-build.json"
-    marker_data = json.loads(marker.read_text())
+    marker_data = json.loads(marker.read_text(encoding="utf-8"))
     assert marker_data["schema_version"] == builder.VIEWER_BUILD_VERSION
     assert "source_fingerprint" in marker_data
-    assert "presentations" not in marker.read_text()
+    assert "presentations" not in marker.read_text(encoding="utf-8")
     tracked = [output / "index.html", output / "data/export.json", output / "js/app.js", marker]
     before = [(file.stat().st_size, file.stat().st_mtime_ns) for file in tracked]
 
@@ -155,7 +155,7 @@ def test_missing_or_stale_frontend_forces_refresh_even_without_document_changes(
     config.viewer.title = "Updated Viewer Title"
     assert builder.viewer_is_current(config) is False
     assert refresh_archive(config)["viewer_rebuilt"] is True
-    assert "Updated Viewer Title" in (output / "index.html").read_text()
+    assert "Updated Viewer Title" in (output / "index.html").read_text(encoding="utf-8")
     assert refresh_archive(config)["viewer_rebuilt"] is False
 
     copy = tmp_path / "web-copy"

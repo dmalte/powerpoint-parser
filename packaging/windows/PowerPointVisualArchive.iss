@@ -1,6 +1,6 @@
 #define AppName "PowerPoint Visual Archive"
 #ifndef AppVersion
-#define AppVersion "0.1.0"
+#define AppVersion "0.1.4"
 #endif
 #define AppPublisher "Internal Distribution"
 
@@ -17,7 +17,14 @@ OutputBaseFilename=PowerPointVisualArchiveSetup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-CloseApplications=yes
+; The prior windowless v0.1.0 agent has no usable GUI/HTTP shutdown path.
+; Restart Manager first requests a normal close, then terminates an unresponsive
+; owner of these two installed program files. Never inspect or close the
+; independent source-development pythonw.exe (port 8081), and never auto-
+; restart the old executable after copying the replacement. This is a per-user
+; upgrade; user-owned config and SQLite live outside {app}.
+CloseApplications=force
+CloseApplicationsFilter=PowerPointArchiveAgent.exe,pptviewer.exe
 RestartApplications=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible

@@ -46,6 +46,7 @@
       $('type-pptx').checked = (settings.file_types || []).includes('pptx');
       $('type-pdf').checked = (settings.file_types || []).includes('pdf');
       $('type-md').checked = (settings.file_types || []).includes('md');
+      $('markdown-offline-mode').checked = !!settings.markdown_offline_mode;
       $('scan-interval').value = settings.scan_interval_seconds ?? 1800;
     } catch (error) {
       showMessage(error.message, 'error');
@@ -64,6 +65,12 @@
       $('resume-scan').hidden = !paused;
       $('resume-scan').disabled = transitioning;
       $('scan-now').disabled = paused || scanning;
+      const retries = status.retry_policy || {};
+      const deferred = (retries.encrypted_held || 0) + (retries.backoff_waiting || 0) + (retries.transient_due || 0);
+      $('retry-failures').disabled = scanning || transitioning || deferred === 0 || retries.storage_ok === false;
+      $('retry-status').textContent = retries.storage_ok === false
+        ? 'Retry state is unreadable. Automatic suppression is disabled; use the CLI reset after reviewing local logs.'
+        : `${retries.encrypted_held || 0} unchanged encrypted PDF(s) held · ${retries.backoff_waiting || 0} transient retry wait(s) · ${retries.transient_due || 0} transient retry attempt(s) due.`;
       $('pause-note').textContent = transitioning
         ? 'Finishing the current document and publishing an HTML/JSON snapshot…'
         : paused
@@ -98,7 +105,12 @@
     const interval = Number($('scan-interval').value);
     showMessage('Saving…');
     try {
-      await jsonFetch('/api/settings', {method: 'POST', body: JSON.stringify({scan_roots: scanRoots, file_types: fileTypes, scan_interval_seconds: interval})});
+      await jsonFetch('/api/settings', {method: 'POST', body: JSON.stringify({
+        scan_roots: scanRoots,
+        file_types: fileTypes,
+        scan_interval_seconds: interval,
+        markdown_offline_mode: $('markdown-offline-mode').checked,
+      })});
       showMessage('Settings saved.', 'ok');
       await refreshStatus();
     } catch (error) {
@@ -133,6 +145,21 @@
     try {
       const result = await jsonFetch('/api/resume', {method: 'POST', body: '{}'});
       showMessage(result.started ? 'Incremental scan resumed.' : 'Resume is still busy; retry when paused.', result.started ? 'ok' : 'error');
+    } catch (error) {
+      showMessage(error.message, 'error');
+    } finally {
+      await refreshStatus();
+    }
+  });
+
+  $('retry-failures').addEventListener('click', async () => {
+    if (!window.confirm('Retry all deferred documents? Unchanged encrypted PDFs will fail again until they are decrypted. Scanning remains paused if currently paused.')) return;
+    $('retry-failures').disabled = true;
+    try {
+      const result = await jsonFetch('/api/retry/reset', {method: 'POST', body: JSON.stringify({all:true})});
+      showMessage(result.started
+        ? `${result.reset} deferred record(s) reset; incremental scan started.`
+        : `${result.reset} record(s) reset. ${result.reason === 'paused' ? 'Scan remains paused.' : 'No deferred files.'}`, 'ok');
     } catch (error) {
       showMessage(error.message, 'error');
     } finally {

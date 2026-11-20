@@ -45,18 +45,18 @@ def checks(root: Path = ROOT, artifacts: Path | None = None) -> list[dict]:
     add("source_files", not missing, "Required backend, bundle, launch, and UI files exist")
     if missing:
         return results
-    spec = (root / SOURCE_FILES[0]).read_text()
-    build = (root / SOURCE_FILES[1]).read_text()
-    installer = (root / SOURCE_FILES[2]).read_text()
-    renderer = (root / "src/ppt_visual_archive/mac_renderer.py").read_text()
-    factory = (root / "src/ppt_visual_archive/renderer_factory.py").read_text()
+    spec = (root / SOURCE_FILES[0]).read_text(encoding="utf-8")
+    build = (root / SOURCE_FILES[1]).read_text(encoding="utf-8")
+    installer = (root / SOURCE_FILES[2]).read_text(encoding="utf-8")
+    renderer = (root / "src/ppt_visual_archive/mac_renderer.py").read_text(encoding="utf-8")
+    factory = (root / "src/ppt_visual_archive/renderer_factory.py").read_text(encoding="utf-8")
 
     for path in ("packaging/macos/PowerPointVisualArchive.spec",
                  "packaging/macos/install_agent.py",
                  "src/ppt_visual_archive/mac_renderer.py",
                  "src/ppt_visual_archive/renderer_factory.py"):
         try:
-            ast.parse((root / path).read_text())
+            ast.parse((root / path).read_text(encoding="utf-8"))
         except SyntaxError:
             add("syntax:" + Path(path).name, False, "Python source or PyInstaller spec syntax")
         else:

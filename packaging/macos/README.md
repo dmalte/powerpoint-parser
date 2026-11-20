@@ -2,6 +2,22 @@
 
 This directory contains a **Mac-only build/install scaffold** prepared and statically tested on Raspberry Pi. It has not yet been compiled or run on a Mac.
 
+## Parallel source development and packaged agent (M014)
+
+The installed Mac application remains **`~/Applications/PowerPointArchiveAgent.app`** using port **8080**, the config/index under **`~/Library/Application Support/PowerPointVisualArchive/`**, its logs under **`~/Library/Logs/PowerPointVisualArchive/`**, and the existing LaunchAgent label `uk.pptvisualarchive.agent`.
+
+The source dev agent uses an independent port **8081** and its own `repository/.runtime/dev-agent/config.yaml`, `archive/`, `logs/` and synthetic fixture library. It never replaces the packaged app or migrates/copies its archive. With the Mac signed in, use `packaging/macos/Start-Dev.command` to initialize and run it, `Stop-Dev.command` to stop it, and `Status-Dev.command` for diagnostics. A separate optional *source-mode* per-user LaunchAgent has label `uk.pptvisualarchive.dev`:
+
+```bash
+python packaging/macos/manage_dev_launchagent.py --plan
+python packaging/macos/manage_dev_launchagent.py --install   # only in verified signed-in GUI session
+python packaging/macos/manage_dev_launchagent.py --uninstall # preserves dev YAML/index
+```
+
+The dev LaunchAgent has `KeepAlive=false`, uses the source `.venv` interpreter, runs on login and leaves the installed label/config untouched. It must be installed on a **live Mac user GUI session**, not prepared on a Pi and treated as deployed. Do not run both agents against the same Microsoft PowerPoint automation session at the same time without pausing the packaged scanner. The initial dev fixture only indexes PDF and Markdown, avoiding Office permission prompts.
+
+As of M014 initial preparation, **Mac1 is offline**; the scripts and LaunchAgent plan are committed but no Mac plist/source dev runtime is installed or validated. Return to this acceptance step after Mac1 is reachable.
+
 ## Runtime outputs
 
 The shared viewer always stores:
@@ -76,7 +92,7 @@ Current PDF/PPTX image generations are immutable: old image paths are retained f
 
 ## Current native Mac1 evidence (2026-11-12)
 
-- Mac checkout: /Users/malte/workspace/dev/powerpoint-parser at a31f08b before the native-testing checkpoint; clean checkout prior to local build.
+- Mac checkout: a standard per-user development workspace at a31f08b before the native-testing checkpoint; clean checkout prior to local build.
 - Project environment: isolated .venv, Python 3.12; full 132-test portable suite passed.
 - PyInstaller build: completed on Apple Silicon (arm64). Native preflight passed 17/17 checks, both CLI and application bundle exist.
 - Bundled CLI: --help, PDF scan and HTML viewer build passed. Native application started its localhost server, served status/viewer, and accepted shutdown while HOME pointed to an isolated test directory.
@@ -127,3 +143,21 @@ Mac1 now runs the upgraded arm64 app with the new controls. Its existing YAML an
 - Test under a new user account, including missing-drive scenarios and performance on a large library.
 
 Do **not** mark M008 accepted before native Mac checks pass.
+
+## Cumulative 0.1.4 distribution image (M017)
+
+After a native `./packaging/macos/build.sh` succeeds, run
+`./packaging/macos/build_release.sh <verified-source-SHA>` on the Mac. It
+compiles `install_agent.py` as a standalone executable, prepares a disk image
+with the self-contained app+CLI, `Install.command`, `Uninstall.command`, and
+`BUILD_INFO.txt`, validates the installer `--plan` on its staged artifacts,
+then checks DMG integrity and the app's ad-hoc signature. The output is
+`dist/release/PowerPointVisualArchive-macOS-<arch>-0.1.4-unnotarized.dmg`.
+This packaging step never changes the installed user agent. Installation is
+explicit and uses the already-tested per-user transactional lifecycle.
+Code signing here is **ad hoc**, not Apple Developer ID; the image is **not
+notarized**. Browser download Gatekeeper checks and Office Automation consent
+remain user/production acceptance gates. Never claim a notarized installer.
+
+A public source PR should not include the binary; once acceptance passes, upload
+the checksum-identified DMG as a GitHub Release asset instead.

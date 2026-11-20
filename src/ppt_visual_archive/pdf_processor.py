@@ -53,6 +53,13 @@ def extract_and_render_pdf(
         logger.error("Cannot open PDF %s: %s", pdf_path, e)
         return {"slide_count": 0, "width": 0, "height": 0, "slides": []}
 
+    # Password-protected PDFs must report an explicit fixed failure reason.
+    # Otherwise their page-access exception varies by PyMuPDF version, making
+    # a permanent encrypted source look like a retryable corrupt PDF.
+    if doc.needs_pass:
+        doc.close()
+        raise ValueError("PDF is encrypted and requires a password")
+
     slides_out: list[dict] = []
     page_count = doc.page_count
     width_px = 0

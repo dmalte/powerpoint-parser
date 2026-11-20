@@ -148,7 +148,58 @@ def build(config_path: str | None, verbose: bool) -> None:
     from .builder import build_viewer
 
     build_viewer(config)
-    click.echo(f"Viewer built → {os.path.join(config.output_dir, 'index.html')}")
+    click.echo("Viewer built successfully.")
+
+
+def _retry_config(path: str | None) -> AppConfig:
+    """Resolve without echoing private config paths into JSON CLI output."""
+    if path is not None:
+        return load_config(Path(path).expanduser().resolve())
+    for candidate in _config_candidates():
+        if candidate.is_file():
+            return load_config(candidate)
+    raise click.ClickException("A config file is required")
+
+
+@main.command("retry-status")
+@click.option("--config", "config_path", default=None, help="Archive configuration path")
+def retry_status(config_path: str | None) -> None:
+    """Show path-free counts of held encrypted and delayed transient errors."""
+    import json
+    from .retry_policy import RetryState
+
+    status = RetryState(_retry_config(config_path)).status()
+    click.echo(json.dumps(status, sort_keys=True))
+
+
+@main.command("retry-reset")
+@click.option("--config", "config_path", default=None, help="Archive configuration path")
+@click.option("--all", "all_entries", is_flag=True, help="Reset all deferred failures")
+@click.option("--path", "file_path", default=None, help="Reset one path within a configured scan root")
+def retry_reset(config_path: str | None, all_entries: bool, file_path: str | None) -> None:
+    """Explicitly clear a held retry when the live agent is paused/stopped.
+
+    For a live unpaused agent, use Settings > Retry Deferred Files so a reset
+    is serialized with its scan lock and starts an immediate incremental scan.
+    """
+    import json
+    from .retry_policy import RetryState
+
+    if all_entries == (file_path is not None):
+        raise click.ClickException("Specify exactly one of --all or --path")
+    config = _retry_config(config_path)
+    if file_path is not None:
+        resolved = Path(file_path).expanduser().resolve()
+        if (resolved.suffix.lower() not in {".pdf", ".pptx", ".md"} or not any(
+            resolved.is_relative_to(Path(root).resolve()) for root in config.scan_roots
+        )):
+            raise click.ClickException("File is outside configured scan roots or unsupported")
+        file_path = str(resolved)
+    try:
+        count = RetryState(config).clear(file_path=file_path, all_entries=all_entries)
+    except (ValueError, OSError) as exc:
+        raise click.ClickException("Retry state could not be reset") from exc
+    click.echo(json.dumps({"reset": count, "scan_started": False, "retry_policy_applied": True}, sort_keys=True))
 
 
 @main.command()
@@ -164,6 +215,8 @@ def serve(port: int, config_path: str | None, verbose: bool) -> None:
 
 @main.command()
 @click.option("--port", default=8080, show_default=True, help="Port for local server.")
+@click.option("--log-dir", type=click.Path(file_okay=False, path_type=Path), default=None,
+              help="Explicit agent log directory; defaults to installed user's log directory.")
 @click.option(
     "--scan-interval",
     default=None,
@@ -173,6 +226,7 @@ def serve(port: int, config_path: str | None, verbose: bool) -> None:
 @common_options
 def agent(
     port: int,
+    log_dir: Path | None,
     scan_interval: int | None,
     config_path: str | None,
     verbose: bool,
@@ -187,14 +241,28 @@ def agent(
 
     from .agent import run_agent
 
-    log_path = add_file_logging(default_log_dir() / "agent.log", verbose=verbose)
+    log_path = add_file_logging((log_dir if log_dir is not None else default_log_dir()) / "agent.log", verbose=verbose)
     logger.info("Agent log: %s", log_path)
-    run_agent(
-        config,
-        config_path=resolved_config_path,
-        port=port,
-        scan_interval_seconds=scan_interval,
-    )
+    # A dev agent's background scanner, builder and /api/performance share
+    # these isolated logs; the packaged process gets no new setting.
+    from .perf_metrics import AGENT_LOG_DIR_OVERRIDE
+
+    prior = os.environ.get(AGENT_LOG_DIR_OVERRIDE)
+    if log_dir is not None:
+        os.environ[AGENT_LOG_DIR_OVERRIDE] = str(log_dir.resolve())
+    try:
+        run_agent(
+            config,
+            config_path=resolved_config_path,
+            port=port,
+            scan_interval_seconds=scan_interval,
+        )
+    finally:
+        if log_dir is not None:
+            if prior is None:
+                os.environ.pop(AGENT_LOG_DIR_OVERRIDE, None)
+            else:
+                os.environ[AGENT_LOG_DIR_OVERRIDE] = prior
 
 
 @main.command()

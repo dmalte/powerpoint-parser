@@ -131,3 +131,6 @@ def test_settings_assets_are_present():
     assert "/api/settings" in script
     assert "Scan Now" in template
     assert "Restart Agent" in template
+    assert 'id="markdown-offline-mode"' in template
+    assert "'markdown-offline-mode'" in script
+    assert "markdown_offline_mode:" in script

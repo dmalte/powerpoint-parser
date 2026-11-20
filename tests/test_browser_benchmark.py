@@ -32,15 +32,44 @@ def test_benchmark_prepares_genuine_viewer_with_synthetic_data(tmp_path):
     assert fixture["slide_count"] == 250
     assert fixture["deck_count"] == 9
     output = tmp_path / "site"
-    archive = json.loads((output / "data" / "export.json").read_text())
+    archive = json.loads((output / "data" / "export.json").read_text(encoding="utf-8"))
     assert len(archive["slides"]) == 250
     assert archive["slides"][0]["thumb"] == "assets/thumbnail.jpg"
     assert (output / "assets" / "thumbnail.jpg").is_file()
     assert (output / "js" / "performance.js").is_file()
     assert (output / "js" / "agent-status.js").is_file()
     assert (output / "js" / "deck-pager.js").is_file()
-    assert 'id="slide-grid"' in (output / "index.html").read_text()
+    assert 'id="slide-grid"' in (output / "index.html").read_text(encoding="utf-8")
     assert "source_path" not in json.dumps(fixture)
+
+
+def test_profile_memory_mode_reports_retained_heap_without_source_content(tmp_path):
+    runner = _load_runner()
+    try:
+        browser = runner.locate_browser()
+    except ValueError:
+        pytest.skip("No Chromium-family browser available")
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js >=22 is not installed")
+    version = subprocess.check_output([node, "--version"], text=True)
+    if int(version.lstrip("v").split(".")[0]) < 22:
+        pytest.skip("Node.js >=22 is required for memory profiling")
+    site = tmp_path / "site"
+    runner.prepare_synthetic_site(site, slides=120, text_chars=125)
+    process = subprocess.run(
+        [node, str(ROOT / "scripts/measure_viewer.mjs"),
+         browser, str(site), "2", "45", "--profile-memory"],
+        capture_output=True, text=True, timeout=55,
+    )
+    assert process.returncode == 0, process.stderr[-900:]
+    report = json.loads(process.stdout)
+    profile = report["memory_profile"]
+    assert profile["initial_retained_heap_mb"] > 0
+    assert profile["post_search_retained_heap_mb"] > 0
+    assert report["library_slides"] == 120
+    assert "benchmark x" not in process.stdout  # no synthetic search or slide content
+    assert "source_path" not in process.stdout
 
 
 def test_browser_benchmark_cdp_integration(tmp_path):
@@ -69,6 +98,7 @@ def test_browser_benchmark_cdp_integration(tmp_path):
     assert result["sidebar_rows_final"] <= 100
     assert result["sidebar_verification"]["passed"] is True
     assert result["sidebar_verification"]["pages_checked"] == 2
+    assert result["search_scope_verification"] == {"passed": True, "tested": 9, "restored": True}
     assert result["max_visible_cards"] == 240
     assert result["scripted_actions"]["searches"] == 2
     assert result["browser_report"]["library"]["slides"] == 3150

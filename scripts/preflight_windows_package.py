@@ -1,7 +1,7 @@
 """Offline cross-platform preflight for the Windows per-user installer.
 
 Run: python scripts/preflight_windows_package.py
-Optional: python scripts/preflight_windows_package.py --artifacts dist --version 0.1.0
+Optional: python scripts/preflight_windows_package.py --artifacts dist --version 0.1.4
 
 A PASS means source packaging definitions are consistent; it does NOT mean
 a Windows installer has been built, run, signed, or validated with PowerPoint.
@@ -111,7 +111,7 @@ def evaluate(root: Path = ROOT, *, version: str | None = None, artifacts: Path |
             ast.parse(source)
             valid = "from ppt_visual_archive.cli import main" in source and '__main__' in source
             if file == "agent_launcher.py":
-                valid = valid and 'main(args=["agent"])' in source
+                valid = valid and 'main(args=["agent", *sys.argv[1:]])' in source
         except SyntaxError:
             valid = False
         check("launcher-" + file.removesuffix(".py"), valid,
@@ -127,6 +127,16 @@ def evaluate(root: Path = ROOT, *, version: str | None = None, artifacts: Path |
         '{userstartup}\\PowerPoint Visual Archive',
         "PowerPointArchiveAgent.exe",
     )), "Installer includes both executables and registers logon startup")
+    # Inno's Restart Manager must close a *stale* installed windowless agent
+    # before replacing its EXE. Only the two bundled EXEs are in scope: never
+    # close the separately managed source/dev pythonw.exe or restart old code.
+    check("installer-upgrade-process-handling", all(re.search(pattern, iss, flags=re.MULTILINE) for pattern in (
+        r"^CloseApplications=force$",
+        r"^CloseApplicationsFilter=PowerPointArchiveAgent\.exe,pptviewer\.exe$",
+        r"^RestartApplications=no$",
+        r"^PrivilegesRequired=lowest$",
+    )), "Upgrade closes unresponsive installed EXEs via Restart Manager without closing dev agent or restarting stale binaries")
+
     check("installer-config-preservation", all(piece in iss for piece in (
         "Check: not ConfigExists", "FileExists(ConfigPath)", "init-config --root",
         "ShouldSkipPage", "GetScanRoot",

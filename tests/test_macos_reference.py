@@ -110,9 +110,9 @@ def test_image_comparison_cli_writes_reports_and_strict_status(compare, tmp_path
     argv = ["--reference", str(reference), "--candidate", str(candidate),
             "--output", str(out), "--max-mae", "0", "--fail-on-difference"]
     assert compare.main(argv) == 2
-    payload = json.loads((out / "comparison.json").read_text())
+    payload = json.loads((out / "comparison.json").read_text(encoding="utf-8"))
     assert payload["mismatches"] == 1
-    assert "data:image/png;base64" in (out / "comparison.html").read_text()
+    assert "data:image/png;base64" in (out / "comparison.html").read_text(encoding="utf-8")
     assert compare.main(argv[:-1]) == 0
 
 

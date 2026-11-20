@@ -7,11 +7,12 @@ import http.server
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from .utils import logger
 
@@ -48,6 +49,13 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.control = control
         super().__init__(*args, directory=directory, **kwargs)
 
+    def log_message(self, fmt: str, *args) -> None:
+        # http.server writes request/access logs directly to sys.stderr.
+        # A Windows GUI/console=False executable and PythonW have no stderr,
+        # causing send_response to raise and close *every* HTTP request.
+        # Do not echo URL paths, which may contain private source information.
+        return
+
     def do_GET(self) -> None:
         route = urlparse(self.path).path
         if route in {"/", "/index.html"} and self.control is not None:
@@ -75,6 +83,34 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             self._send_json(200, self.control.settings_snapshot())
             return
+        if route == "/api/index/live":
+            if not self._require_control():
+                return
+            try:
+                from .live_index import read_live_index
+
+                params = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                if set(params) - {"after", "limit"} or any(len(v) != 1 for v in params.values()):
+                    raise ValueError("Invalid live index query")
+                after_raw = params.get("after", ["0"])[0]
+                limit_raw = params.get("limit", ["50"])[0]
+                if not (after_raw.isascii() and after_raw.isdecimal()
+                        and limit_raw.isascii() and limit_raw.isdecimal()):
+                    raise ValueError("Invalid live index cursor or limit")
+                updates = read_live_index(
+                    self.control.config.db_path,
+                    after=int(after_raw), limit=int(limit_raw),
+                )
+            except ValueError:
+                self._send_json(400, {"ok": False, "error": "Invalid live index cursor or limit"})
+                return
+            except (OSError, sqlite3.Error):
+                # A missing/new index or temporary lock is retryable. Do not
+                # disclose source paths, document contents or SQL errors.
+                self._send_json(503, {"ok": False, "error": "Live index unavailable"})
+                return
+            self._send_json(200, updates)
+            return
         super().do_GET()
 
     def do_POST(self) -> None:
@@ -88,6 +124,26 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
                 return
             result = self.control.request_refresh()
             self._send_json(202 if result.get("started") else 409, result)
+            return
+
+        if route == "/api/retry/reset":
+            if not self._require_control():
+                return
+            try:
+                payload = self._read_json()
+                is_all = payload.get("all") is True
+                path = payload.get("path")
+                if is_all == (path is not None) or (path is not None and not isinstance(path, str)):
+                    raise ValueError("Specify all=true or one path")
+                result = self.control.request_retry_reset(file_path=path)
+            except (ValueError, OSError, RuntimeError) as exc:
+                logger.warning("Retry reset rejected: %s", type(exc).__name__)
+                self._send_json(400, {"ok": False, "error": "Retry reset request was invalid"})
+                return
+            if result.get("reason") == "busy":
+                self._send_json(409, {"ok": False, **result})
+            else:
+                self._send_json(202, {"ok": True, **result})
             return
 
         if route == "/api/pause":
@@ -214,6 +270,7 @@ class ViewerRequestHandler(http.server.SimpleHTTPRequestHandler):
         route = urlparse(self.path).path
         if route.startswith("/assets/decks/") and Path(route).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
             self.send_header("Cache-Control", "private, max-age=0, must-revalidate")
+            self.send_header("X-Content-Type-Options", "nosniff")
         elif route == "/data/export.json":
             self.send_header("Cache-Control", "no-store")
         elif route.startswith("/assets/decks/") and route.endswith(".html"):

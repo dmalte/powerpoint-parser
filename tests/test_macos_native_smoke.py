@@ -10,6 +10,10 @@ from pathlib import Path
 from PIL import Image
 from pptx import Presentation
 
+import pytest
+
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS PowerPoint native smoke is Darwin-only")
+
 
 def load_script():
     path = Path(__file__).resolve().parents[1] / "scripts/smoke_macos_powerpoint.py"

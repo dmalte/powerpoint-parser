@@ -95,7 +95,7 @@ def test_diagnostic_cli_local_json_is_not_automatically_uploaded(diagnostic, val
     assert report["counts"]["unverified"] >= 3
     output = tmp_path / "report.json"
     assert diagnostic.main(["--config", str(config), "--json", str(output)]) in (0, 1)
-    data = json.loads(output.read_text())
+    data = json.loads(output.read_text(encoding="utf-8"))
     assert "checks" in data
     assert not any("file_path" in item for item in data["checks"])
-    assert str(source) not in output.read_text()
+    assert str(source) not in output.read_text(encoding="utf-8")

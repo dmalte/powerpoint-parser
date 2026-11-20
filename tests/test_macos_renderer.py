@@ -6,6 +6,7 @@ LibreOffice calls are mocked because those applications are not installed on Pi.
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -22,6 +23,11 @@ from ppt_visual_archive.platform_paths import (
 )
 from ppt_visual_archive.renderer import PowerPointRenderer
 from ppt_visual_archive.renderer_factory import create_pptx_renderer
+
+# The native macOS renderer is not selected or executed on Windows. Running
+# its mocked automation suite from a Windows service/test session can invoke
+# unrelated Office diagnostics; Windows COM is covered by its own tests.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS PowerPoint adapter is not used on Windows")
 
 
 _NATIVE_CONVERSION_ROOT = MacPowerPointRenderer._conversion_root

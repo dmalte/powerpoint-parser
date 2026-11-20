@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -52,6 +54,7 @@ def test_mac_app_and_cli_artifacts_are_only_header_checked(tmp_path):
     assert any(v["status"] == "fail" for v in preflight.checks(ROOT, artifacts=tmp_path))
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS LaunchAgent path semantics")
 def test_installer_plan_and_launchagent_plist_are_safe(tmp_path):
     home = tmp_path / "mac-home"
     build = tmp_path / "dist"
@@ -76,6 +79,7 @@ def test_install_mutation_refused_on_non_macos(tmp_path, monkeypatch):
         installer.install(tmp_path, tmp_path, None)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Bash is not available on native Windows")
 def test_non_macos_build_script_fails_without_writing(tmp_path):
     if sys.platform == "darwin":
         return

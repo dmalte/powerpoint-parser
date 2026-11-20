@@ -216,7 +216,16 @@ def _build(config: AppConfig, db: IndexDB, metrics: TimedRun) -> None:
         (stage / "data").mkdir()
 
         with metrics.step("sqlite_export"):
-            data = _export_data(db, config)
+            # Capture the full export and its live-cursor from one short WAL
+            # read snapshot. Release the read lock before writing large JSON,
+            # so in-flight scanner commits are never blocked by publication.
+            db._conn.execute("BEGIN")
+            try:
+                data = _export_data(db, config)
+                data["live_cursor"] = db.get_change_cursor()
+                index_fingerprint = _database_fingerprint(db._conn)
+            finally:
+                db._conn.rollback()
         metrics.count("decks", len(data["decks"]))
         metrics.count("slides", len(data["slides"]))
 
@@ -256,11 +265,35 @@ def _build(config: AppConfig, db: IndexDB, metrics: TimedRun) -> None:
         with metrics.step("publish"):
             _publish_staged_site(
                 output, stage, publish_order, fingerprint,
-                _database_fingerprint(db._conn),
+                index_fingerprint,
             )
 
     logger.info("Published viewer: %s (%d KB JSON)", output / "index.html",
                 metrics.counts["json_bytes"] // 1024)
+
+
+def serialize_deck(deck) -> dict:
+    """One deck in the existing static JSON format, also used by live deltas."""
+    return {
+        "id": deck.deck_id, "file_path": deck.file_path,
+        "file_name": deck.file_name, "folder_path": deck.folder_path,
+        "file_size": deck.file_size, "modified_time": deck.modified_time,
+        "modified_date": _ts_to_date(deck.modified_time),
+        "slide_count": deck.slide_count,
+    }
+
+
+def serialize_slide(slide) -> dict:
+    """One slide in the existing static JSON format, also used by live deltas."""
+    return {
+        "id": slide.slide_id, "deck_id": slide.deck_id,
+        "num": slide.slide_number, "title": slide.title,
+        "subtitle": slide.subtitle_text, "body": slide.body_text,
+        "extra": slide.extra_text, "text": slide.extracted_text,
+        "notes": slide.notes_text, "thumb": slide.thumb_path,
+        "preview": slide.preview_path, "w": slide.width,
+        "h": slide.height,
+    }
 
 
 def _export_data(db: IndexDB, config: AppConfig) -> dict:
@@ -270,36 +303,8 @@ def _export_data(db: IndexDB, config: AppConfig) -> dict:
     stats = db.get_stats()
     daily = db.get_daily_activity()
 
-    decks_json = []
-    for d in decks:
-        decks_json.append({
-            "id": d.deck_id,
-            "file_path": d.file_path,
-            "file_name": d.file_name,
-            "folder_path": d.folder_path,
-            "file_size": d.file_size,
-            "modified_time": d.modified_time,
-            "modified_date": _ts_to_date(d.modified_time),
-            "slide_count": d.slide_count,
-        })
-
-    slides_json = []
-    for s in all_slides:
-        slides_json.append({
-            "id": s.slide_id,
-            "deck_id": s.deck_id,
-            "num": s.slide_number,
-            "title": s.title,
-            "subtitle": s.subtitle_text,
-            "body": s.body_text,
-            "extra": s.extra_text,
-            "text": s.extracted_text,
-            "notes": s.notes_text,
-            "thumb": s.thumb_path,
-            "preview": s.preview_path,
-            "w": s.width,
-            "h": s.height,
-        })
+    decks_json = [serialize_deck(deck) for deck in decks]
+    slides_json = [serialize_slide(slide) for slide in all_slides]
 
     # Build folder set
     folders = sorted({d.folder_path for d in decks})

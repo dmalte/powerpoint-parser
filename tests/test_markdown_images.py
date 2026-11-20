@@ -1,4 +1,4 @@
-"""M011 image packaging and isolation tests."""
+"""Safe local images rendered on only the first physical Markdown Letter page."""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,8 @@ from ppt_visual_archive import perf_metrics
 from ppt_visual_archive.agent import refresh_archive
 from ppt_visual_archive.config import default_config
 from ppt_visual_archive.markdown_processor import (
-    MAX_LOCAL_IMAGE_BYTES, render_markdown_snippets,
+    LETTER_PREVIEW_PIXELS, LETTER_THUMB_PIXELS, MAX_LOCAL_IMAGE_BYTES,
+    render_markdown_snippets,
 )
 from ppt_visual_archive.server import create_server
 
@@ -33,14 +34,31 @@ def _config(tmp_path):
 
 def _image(path, color=(250, 30, 20), mode="RGB"):
     path.parent.mkdir(parents=True, exist_ok=True)
-    Image.new(mode, (100, 70), color).save(path)
+    Image.new(mode, (450, 280), color).save(path)
 
 
 def _export(config):
-    return json.loads((Path(config.output_dir) / "data/export.json").read_text())
+    return json.loads((Path(config.output_dir) / "data/export.json").read_text(encoding="utf-8"))
 
 
-def test_relative_and_percent_encoded_images_are_copied_offline_and_shown(tmp_path):
+def _strong_color_pixels(file: Path, channel: str) -> int:
+    """Detect a visible saturated reference image, not Markdown text colors."""
+    with Image.open(file) as source:
+        pixels = source.convert("RGB").resize((102, 132))
+        count = 0
+        for y in range(132):
+            for x in range(102):
+                r, g, b = pixels.getpixel((x, y))
+                if channel == "red" and r > 150 and r > g * 2 and r > b * 2:
+                    count += 1
+                if channel == "green" and g > 120 and g > r * 1.7 and g > b * 1.3:
+                    count += 1
+                if channel == "blue" and b > 130 and b > r * 2 and b > g * 1.5:
+                    count += 1
+    return count
+
+
+def test_relative_encoded_images_render_on_first_letter_page_and_are_not_leaked(tmp_path):
     cfg, root = _config(tmp_path)
     photo = root / "assets" / "my photo.png"
     _image(photo)
@@ -52,32 +70,27 @@ def test_relative_and_percent_encoded_images_are_copied_offline_and_shown(tmp_pa
         "![Repeat](../assets/my%20photo.png)\n",
         encoding="utf-8",
     )
-    before_note = note.read_bytes()
-    before_photo = photo.read_bytes()
-
+    before_note, before_photo = note.read_bytes(), photo.read_bytes()
     result = refresh_archive(cfg)
     assert result["processed_ok"] == 1 and result["processed_err"] == 0
-    rec = _export(cfg)["slides"][0]
-    output = Path(cfg.output_dir)
-    page = (output / rec["preview"]).read_text(encoding="utf-8")
-    assert '<img class="md-local-image"' in page
-    assert page.count('src="local_image_001.jpg"') == 2
+    export = _export(cfg)
+    assert len(export["slides"]) == export["stats"]["slide_count"] == 1
+    rec = export["slides"][0]
     assert "First" in rec["text"] and "Repeat" in rec["text"]
-    assert "img-src &#x27;self&#x27;" in page or "img-src 'self'" in page
-    assert "http://" not in page and "https://" not in page
-    image_file = (output / rec["preview"]).parent / "local_image_001.jpg"
-    assert image_file.is_file()
-    assert not ((output / rec["preview"]).parent / "local_image_002.jpg").exists()
-    with Image.open(image_file) as safe:
-        safe.verify()
-    with Image.open(output / rec["thumb"]) as thumbnail:
-        colors = thumbnail.convert("RGB")
-        # Embedded red image is composited into lower-right thumbnail.
-        assert colors.getpixel((560, 320))[0] > colors.getpixel((560, 320))[1] + 80
+    output = Path(cfg.output_dir)
+    for field, size in (("preview", LETTER_PREVIEW_PIXELS), ("thumb", LETTER_THUMB_PIXELS)):
+        with Image.open(output / rec[field]) as rendered:
+            assert rendered.format == "JPEG" and rendered.size == size
+        assert _strong_color_pixels(output / rec[field], "red") > 80
+    # The generated one-page JPEG contains visible image pixels. Temporary
+    # raster input files do not escape into the immutable archive generation.
+    assert sorted(p.name for p in (output / rec["preview"]).parent.iterdir()) == [
+        "preview_001.jpg", "thumb_001.jpg"
+    ]
     assert note.read_bytes() == before_note and photo.read_bytes() == before_photo
 
 
-def test_outside_root_symlink_remote_data_svg_and_corrupt_images_are_rejected(tmp_path):
+def test_unsafe_symlink_remote_data_svg_and_corrupt_images_remain_inert(tmp_path):
     cfg, root = _config(tmp_path)
     secret = tmp_path / "secret.png"
     _image(secret, color=(0, 0, 0))
@@ -94,23 +107,21 @@ def test_outside_root_symlink_remote_data_svg_and_corrupt_images_are_rejected(tm
         "![encoded](%2e%2e/secret.png)\n\n"
         "![symlink](alias.png)\n\n"
         "![svg](vector.svg)\n\n"
-        "![bad](broken.png)\n",
+        "![bad](broken.png)\n\n"
+        "<script>alert(1)</script>\n",
         encoding="utf-8",
     )
-    rendered = render_markdown_snippets(note, tmp_path / "output", allowed_roots=cfg.scan_roots)
-    assert len(rendered) == 1
-    html = (tmp_path / "output" / rendered[0]["preview_path"]).read_text()
-    assert "<img " not in html
-    # CommonMark does not tokenize the malformed data: URI as an image;
-    # all recognized unsafe references still produce inert placeholders.
-    assert html.count('class="md-image-placeholder"') >= 7
-    assert "https://example.invalid" not in html
-    # Even when CommonMark renders an invalid link as text, it remains inert.
-    assert '<a href="file:' not in html and '<img src="file:' not in html
-    assert not list((tmp_path / "output").glob("local_image_*"))
+    before = note.read_bytes()
+    records = render_markdown_snippets(note, tmp_path / "output", allowed_roots=cfg.scan_roots)
+    assert len(records) == 1
+    assert note.read_bytes() == before
+    assert "remote" in records[0]["extracted_text"] and "symlink" in records[0]["extracted_text"]
+    assert sorted(p.name for p in (tmp_path / "output").iterdir()) == ["preview_001.jpg", "thumb_001.jpg"]
+    with Image.open(tmp_path / "output" / records[0]["preview_path"]) as page:
+        page.verify()
 
 
-def test_large_and_bogus_image_does_not_block_safe_markdown_render(tmp_path):
+def test_large_invalid_image_is_skipped_but_safe_blue_image_renders(tmp_path):
     cfg, root = _config(tmp_path)
     huge = root / "huge.png"
     with huge.open("wb") as stream:
@@ -119,12 +130,11 @@ def test_large_and_bogus_image_does_not_block_safe_markdown_render(tmp_path):
     note = root / "mixed.md"
     note.write_text("# Safe\n\n![too large](huge.png)\n\n![good](good.jpg)")
     records = render_markdown_snippets(note, tmp_path / "output", allowed_roots=cfg.scan_roots)
-    page = (tmp_path / "output" / records[0]["preview_path"]).read_text()
-    assert "Image: too large" in page
-    assert 'src="local_image_001.jpg"' in page
+    assert "too large" in records[0]["extracted_text"]
+    assert _strong_color_pixels(tmp_path / "output" / records[0]["preview_path"], "blue") > 80
 
 
-def test_encoded_local_images_reprocess_and_old_image_generation_survives(tmp_path):
+def test_changed_markdown_reprocess_keeps_old_letter_generation(tmp_path):
     cfg, root = _config(tmp_path)
     photo = root / "photo.png"
     note = root / "a.md"
@@ -133,20 +143,17 @@ def test_encoded_local_images_reprocess_and_old_image_generation_survives(tmp_pa
     assert refresh_archive(cfg)["processed_ok"] == 1
     first = _export(cfg)["slides"][0]
     previous_page = Path(cfg.output_dir) / first["preview"]
-    previous_image = previous_page.parent / "local_image_001.jpg"
-    assert previous_image.is_file()
     old_page = previous_page.read_bytes()
-
     note.write_text("# Second\n\n![revised diagram](photo.png)")
     changed = refresh_archive(cfg)
     assert changed["changed"] == 1 and changed["processed_ok"] == 1
-    new = _export(cfg)["slides"][0]
-    assert new["preview"] != first["preview"]
+    slides = _export(cfg)["slides"]
+    assert len(slides) == 1
+    assert slides[0]["preview"] != first["preview"]
     assert previous_page.read_bytes() == old_page
-    assert previous_image.is_file()
 
 
-def test_generated_images_served_with_safe_preview_headers(tmp_path):
+def test_first_letter_jpeg_served_as_safe_image_without_html(tmp_path):
     cfg, root = _config(tmp_path)
     _image(root / "camera.png")
     (root / "example.md").write_text("# Picture\n\n![camera](camera.png)")
@@ -157,49 +164,48 @@ def test_generated_images_served_with_safe_preview_headers(tmp_path):
     thread.start()
     base = f"http://127.0.0.1:{server.server_port}"
     try:
-        with urllib.request.urlopen(base + "/" + rec["preview"]) as response:
-            html = response.read().decode()
-            csp = response.headers["Content-Security-Policy"]
-            assert response.headers["X-Content-Type-Options"] == "nosniff"
-            assert "img-src 'self'" in csp and "script-src 'none'" in csp
-            assert "connect-src 'none'" in csp
-            assert 'src="local_image_001.jpg"' in html
-        path = rec["preview"].rsplit("/", 1)[0] + "/local_image_001.jpg"
-        with urllib.request.urlopen(base + "/" + path) as response:
-            assert response.headers["Content-Type"].startswith("image/jpeg")
-            assert len(response.read()) > 100
+        for field in ("preview", "thumb"):
+            with urllib.request.urlopen(base + "/" + rec[field]) as response:
+                assert response.headers["Content-Type"] == "image/jpeg"
+                assert response.headers["X-Content-Type-Options"] == "nosniff"
+                assert response.read(3) == b"\xff\xd8\xff"
+        assert _strong_color_pixels(Path(cfg.output_dir) / rec["preview"], "red") > 80
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
 
 
-def test_obsidian_vault_relative_image_embed_renders_without_vault_navigation(tmp_path):
+def test_obsidian_vault_relative_image_drawn_without_vault_navigation(tmp_path):
     vault = tmp_path / "vault"
     (vault / ".obsidian").mkdir(parents=True)
     notes = vault / "notes"
     notes.mkdir()
     image = vault / "attachments" / "study graph.png"
-    _image(image, color=(40, 170, 100))
+    _image(image, color=(40, 170, 70))
     note = notes / "topic.md"
     original = "# Study\n\n![[attachments/study graph.png|400]]\n\n~~~md\n![[other.png]]\n~~~"
     note.write_text(original, encoding="utf-8")
     records = render_markdown_snippets(note, tmp_path / "generated", allowed_roots=[vault])
-    page = (tmp_path / "generated" / records[0]["preview_path"]).read_text()
-    assert 'src="local_image_001.jpg"' in page
-    assert "study graph.png" in page
-    assert '![[other.png]]' in page
-    assert note.read_text() == original
+    assert len(records) == 1
+    assert "study graph.png" in records[0]["extracted_text"]
+    assert '![[other.png]]' in records[0]["extracted_text"]
+    for field in ("preview_path", "thumb_path"):
+        assert _strong_color_pixels(tmp_path / "generated" / records[0][field], "green") > 80
+    assert note.read_text(encoding="utf-8") == original
 
-def test_image_thumbnail_only_uses_image_from_its_own_section(tmp_path):
+
+def test_image_below_first_letter_page_is_absent_from_both_rasters(tmp_path):
     cfg, root = _config(tmp_path)
     _image(root / "red.png")
-    (root / "notes.md").write_text("# Picture\n\n![red](red.png)\n\n## Text-only\n\nNothing pictorial.")
-    rendered = render_markdown_snippets(root / "notes.md", tmp_path / "out", allowed_roots=cfg.scan_roots)
-    assert len(rendered) == 2
-    with Image.open(tmp_path / "out" / rendered[0]["thumb_path"]) as first:
-        first_color = first.convert("RGB").getpixel((560, 320))
-    with Image.open(tmp_path / "out" / rendered[1]["thumb_path"]) as second:
-        second_color = second.convert("RGB").getpixel((560, 320))
-    assert first_color[0] > first_color[1] + 80
-    assert abs(second_color[0] - second_color[1]) < 40
+    note = root / "notes.md"
+    note.write_text(
+        "# First page\n\n" + ("ordinary text " * 80 + "\n\n") * 45
+        + "## Next content\n\n![red](red.png)\n\nLater paragraph."
+    )
+    rendered = render_markdown_snippets(note, tmp_path / "out", allowed_roots=cfg.scan_roots)
+    assert len(rendered) == 1
+    assert "red" in rendered[0]["extracted_text"]
+    for field in ("preview_path", "thumb_path"):
+        assert _strong_color_pixels(tmp_path / "out" / rendered[0][field], "red") == 0
+    assert not list((tmp_path / "out").glob("local_image_*"))

@@ -1,11 +1,11 @@
 param(
-    [string]$Version = "0.1.0",
+    [string]$Version = "0.1.4",
     [switch]$SkipInstaller
 )
 
 $ErrorActionPreference = "Stop"
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
-    throw "Version must be a numeric X.Y.Z release (for example 0.1.0)."
+    throw "Version must be a numeric X.Y.Z release (for example 0.1.3)."
 }
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 Push-Location $RepoRoot
@@ -29,8 +29,23 @@ try {
     }
 
     if (-not $SkipInstaller) {
-        $Iscc = Get-Command ISCC.exe -ErrorAction Stop
-        & $Iscc.Source "/DAppVersion=$Version" packaging\windows\PowerPointVisualArchive.iss
+        # Inno Setup 6/7 usually installs outside PATH on user machines.
+        # Prefer an explicit PATH command, then known installation locations.
+        $Iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+        $IsccPath = if ($Iscc) { $Iscc.Source } else { $null }
+        if (-not $IsccPath) {
+            $ProgramRoots = @($env:ProgramFiles, ${env:ProgramFiles(x86)},
+                              $env:LOCALAPPDATA) | Where-Object { $_ }
+            foreach ($Root in $ProgramRoots) {
+                foreach ($Major in @(7, 6)) {
+                    $Candidate = Join-Path $Root "Inno Setup $Major\ISCC.exe"
+                    if (Test-Path $Candidate) { $IsccPath = $Candidate; break }
+                }
+                if ($IsccPath) { break }
+            }
+        }
+        if (-not $IsccPath) { throw "Inno Setup 6 or 7 compiler (ISCC.exe) not found." }
+        & $IsccPath "/DAppVersion=$Version" packaging\windows\PowerPointVisualArchive.iss
         if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed (exit $LASTEXITCODE)." }
         $InstallerPath = "dist\installer\PowerPointVisualArchiveSetup-$Version.exe"
         if (-not (Test-Path $InstallerPath)) {

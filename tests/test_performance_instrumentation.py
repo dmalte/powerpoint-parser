@@ -89,7 +89,7 @@ def test_pdf_render_time_and_file_counts_are_measured(tmp_path, monkeypatch):
     assert event["counts"]["processed_slides"] == 1
     assert event["durations_ms"]["pdf_render_extract"] >= 0
     assert event["durations_ms"]["sqlite_upsert"] >= 0
-    assert "PrivateArchiveDocument" not in (tmp_path / "logs" / "performance.jsonl").read_text()
+    assert "PrivateArchiveDocument" not in (tmp_path / "logs" / "performance.jsonl").read_text(encoding="utf-8")
 
 
 def test_local_performance_api_returns_bounded_safe_events(tmp_path, monkeypatch):
@@ -133,7 +133,7 @@ def test_browser_hooks_are_present_and_js_is_valid():
     ):
         assert marker in script
     for marker in ('scroll.frame_gap_ms', 'main_thread.longtask_ms', 'Download JSON report'):
-        assert marker in helper or marker in (ROOT / "web" / "templates" / "index.html.j2").read_text()
+        assert marker in helper or marker in (ROOT / "web" / "templates" / "index.html.j2").read_text(encoding="utf-8")
     assert '"/api/performance"' in helper
     assert "localStorage" not in helper
     assert "sendBeacon" not in helper

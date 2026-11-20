@@ -17,6 +17,7 @@ from .markdown_processor import render_markdown_snippets
 from .perf_metrics import TimedRun
 from .pdf_processor import extract_and_render_pdf
 from .renderer_factory import SlideRenderer, create_pptx_renderer
+from .retry_policy import RetryState
 from .scanner import detect_changes, scan_files
 from .utils import ensure_dir, logger, make_deck_id
 
@@ -93,10 +94,25 @@ def _run_scan_inner(
     # 3. Process new and changed files. Deletions are deliberately deferred
     # until an uninterrupted full pass: a partial run cannot infer that any
     # unvisited deck is missing, even if the initial discovery was complete.
-    to_process = changeset.new + changeset.changed
+    retry_state = RetryState(config)
+    eligible = []
+    retry_held = 0
+    retry_backoff = 0
+    for candidate in changeset.new + changeset.changed:
+        decision = retry_state.decision(candidate, force=force)
+        if decision == "encrypted_hold":
+            retry_held += 1
+        elif decision == "backoff":
+            retry_backoff += 1
+        else:
+            eligible.append(candidate)
+    to_process = eligible
+    metrics.count("retry_held", retry_held)
+    metrics.count("retry_backoff", retry_backoff)
     progress("processing", completed=0, total=len(to_process))
     if not to_process:
-        logger.info("No new or changed files to process")
+        logger.info("No eligible files to process; %d encrypted holds, %d transient backoffs",
+                    retry_held, retry_backoff)
     else:
         logger.info("Processing %d files...", len(to_process))
 
@@ -117,6 +133,35 @@ def _run_scan_inner(
     metrics.count("pdf_files_to_process", len(pdf_files))
     metrics.count("markdown_files_to_process", len(md_files))
 
+    # ── Process PDF files ──
+    for sr in pdf_files:
+        if should_pause and should_pause():
+            break
+        processed_index += 1
+        logger.info(_format_processing_message(processed_index, total_to_process, sr))
+        with metrics.step("pdf_render_extract"):
+            result = _process_single_pdf(config, sr)
+        if result.success:
+            with metrics.step("sqlite_upsert"):
+                _commit_with_generation(db, result)
+            retry_state.succeeded(sr)
+            success_count += 1
+            processed_slides += len(result.slides)
+            logger.info(
+                "[%d/%d] Processed: %s (%d pages)",
+                processed_index, total_to_process,
+                result.deck.file_name, len(result.slides),
+            )
+        else:
+            retry_state.failed(sr, result.error)
+            error_count += 1
+            logger.error(
+                "[%d/%d] Failed: %s — %s",
+                processed_index, total_to_process,
+                sr.file_name, result.error,
+            )
+        progress("processing", processed_index, total_to_process, error_count)
+
     # ── Process PPTX files with COM renderer ──
     if pptx_files and not (should_pause and should_pause()):
         renderer = create_pptx_renderer(config.render)
@@ -133,6 +178,7 @@ def _run_scan_inner(
                 if result.success:
                     with metrics.step("sqlite_upsert"):
                         _commit_with_generation(db, result)
+                    retry_state.succeeded(sr)
                     success_count += 1
                     processed_slides += len(result.slides)
                     logger.info(
@@ -141,6 +187,7 @@ def _run_scan_inner(
                         result.deck.file_name, len(result.slides),
                     )
                 else:
+                    retry_state.failed(sr, result.error)
                     error_count += 1
                     logger.error(
                         "[%d/%d] Failed: %s — %s",
@@ -152,35 +199,8 @@ def _run_scan_inner(
             with metrics.step("pptx_renderer_stop"):
                 renderer.stop()
 
-    # ── Process PDF files ──
-    for sr in pdf_files:
-        if should_pause and should_pause():
-            break
-        processed_index += 1
-        logger.info(_format_processing_message(processed_index, total_to_process, sr))
-        with metrics.step("pdf_render_extract"):
-            result = _process_single_pdf(config, sr)
-        if result.success:
-            with metrics.step("sqlite_upsert"):
-                _commit_with_generation(db, result)
-            success_count += 1
-            processed_slides += len(result.slides)
-            logger.info(
-                "[%d/%d] Processed: %s (%d pages)",
-                processed_index, total_to_process,
-                result.deck.file_name, len(result.slides),
-            )
-        else:
-            error_count += 1
-            logger.error(
-                "[%d/%d] Failed: %s — %s",
-                processed_index, total_to_process,
-                sr.file_name, result.error,
-            )
-        progress("processing", processed_index, total_to_process, error_count)
-
     # Markdown documents reuse the existing generation + per-deck SQLite
-    # transaction, with one searchable record for each rendered section.
+    # transaction, with one searchable first-Letter-page record per note.
     for sr in md_files:
         if should_pause and should_pause():
             break
@@ -191,14 +211,16 @@ def _run_scan_inner(
         if result.success:
             with metrics.step("sqlite_upsert"):
                 _commit_with_generation(db, result)
+            retry_state.succeeded(sr)
             success_count += 1
             processed_slides += len(result.slides)
             logger.info(
-                "[%d/%d] Processed Markdown: %s (%d sections)",
+                "[%d/%d] Processed Markdown: %s (%d Letter pages)",
                 processed_index, total_to_process,
                 result.deck.file_name, len(result.slides),
             )
         else:
+            retry_state.failed(sr, result.error)
             error_count += 1
             logger.error(
                 "[%d/%d] Markdown failed: %s — %s",
@@ -230,6 +252,8 @@ def _run_scan_inner(
     metrics.count("processed_ok", success_count)
     metrics.count("processed_err", error_count)
     summary = _build_summary(changeset, success_count, error_count)
+    summary.update(retry_held=retry_held, retry_backoff=retry_backoff,
+                   retry_storage_ok=retry_state.available)
     if missing_count:
         summary["skipped_missing"] = missing_count
         summary["discovery_complete"] = False
@@ -362,7 +386,7 @@ def _process_single_pdf(config: AppConfig, sr: ScanResult) -> ProcessingResult:
 
 
 def _process_single_md(config: AppConfig, sr: ScanResult) -> ProcessingResult:
-    """Render Markdown to safe offline snippet HTML and JPEG thumbnail cards."""
+    """Build one offline Letter preview, optionally importing trusted HTTPS images."""
     deck_id = make_deck_id(sr.file_path)
     deck = Deck(
         deck_id=deck_id, file_path=sr.file_path,
@@ -375,6 +399,8 @@ def _process_single_md(config: AppConfig, sr: ScanResult) -> ProcessingResult:
         try:
             rendered = render_markdown_snippets(
                 sr.file_path, gen.stage, allowed_roots=config.scan_roots,
+                offline_mode=config.render.markdown_offline_mode,
+                remote_image_cache_dir=Path(config.output_dir) / "cache" / "markdown-remote-images",
             )
             gen.validate(rendered)
         except Exception as exc:
