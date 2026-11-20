@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import sys
 from pathlib import Path
 
 logger = logging.getLogger("ppt_visual_archive")
@@ -12,6 +13,12 @@ logger = logging.getLogger("ppt_visual_archive")
 
 def setup_logging(verbose: bool = False) -> None:
     level = logging.DEBUG if verbose else logging.INFO
+    if sys.stderr is None:
+        # PythonW / PyInstaller console=False has no console streams.
+        # Avoid registering StreamHandler(None) on the root logger; the
+        # agent command installs its durable UTF-8 file handler separately.
+        logger.setLevel(level)
+        return
     logging.basicConfig(
         level=level,
         format="%(asctime)s  %(levelname)-7s  %(message)s",

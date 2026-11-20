@@ -21,6 +21,7 @@ class RenderConfig:
     jpeg_quality: int = 82
     mac_pptx_backend: str = "powerpoint"  # powerpoint (Mac) or explicit libreoffice
     pptx_conversion_timeout_seconds: int = 300
+    markdown_offline_mode: bool = False  # HTTPS images imported automatically unless offline
 
 
 @dataclass
@@ -94,6 +95,8 @@ def load_config(path: str | Path) -> AppConfig:
         processing=_merge_section(data, ProcessingConfig, "processing"),
     )
     cfg.resolve_paths()
+    if not isinstance(cfg.render.markdown_offline_mode, bool):
+        raise ValueError("render.markdown_offline_mode must be a boolean")
     return cfg
 
 
@@ -128,6 +131,7 @@ def save_config(config: AppConfig, path: str | Path, overwrite: bool = False) ->
             "jpeg_quality": config.render.jpeg_quality,
             "mac_pptx_backend": config.render.mac_pptx_backend,
             "pptx_conversion_timeout_seconds": config.render.pptx_conversion_timeout_seconds,
+            "markdown_offline_mode": config.render.markdown_offline_mode,
         },
         "viewer": {
             "title": config.viewer.title,

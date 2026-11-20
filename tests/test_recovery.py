@@ -149,7 +149,7 @@ def test_atomic_deck_replacement_rolls_back_after_invalid_slide(tmp_path):
 
 def test_crash_after_sqlite_commit_before_viewer_build_is_repaired(indexed_archive):
     config, pdf, roots = indexed_archive
-    before = json.loads((Path(config.output_dir) / "data/export.json").read_text())
+    before = json.loads((Path(config.output_dir) / "data/export.json").read_text(encoding="utf-8"))
     assert before["stats"]["slide_count"] == 1
 
     create_pdf(pdf, pages=2)
@@ -157,7 +157,7 @@ def test_crash_after_sqlite_commit_before_viewer_build_is_repaired(indexed_archi
     summary = run_scan(config)
     assert summary["changed"] == 1 and summary["processed_ok"] == 1
     assert builder.viewer_is_current(config) is False
-    old_export = json.loads((Path(config.output_dir) / "data/export.json").read_text())
+    old_export = json.loads((Path(config.output_dir) / "data/export.json").read_text(encoding="utf-8"))
     assert old_export["stats"]["slide_count"] == 1
 
     # Filesystem scan now sees no changes, but DB fingerprint forces publication.
@@ -165,7 +165,7 @@ def test_crash_after_sqlite_commit_before_viewer_build_is_repaired(indexed_archi
     assert recovered["new"] == recovered["changed"] == recovered["deleted"] == 0
     assert recovered["viewer_rebuilt"] is True
     assert builder.viewer_is_current(config)
-    new_export = json.loads((Path(config.output_dir) / "data/export.json").read_text())
+    new_export = json.loads((Path(config.output_dir) / "data/export.json").read_text(encoding="utf-8"))
     assert new_export["stats"]["slide_count"] == 2
 
 

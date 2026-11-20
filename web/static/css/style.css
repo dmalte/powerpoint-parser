@@ -287,6 +287,13 @@ input[type="search"]:focus { border-color: #4a7cff; }
   background: #e9ecf0;
   display: block;
 }
+/* A new Markdown card is a scaled portrait US Letter sheet, not a slide crop.
+   Legacy Markdown section thumbnails retain their former landscape aspect. */
+.slide-card.slide-card-letter img {
+  aspect-ratio: 8.5/11;
+  object-fit: contain;
+  background: #fff;
+}
 .slide-card-actions {
   position: absolute;
   top: 8px;

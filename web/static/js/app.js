@@ -81,6 +81,7 @@
     renderHeatmap();
     applyFilters();
     bindEvents();
+    startLiveIndex();
     perf.end("startup.initial_ui_ms", initialUiStart);
     // From browser navigation start to the first fully built grid (excludes image fetches).
     perf.record("startup.interactive_ms", perf.now());
@@ -266,29 +267,132 @@
 
   /* ═══════════════ FILTERING ═══════════════ */
   function normalizeData() {
-    DATA.decks.forEach(deck => {
-      const name = deck.file_name || "";
-      deck._fileType = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
-      deck._searchDeck = name.toLowerCase();
-      deck._searchFolder = (deck.folder_path || "").toLowerCase();
-      deck._folderKey = window.FolderFilterTree.normalize(deck.folder_path);
-    });
+    const initialScopes = activeSearchScopeKey().split("|").filter(Boolean);
+    const initialScopeKey = initialScopes.join("|");
+    DATA.decks.forEach(normalizeDeck);
+    DATA.slides.forEach((slide, index) => normalizeSlide(slide, index, initialScopes, initialScopeKey));
+  }
 
-    DATA.slides.forEach((slide, sourceIndex) => {
-      const deck = deckMap[slide.deck_id];
-      slide._sourceIndex = sourceIndex;
-      slide._searchFields = {
-        deck: deck?._searchDeck || "",
-        folder: deck?._searchFolder || "",
-        title: (slide.title || "").toLowerCase(),
-        subtitle: (slide.subtitle || "").toLowerCase(),
-        body: (slide.body || "").toLowerCase(),
-        extra: (slide.extra || "").toLowerCase(),
-        notes: (slide.notes || "").toLowerCase(),
-      };
-      slide._searchCacheKey = "";
-      slide._searchBlob = "";
-    });
+  function normalizeDeck(deck) {
+    const name = deck.file_name || "";
+    deck._fileType = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+    deck._searchDeck = name.toLowerCase();
+    deck._searchFolder = (deck.folder_path || "").toLowerCase();
+    deck._folderKey = window.FolderFilterTree.normalize(deck.folder_path);
+  }
+
+  function normalizeSlide(slide, sourceIndex, scopes = activeSearchScopeKey().split("|").filter(Boolean), initialScopeKey = scopes.join("|")) {
+    if (slide.body) slide.text = slide.body;
+    const deck = deckMap[slide.deck_id];
+    slide._sourceIndex = sourceIndex;
+    slide._searchFields = {
+      deck: deck?._searchDeck || "",
+      folder: deck?._searchFolder || "",
+      title: (slide.title || "").toLowerCase(),
+      subtitle: (slide.subtitle || "").toLowerCase(),
+      extra: (slide.extra || "").toLowerCase(),
+      notes: (slide.notes || "").toLowerCase(),
+    };
+    slide._searchCacheKey = initialScopeKey;
+    slide._searchBlob = scopes.map(scope =>
+      scope === "body" ? (slide.body || "").toLowerCase() : (slide._searchFields[scope] || "")
+    ).join(" ");
+  }
+
+  function startLiveIndex() {
+    // Static exports remain usable as file:// archives or on a simple server.
+    if (!window.LiveIndex || location.protocol === "file:") return;
+    let inFlight = false;
+    let available = true;
+    let catchUpTimer = null;
+    const interval = setInterval(poll, 10000);
+
+    async function poll() {
+      if (!available || inFlight || document.visibilityState === "hidden") return;
+      inFlight = true;
+      let hasMore = false;
+      const changedIds = new Set();
+      const changedUpserts = new Map();
+      const selectedSlide = currentModalIdx >= 0 ? filteredSlides[currentModalIdx]?.id : null;
+      try {
+        // Bound background work and UI redraws. When catching up an older
+        // export, drain a few 50-deck pages and yield to user interaction.
+        for (let pageNumber = 0; pageNumber < 3; pageNumber++) {
+          const cursor = Number.isSafeInteger(DATA.live_cursor) ? DATA.live_cursor : 0;
+          const response = await fetch("/api/index/live?after=" + cursor + "&limit=50", {cache: "no-store"});
+          if (response.status === 404) {
+            // The static/offline web server does not expose the agent API.
+            available = false;
+            clearInterval(interval);
+            break;
+          }
+          // A newly initializing SQLite DB may briefly return 503. Retry.
+          if (!response.ok) { hasMore = false; break; }
+          const page = await response.json();
+          const update = window.LiveIndex.merge(DATA, page);
+          updateLiveCountPills();
+          for (const id of update.removed) {
+            changedIds.add(id);
+            changedUpserts.delete(id);
+          }
+          for (const item of update.upserts) {
+            changedIds.add(item.deck.id);
+            changedUpserts.set(item.deck.id, item);
+          }
+          hasMore = update.has_more;
+          if (!hasMore) break;
+        }
+        if (changedIds.size) {
+          for (const id of changedIds) delete deckMap[id];
+          for (const item of changedUpserts.values()) {
+            deckMap[item.deck.id] = item.deck;
+            normalizeDeck(item.deck);
+            item.slides.forEach((slide, index) => normalizeSlide(slide, index));
+          }
+          // Keep the existing filter/search/page choices, and redraw only
+          // once after the bounded batch (not after every individual delta).
+          folderModel = window.FolderFilterTree.build(DATA.decks);
+          renderDashboard();
+          renderQuickFilterYears();
+          renderFolderList();
+          renderDeckList();
+          renderHeatmap();
+          applyFilters(false);
+          if (selectedSlide) {
+            const next = filteredSlides.findIndex(s => s.id === selectedSlide);
+            if (next === -1) closeModal();
+            else if (changedIds.has(filteredSlides[next].deck_id)) openModal(next);
+            else currentModalIdx = next;
+          }
+          perf.setLibrary(DATA.decks.length, DATA.slides.length);
+        }
+      } catch (_) {
+        // The server may be unavailable during restart or a write transaction;
+        // retain the last complete browser data and try again next poll.
+        hasMore = false;
+      } finally {
+        inFlight = false;
+        if (hasMore && available && !catchUpTimer) {
+          catchUpTimer = setTimeout(() => {
+            catchUpTimer = null;
+            poll();
+          }, 750);
+        }
+      }
+    }
+
+    poll();
+  }
+
+  function updateLiveCountPills() {
+    const decks = Number(DATA.stats.deck_count) || 0;
+    const slides = Number(DATA.stats.slide_count) || 0;
+    const deckPill = document.getElementById("stat-decks");
+    const slidePill = document.getElementById("stat-slides");
+    if (deckPill) deckPill.textContent = decks.toLocaleString() + " decks";
+    if (slidePill) slidePill.textContent = slides.toLocaleString() + " slides";
+    setText("dash-total-decks", ".dash-number", decks);
+    setText("dash-total-slides", ".dash-number", slides);
   }
 
   function activeSearchScopeKey() {
@@ -301,13 +405,15 @@
   function searchBlob(slide, scopeKey) {
     if (slide._searchCacheKey !== scopeKey) {
       const fields = slide._searchFields || {};
-      slide._searchBlob = scopeKey.split("|").filter(Boolean).map(scope => fields[scope] || "").join(" ");
+      slide._searchBlob = scopeKey.split("|").filter(Boolean).map(scope =>
+        scope === "body" ? (slide.body || "").toLowerCase() : (fields[scope] || "")
+      ).join(" ");
       slide._searchCacheKey = scopeKey;
     }
     return slide._searchBlob;
   }
 
-  function applyFilters() {
+  function applyFilters(resetPage = true) {
     const interactionStart = perf.now();
     const q = filters.search;
     const committedTerms = filters.searchTerms;
@@ -356,7 +462,7 @@
     perf.end("interaction.sort_ms", sortStart);
     filteredSlides.forEach((slide, index) => { slide._filteredIndex = index; });
 
-    gridPage = 0;
+    if (resetPage) gridPage = 0;
     renderActiveFilters();
     renderGrid(filteredSlides);
     document.getElementById("result-count").textContent =
@@ -417,12 +523,14 @@
       if (d.modified_date) years.add(d.modified_date.slice(0, 4));
     });
     const currentYear = String(new Date().getFullYear());
+    container.querySelectorAll('.filter-btn[data-filter^="year:"]').forEach(btn => btn.remove());
     Array.from(years).filter(Boolean).sort((a, b) => Number(b) - Number(a)).forEach(year => {
       if (year === currentYear) return; // already covered by "This Year"
       const btn = document.createElement("button");
       btn.className = "filter-btn";
       btn.dataset.filter = `year:${year}`;
       btn.textContent = year;
+      if (filters.quickFilter === btn.dataset.filter) btn.classList.add("active");
       container.appendChild(btn);
     });
   }
@@ -709,6 +817,9 @@
     const card = document.createElement("div");
     card.className = "slide-card";
     if (isStarred(slide.id)) card.classList.add("slide-card-starred");
+    if (deck?._fileType === "md" && !String(slide.preview || "").toLowerCase().endsWith(".html")) {
+      card.classList.add("slide-card-letter");
+    }
     card.addEventListener("click", () => openModal(globalIdx));
 
     const actions = document.createElement("div");
@@ -926,7 +1037,10 @@
     const preview = document.getElementById("modal-image");
     const markdownFrame = document.getElementById("modal-markdown");
     const isMarkdown = deck?._fileType === "md";
-    if (isMarkdown) {
+    // Keep previously indexed section-HTML previews usable until incremental
+    // Markdown-only reprocessing replaces them with one Letter-page JPEG.
+    const isLegacyMarkdownHtml = isMarkdown && String(slide.preview || "").toLowerCase().endsWith(".html");
+    if (isLegacyMarkdownHtml) {
       preview.hidden = true;
       preview.removeAttribute("src");
       markdownFrame.hidden = false;
@@ -944,7 +1058,10 @@
     }
     document.getElementById("modal-title").textContent = slide.title || `Slide ${slide.num}`;
     document.getElementById("modal-deck").textContent = deck?.file_name || "";
-    document.getElementById("modal-slide-num").textContent = (isMarkdown ? "Section " : "Slide ") + slide.num + " of " + (deck?.slide_count || "?");
+    document.getElementById("modal-number-label").textContent = isMarkdown ? "Page" : "Slide #";
+    document.getElementById("modal-slide-num").textContent = isMarkdown
+      ? (isLegacyMarkdownHtml ? "Legacy section " + slide.num + " of " + (deck?.slide_count || "?") : "1 of 1 (US Letter)")
+      : "Slide " + slide.num + " of " + (deck?.slide_count || "?");
     document.getElementById("modal-folder").textContent = deck?.folder_path || "";
     document.getElementById("modal-date").textContent = deck ? formatDate(deck.modified_date) : "";
     document.getElementById("modal-size").textContent = deck ? formatSize(deck.file_size) : "";

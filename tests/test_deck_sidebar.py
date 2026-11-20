@@ -22,8 +22,8 @@ def test_sidebar_pager_node_contract():
 
 
 def test_sidebar_controls_loaded_before_viewer_app_and_keep_selection():
-    template = (ROOT / "web/templates/index.html.j2").read_text()
-    app = (ROOT / "web/static/js/app.js").read_text()
+    template = (ROOT / "web/templates/index.html.j2").read_text(encoding="utf-8")
+    app = (ROOT / "web/static/js/app.js").read_text(encoding="utf-8")
     for control in (
         "deck-page-prev", "deck-page-next", "deck-page-indicator",
         "deck-result-range", "deck-search", "deck-list",

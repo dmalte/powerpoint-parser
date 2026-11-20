@@ -280,10 +280,10 @@ def test_pause_state_not_accepted_if_config_persistence_fails(tmp_path, monkeypa
 
 def test_pause_resume_controls_shipped_in_both_interfaces():
     root = Path(__file__).resolve().parents[1] / "web"
-    settings = (root / "templates/settings.html.j2").read_text()
-    viewer = (root / "templates/index.html.j2").read_text()
-    settings_js = (root / "static/js/settings.js").read_text()
-    agent_js = (root / "static/js/agent-status.js").read_text()
+    settings = (root / "templates/settings.html.j2").read_text(encoding="utf-8")
+    viewer = (root / "templates/index.html.j2").read_text(encoding="utf-8")
+    settings_js = (root / "static/js/settings.js").read_text(encoding="utf-8")
+    agent_js = (root / "static/js/agent-status.js").read_text(encoding="utf-8")
     assert all(tag in settings for tag in ('id="pause-scan"', 'id="resume-scan"'))
     assert all(tag in viewer for tag in ('id="agent-pause"', 'id="agent-resume"'))
     assert all(endpoint in settings_js and endpoint in agent_js for endpoint in ("/api/pause", "/api/resume"))

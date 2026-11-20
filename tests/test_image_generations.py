@@ -70,7 +70,7 @@ def test_versioned_pdf_images_keep_previous_export_alive(archive):
     summary = refresh_archive(cfg)
     assert summary["viewer_rebuilt"] is True
     assert image_path.read_bytes() == previous
-    published = json.loads((Path(cfg.output_dir) / "data/export.json").read_text())
+    published = json.loads((Path(cfg.output_dir) / "data/export.json").read_text(encoding="utf-8"))
     assert published["stats"]["slide_count"] == 2
     assert published["slides"][0]["thumb"] != old.thumb_path
 

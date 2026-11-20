@@ -29,6 +29,7 @@ render:
   # choose libreoffice explicitly if its different visual fidelity is acceptable.
   mac_pptx_backend: powerpoint
   pptx_conversion_timeout_seconds: 300
+  markdown_offline_mode: false  # by default, public HTTPS Markdown images are imported when indexed
 
 viewer:
   title: "PowerPoint Visual Archive"

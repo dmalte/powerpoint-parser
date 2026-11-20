@@ -13,6 +13,10 @@ from pathlib import Path
 
 import pytest
 
+# macOS bundle/LaunchAgent symlinks and atomic replacement are POSIX-only.
+# The Windows installer is independently verified by tests/test_windows_*.py.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="macOS LaunchAgent filesystem lifecycle")
+
 
 @pytest.fixture
 def installer():
@@ -67,19 +71,19 @@ def test_clean_install_then_upgraded_app_preserves_user_state(installer, monkeyp
     paths = installer.mac_paths(home)
     installer._install_transaction(paths, app_v1, folder, home)
     assert paths["app"].is_dir() and paths["cli"].is_dir()
-    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text() == "agent v1"
-    assert paths["config"].read_text() == "scan_roots: []\n"
+    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text(encoding="utf-8") == "agent v1"
+    assert paths["config"].read_text(encoding="utf-8") == "scan_roots: []\n"
     (paths["config"].parent / "archive").mkdir()
     (paths["config"].parent / "archive" / "index.db").write_bytes(b"existing db")
     (paths["logs"] / "agent.log").write_text("existing logs")
 
     # Upgrades work with no --root when the config already exists.
     installer._install_transaction(paths, app_v2, None, home)
-    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text() == "agent v2"
-    assert (paths["cli"] / "pptviewer").read_text() == "cli v2"
-    assert paths["config"].read_text() == "scan_roots: []\n"
+    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text(encoding="utf-8") == "agent v2"
+    assert (paths["cli"] / "pptviewer").read_text(encoding="utf-8") == "cli v2"
+    assert paths["config"].read_text(encoding="utf-8") == "scan_roots: []\n"
     assert (paths["config"].parent / "archive" / "index.db").read_bytes() == b"existing db"
-    assert (paths["logs"] / "agent.log").read_text() == "existing logs"
+    assert (paths["logs"] / "agent.log").read_text(encoding="utf-8") == "existing logs"
     assert len([c for c in calls if "init-config" in c]) == 1
     assert not list(home.rglob(".pptviewer-*-stage-*"))
     assert not list(home.rglob(".pptviewer-*-backup-*"))
@@ -104,7 +108,7 @@ def test_failed_copy_preserves_old_app_and_launchagent(installer, monkeypatch, t
     monkeypatch.setattr(installer.shutil, "copytree", fail_copy)
     with pytest.raises(OSError, match="interrupted copy"):
         installer._install_transaction(paths, fake_bundles(tmp_path / "v2", "new"), None, home)
-    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text() == "agent old"
+    assert (paths["app"] / "Contents/MacOS/PowerPointArchiveAgent").read_text(encoding="utf-8") == "agent old"
     assert paths["plist"].read_bytes() == old_plist
     assert not list(home.rglob(".pptviewer-*-stage-*"))
 

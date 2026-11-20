@@ -1,2 +1,0 @@
-[console_scripts]
-pptviewer = ppt_visual_archive.cli:main

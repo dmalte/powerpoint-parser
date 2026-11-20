@@ -7,6 +7,7 @@ aggregate numeric counters when the user explicitly exports a report.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections import deque
 from contextlib import contextmanager
@@ -19,6 +20,16 @@ from .utils import logger
 
 LOG_NAME = "performance.jsonl"
 MAX_LOG_BYTES = 5 * 1024 * 1024
+AGENT_LOG_DIR_OVERRIDE = "PPTVIEWER_AGENT_LOG_DIR"
+
+
+def _runtime_log_dir(log_dir: Path | None = None) -> Path:
+    if log_dir is not None:
+        return log_dir
+    # Isolated source agents set this *only* within their own process when
+    # launched with `agent --log-dir`. No production data-path fallback occurs.
+    user_override = os.environ.get(AGENT_LOG_DIR_OVERRIDE)
+    return Path(user_override) if user_override else default_log_dir()
 
 
 class TimedRun:
@@ -53,7 +64,7 @@ class TimedRun:
             "durations_ms": dict(self.durations_ms),
             "counts": dict(self.counts),
         }
-        target = (log_dir if log_dir is not None else default_log_dir()) / LOG_NAME
+        target = _runtime_log_dir(log_dir) / LOG_NAME
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.exists() and target.stat().st_size >= MAX_LOG_BYTES:
@@ -67,7 +78,7 @@ class TimedRun:
 
 def recent_runs(*, limit: int = 20, log_dir: Path | None = None) -> list[dict]:
     """Read only bounded, schema-shaped events; never return arbitrary log lines."""
-    target = (log_dir if log_dir is not None else default_log_dir()) / LOG_NAME
+    target = _runtime_log_dir(log_dir) / LOG_NAME
     if not target.is_file():
         return []
     limit = max(1, min(int(limit), 50))

@@ -27,6 +27,10 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
     seen_paths: set[str] = set()
     active_roots = [str(Path(root).resolve()) for root in (roots or config.scan_roots)]
     allowed_exts = {ext.lower().lstrip(".") for ext in config.file_types}
+    remote_marker = (
+        "|markdown-https-offline-v2" if config.render.markdown_offline_mode
+        else "|markdown-https-auto-v2"
+    )
     if not active_roots:
         raise ValueError("No scan roots configured; refusing to infer deletions")
 
@@ -93,10 +97,12 @@ def scan_files(config: AppConfig, roots: Iterable[str] | None = None) -> list[Sc
                 signature = ScanResult.compute_signature(
                     full_path, file_size, modified_time
                 )
-                # Re-render older Markdown preview generations once so they
-                # gain local image assets without touching PDF/PPTX indexes.
+                # One-time Markdown-only migration: old heading-level HTML
+                # previews must become one Letter-page JPEG per document.
+                # Unchanged PDF/PPTX signatures stay untouched.
                 if ext == "md":
-                    signature += "|markdown-local-images-v1"
+                    signature += "|markdown-letter-page-v1"
+                    signature += remote_marker
 
                 results.append(
                     ScanResult(

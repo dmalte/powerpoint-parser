@@ -114,9 +114,9 @@ def test_cli_reports_warning_only_unless_explicitly_strict(tmp_path):
         record.pop("_file")
         (root / name).write_text(json.dumps(record))
     assert module.main(["--reports-dir", str(root)]) == 0
-    comparison = json.loads((root / "comparisons.json").read_text())
+    comparison = json.loads((root / "comparisons.json").read_text(encoding="utf-8"))
     assert comparison["comparisons"][0]["warning_count"] >= 1
-    assert "Performance History" in (root / "history.html").read_text()
+    assert "Performance History" in (root / "history.html").read_text(encoding="utf-8")
     assert module.main(["--reports-dir", str(root), "--fail-on-warning"]) == 2
     assert module.main(["--reports-dir", str(tmp_path / "empty")]) == 1
 

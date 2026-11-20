@@ -24,11 +24,13 @@
       <span id="scan-progress" aria-live="polite"></span>
     </div>
     <div id="last-error" class="status-error"></div>
+    <p class="settings-note" id="retry-status" aria-live="polite">Checking deferred conversion errors…</p>
     <p class="settings-note" id="pause-note">Pause finishes the current document, saves a browsable partial index, and prevents automatic scanning until you resume.</p>
     <div class="settings-actions" style="margin-top:14px">
       <button class="btn btn-primary" id="scan-now">Scan Now</button>
       <button class="btn" id="pause-scan" type="button">Pause Scan &amp; Save</button>
       <button class="btn btn-primary" id="resume-scan" type="button" hidden>Resume Scan</button>
+      <button class="btn" id="retry-failures" type="button" disabled>Retry Deferred Files</button>
       <button class="btn" id="open-logs">Open Logs</button>
       <button class="btn" id="restart-agent">Restart Agent</button>
     </div>
@@ -42,7 +44,14 @@
     </div>
     <div class="settings-row">
       <label>File types</label>
-      <div><label><input type="checkbox" id="type-pptx"> PowerPoint (.pptx)</label><br><label><input type="checkbox" id="type-pdf"> PDF (.pdf)</label><br><label><input type="checkbox" id="type-md"> Markdown (.md) — rendered sections</label></div>
+      <div><label><input type="checkbox" id="type-pptx"> PowerPoint (.pptx)</label><br><label><input type="checkbox" id="type-pdf"> PDF (.pdf)</label><br><label><input type="checkbox" id="type-md"> Markdown (.md) — first US Letter page</label></div>
+    </div>
+    <div class="settings-row">
+      <label for="markdown-offline-mode">Markdown images</label>
+      <div>
+        <label><input type="checkbox" id="markdown-offline-mode"> Offline Mode — do not download HTTPS images</label>
+        <div class="settings-note">By default, public HTTPS image links are downloaded and cached during Markdown indexing, then embedded into offline previews. Offline Mode shows labeled placeholders for remote images. Changing this setting schedules Markdown reprocessing at the next scan.</div>
+      </div>
     </div>
     <div class="settings-row">
       <label for="scan-interval">Refresh interval</label>

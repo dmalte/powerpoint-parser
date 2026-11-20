@@ -9,9 +9,31 @@ from __future__ import annotations
 import os
 
 
+def is_interactive_windows_session() -> bool:
+    """A Windows Service/Session 0 must never create a notification-area icon.
+
+    The Windows user's interactive console or RDP logon uses a nonzero session
+    ID. This check makes GUI-less test runs safe; normal user logons still get
+    the tray icon and PowerPoint COM keeps its user-session requirement.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        session_id = wintypes.DWORD()
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        if not kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(session_id)):
+            return False
+        return session_id.value != 0
+    except (OSError, AttributeError):
+        return False
+
+
 def run_tray(runtime) -> None:
     """Run the Windows notification-area icon until Exit/Restart/process end."""
-    if os.name != "nt":
+    if not is_interactive_windows_session():
         return
 
     import win32api
@@ -81,6 +103,9 @@ def run_tray(runtime) -> None:
         if msg == win32con.WM_DESTROY:
             try:
                 win32gui.Shell_NotifyIcon(win32gui.NIM_DELETE, (hwnd, 0))
+            except win32gui.error:
+                # Explorer may have exited before its notification icon.
+                pass
             finally:
                 win32gui.PostQuitMessage(0)
             return 0
@@ -120,5 +145,17 @@ def run_tray(runtime) -> None:
         icon,
         "PowerPoint Visual Archive",
     )
-    win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, notify)
+    try:
+        win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, notify)
+    except win32gui.error:
+        # Explorer can be unavailable briefly during user logon. Keep the
+        # HTTP agent running even if the optional tray icon cannot register.
+        from .utils import logger
+
+        logger.warning("Windows notification area unavailable; archive service continues")
+        try:
+            win32gui.DestroyWindow(hwnd)
+        except win32gui.error:
+            pass
+        return
     win32gui.PumpMessages()

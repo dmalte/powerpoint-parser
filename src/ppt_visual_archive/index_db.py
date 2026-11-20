@@ -10,7 +10,7 @@ from typing import Generator
 from .models import Deck, DeckStatus, Slide
 from .utils import ensure_dir, logger
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (
@@ -53,6 +53,20 @@ CREATE TABLE IF NOT EXISTS slides (
 );
 
 CREATE INDEX IF NOT EXISTS idx_slides_deck ON slides(deck_id);
+
+-- Each committed deck operation receives a monotonic cursor. Triggers share
+-- the same transaction as deck replacement/deletion, so readers never see
+-- a notification referring to uncommitted slide or image metadata.
+CREATE TABLE IF NOT EXISTS deck_changes (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    deck_id TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS deck_changes_insert AFTER INSERT ON decks
+BEGIN INSERT INTO deck_changes(deck_id) VALUES (NEW.deck_id); END;
+CREATE TRIGGER IF NOT EXISTS deck_changes_update AFTER UPDATE ON decks
+BEGIN INSERT INTO deck_changes(deck_id) VALUES (NEW.deck_id); END;
+CREATE TRIGGER IF NOT EXISTS deck_changes_delete AFTER DELETE ON decks
+BEGIN INSERT INTO deck_changes(deck_id) VALUES (OLD.deck_id); END;
 """
 
 
@@ -71,6 +85,7 @@ class IndexDB:
     def _init_schema(self) -> None:
         self._conn.executescript(_SCHEMA)
         self._migrate_schema()
+        self._seed_change_feed()
         # Store schema version
         self._conn.execute(
             "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)",
@@ -93,6 +108,31 @@ class IndexDB:
                 self._conn.execute(
                     f"ALTER TABLE slides ADD COLUMN {column} {definition}"
                 )
+
+    def _seed_change_feed(self) -> None:
+        """Backfill older installed indexes once, without reprocessing sources.
+
+        An old static viewer has no live cursor; bootstrap entries make existing
+        completed decks discoverable through bounded /api/index/live pages.
+        This marker is in the same SQLite transaction as the inserts.
+        """
+        ready = self._conn.execute(
+            "SELECT value FROM meta WHERE key = 'live_deck_feed_v1'"
+        ).fetchone()
+        if ready is None:
+            self._conn.execute(
+                "INSERT INTO deck_changes(deck_id) "
+                "SELECT deck_id FROM decks WHERE status='active' ORDER BY deck_id"
+            )
+            self._conn.execute(
+                "INSERT INTO meta(key, value) VALUES ('live_deck_feed_v1', '1')"
+            )
+
+    def get_change_cursor(self) -> int:
+        """Highest committed event visible in the current SQLite snapshot."""
+        return int(self._conn.execute(
+            "SELECT COALESCE(MAX(sequence), 0) FROM deck_changes"
+        ).fetchone()[0])
 
     def close(self) -> None:
         self._conn.close()

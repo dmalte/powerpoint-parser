@@ -1,8 +1,0 @@
-{
-  "version": 1,
-  "rules": [
-    {"name": "unix-home-path", "severity": "high", "regex": "/(?:Users|home)/\\S+"},
-    {"name": "windows-user-path", "severity": "high", "regex": "[A-Za-z]:\\\\Users\\\\[^\\\\\\s]+"},
-    {"name": "secret-material", "severity": "high", "regex": "(?:BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16})"}
-  ]
-}
